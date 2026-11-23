@@ -33,5 +33,6 @@ jobs:
         with:
           main-branch-name: ${{ github.base_ref || github.ref_name }}
 
-      # Ne vérifie que les projets touchés par la modification
-      - run: npx nx affected -t lint test build
+            # - run: npx nx affected -t lint test build   # ancienne commande, à restaurer quand EAS sera configuré
+      - run: npx nx affected -t lint test
+      - run: npx nx affected -t build --exclude=mobile   # TEMPORAIRE : build EAS mobile pas encore configuré en CI
