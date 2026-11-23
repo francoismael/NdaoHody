@@ -1,0 +1,33 @@
+# Dépendances
+node_modules/
+
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Builds
+dist/
+tmp/
+out-tsc/
+coverage/
+
+# Expo / React Native
+.expo/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+apps/mobile/android/
+apps/mobile/ios/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.log

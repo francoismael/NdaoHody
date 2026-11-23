@@ -1,0 +1,23 @@
+{
+  "name": "back-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "implicitDependencies": [
+    "back"
+  ],
+  "targets": {
+    "e2e": {
+      "command": "jest --passWithNoTests",
+      "outputs": [
+        "{workspaceRoot}/coverage/{e2eProjectRoot}"
+      ],
+      "dependsOn": [
+        "back:build",
+        "back:serve"
+      ],
+      "options": {
+        "cwd": "apps/back-e2e"
+      }
+    }
+  }
+}
