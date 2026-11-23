@@ -27,6 +27,7 @@ auth · profile · verification · trips · bookings · messages · notification
 ## Risques connus
 - Chemin du projet : 23 caractères (chemins longs Windows activés) → surveiller le build Android.
 - @nx/expo a du retard sur les SDK : Nx sert seulement de lanceur (`expo …`).
+- CI : mobile exclu du build (--exclude=mobile) → réactiver quand EAS sera configuré
 
 ## Architecture 
 src/
