@@ -1,8 +1,6 @@
 ## Description
 
 <!-- Qu'est-ce que cette PR change, et pourquoi ? -->
-
-
 ## Type de changement
 
 - [ ] ✨ Nouvelle fonctionnalité
