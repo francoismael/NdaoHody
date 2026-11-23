@@ -23,22 +23,19 @@ npx nx start mobile   # App Expo (scanner le QR code avec Expo Go)
 |---|---|
 | `main` | Code stable (production). Uniquement par PR depuis `develop`. |
 | `develop` | Intégration. Uniquement par PR depuis une branche de travail. |
-| `feature/…`, `fix/…`, etc. | Une branche par tâche, créée depuis `develop`. |
+| `feat/…`, `fix/…`, `docs/…` | Une branche par tâche, créée depuis `develop`. |
 
 **Personne ne pousse directement sur `main` ni sur `develop`.**
 
 ### Nommage
 
-`type/scope-description-courte`
+`type/partie-description-courte`
 
-- `feature/api-auth-jwt`
-- `fix/mobile-login-crash`
-- `refactor/shared-types-user`
-- `chore/update-nx`
-- `docs/readme-installation`
-- `hotfix/api-crash-paiement` (depuis `main`, urgence production)
+- `feat/back-connexion-sms` : nouvelle fonctionnalité
+- `fix/mobile-crash-connexion` : correction de bug
+- `docs/roadmap-back` : documentation
 
-Scopes : `api`, `mobile`, `web`, `shared`.
+Parties : `back`, `mobile`, `shared`.
 
 ## Cycle de travail
 
