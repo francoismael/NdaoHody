@@ -22,11 +22,16 @@ export function HomeScreen() {
     <View style={styles.container}>
       <AppMap showUserLocation={status === 'granted' && servicesEnabled} />
 
-      {/* PROVISOIRE (session 3) : accès à l'écran de contrôle du thème, en dev seulement. */}
+      {/* PROVISOIRE (sessions 3 et 4) : accès aux écrans de contrôle, en dev seulement. */}
       {__DEV__ && (
-        <Link href="/theme-preview" style={styles.devLink}>
-          Thème
-        </Link>
+        <View style={styles.devLinks}>
+          <Link href="/theme-preview" style={styles.devLink}>
+            Thème
+          </Link>
+          <Link href="/ui-preview" style={styles.devLink}>
+            UI
+          </Link>
+        </View>
       )}
 
       {status === 'undetermined' && (
@@ -95,11 +100,15 @@ const createStyles = ({ colors, typography, spacing, gutter, radii, shadows, con
     },
     buttonPressed: { backgroundColor: colors.primaryPressed },
     buttonText: { ...typography.bodyStrong, color: colors.onPrimary },
-    devLink: {
-      ...typography.label,
+    devLinks: {
       position: 'absolute',
       top: spacing[4],
       right: gutter,
+      flexDirection: 'row',
+      gap: spacing[2],
+    },
+    devLink: {
+      ...typography.label,
       paddingHorizontal: spacing[3],
       paddingVertical: spacing[2],
       borderRadius: radii.full,
