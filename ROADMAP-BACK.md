@@ -66,6 +66,7 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 - [ ] `POST /auth/rafraichir`, `POST /auth/deconnexion`
 - [ ] Garde JWT sur toutes les routes de l'app
 - [ ] Compte suspendu → connexion refusée avec message clair
+- [ ] Limitation de débit **par compte** pour un utilisateur connecté (et non par adresse IP : à Madagascar, beaucoup de téléphones partagent la même IP chez l'opérateur) ; par IP **et** par numéro sur l'envoi / la vérification du code SMS, avec des limites strictes
 
 **Fini quand** : un numéro reçoit un code, se connecte et appelle `GET /moi`.
 
