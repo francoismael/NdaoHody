@@ -66,6 +66,7 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 - [ ] `POST /auth/rafraichir`, `POST /auth/deconnexion`
 - [ ] Garde JWT sur toutes les routes de l'app
 - [ ] Compte suspendu → connexion refusée avec message clair
+- [ ] Limitation de débit **par compte** pour un utilisateur connecté (et non par adresse IP : à Madagascar, beaucoup de téléphones partagent la même IP chez l'opérateur) ; par IP **et** par numéro sur l'envoi / la vérification du code SMS, avec des limites strictes
 
 **Fini quand** : un numéro reçoit un code, se connecte et appelle `GET /moi`.
 
@@ -262,9 +263,15 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 ## Étape 14 — Back-office complet
 
 - [ ] Tableau de bord (`TableauDeBord`) et carte des chauffeurs en ligne
-- [ ] Utilisateurs : liste, fiche, suspendre / réactiver
+- [ ] Graphique des courses sur les 30 derniers jours
+- [ ] Recherche globale : nom, téléphone, plaque, numéro de trajet ou de réservation
+- [ ] Chauffeurs : liste filtrable (en attente, validés, refusés, suspendus) ; fiche avec documents, véhicules, note, trajets, signalements reçus, nombre de personnes qui l'ont bloqué
+- [ ] Chauffeur : retirer la vérification, suspendre / réactiver **comme chauffeur** (il reste passager) avec motif
+- [ ] Passagers : liste ; fiche avec note donnée par les chauffeurs, courses, annulations, absences, signalements reçus, nombre de personnes qui l'ont bloqué
+- [ ] Suspendre / réactiver un compte avec motif : les trajets et réservations en cours sont annulés et les personnes concernées prévenues
 - [ ] Trajets et réservations : listes, détail, annulation par un admin
 - [ ] Signalements et SOS : traitement avec note
+- [ ] Admins prévenus d'un nouveau dossier chauffeur, d'un signalement et d'un SOS
 - [ ] Réglages (`parametre`) : lecture pour tous, modification super_admin
 - [ ] Export CSV des statistiques pour l'investisseur (sans données personnelles)
 
