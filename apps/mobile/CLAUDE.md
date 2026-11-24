@@ -28,6 +28,7 @@ auth · profile · verification · trips · bookings · messages · notification
 - Chemin du projet : 23 caractères (chemins longs Windows activés) → surveiller le build Android.
 - @nx/expo a du retard sur les SDK : Nx sert seulement de lanceur (`expo …`).
 - CI : mobile exclu du build (--exclude=mobile) → réactiver quand EAS sera configuré
+- Point d'entrée : `index.js` → `import 'expo-router/entry'` ("main": "index.js"). Ne pas remettre "main": "expo-router/entry" : sans workspaces npm, Metro le cherche dans apps/mobile/node_modules et l'app reste figée sur le splash.
 
 ## Architecture 
 src/
