@@ -2,6 +2,8 @@ import Mapbox, { Camera, LocationPuck, MapView } from '@rnmapbox/maps';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { useTheme } from '@/shared/theme';
+
 const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 if (token) {
   Mapbox.setAccessToken(token);
@@ -18,16 +20,18 @@ type AppMapProps = {
 
 /** Carte de base de l'app : ne connaît rien du covoiturage. */
 export function AppMap({ children, showUserLocation = false }: AppMapProps) {
+  const { colors, typography } = useTheme();
+
   if (!token) {
     return (
-      <View style={styles.missing}>
-        <Text>Carte indisponible : EXPO_PUBLIC_MAPBOX_TOKEN manquant dans apps/mobile/.env</Text>
+      <View style={[styles.missing, { backgroundColor: colors.mapPlaceholder }]}>
+        <Text style={[typography.small, { color: colors.textMuted, textAlign: 'center' }]}>Carte indisponible : EXPO_PUBLIC_MAPBOX_TOKEN manquant dans apps/mobile/.env</Text>
       </View>
     );
   }
 
   return (
-    <MapView style={styles.map} scaleBarEnabled={false}>
+    <MapView style={[styles.map, { backgroundColor: colors.mapPlaceholder }]} scaleBarEnabled={false}>
       <Camera
         defaultSettings={{ centerCoordinate: TANA_CENTER, zoomLevel: 12 }}
         followUserLocation={showUserLocation}
