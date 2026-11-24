@@ -79,8 +79,11 @@
     "@expo/metro-runtime": "~58.0.17",
     "@expo/vector-icons": "~15.1.0",
     "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.0",
+    "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.3",
     "axios": "^1.6.0",
     "expo": "^58.0.26",
     "expo-constants": "~58.0.16",
@@ -90,6 +93,8 @@
     "expo-splash-screen": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "expo-system-ui": "~58.0.7",
+    "mongoose": "^9.13.0",
+    "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "^0.88.1",
@@ -100,6 +105,7 @@
     "react-native-web": "~0.21.0",
     "react-router-dom": "6.30.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "typeorm": "^0.3.31"
   }
 }
