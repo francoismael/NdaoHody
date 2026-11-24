@@ -22,7 +22,10 @@
     }
   },
   "files": [],
-  "include": [],
+  "include": [
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
   "references": [
     {
       "path": "./tsconfig.app.json"
