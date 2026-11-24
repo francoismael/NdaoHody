@@ -1,1 +1,8 @@
 export { HomeScreen } from './screens/HomeScreen';
+export { PublishScreen } from './screens/PublishScreen';
+export { PublishRouteScreen } from './screens/PublishRouteScreen';
+export { MyTripsScreen } from './screens/MyTripsScreen';
+export { SearchScreen } from './screens/SearchScreen';
+export { ResultsScreen } from './screens/ResultsScreen';
+export { RideScreen } from './screens/RideScreen';
+export { DrivingScreen } from './screens/DrivingScreen';
