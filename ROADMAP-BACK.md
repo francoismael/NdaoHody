@@ -262,9 +262,15 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 ## Étape 14 — Back-office complet
 
 - [ ] Tableau de bord (`TableauDeBord`) et carte des chauffeurs en ligne
-- [ ] Utilisateurs : liste, fiche, suspendre / réactiver
+- [ ] Graphique des courses sur les 30 derniers jours
+- [ ] Recherche globale : nom, téléphone, plaque, numéro de trajet ou de réservation
+- [ ] Chauffeurs : liste filtrable (en attente, validés, refusés, suspendus) ; fiche avec documents, véhicules, note, trajets, signalements reçus, nombre de personnes qui l'ont bloqué
+- [ ] Chauffeur : retirer la vérification, suspendre / réactiver **comme chauffeur** (il reste passager) avec motif
+- [ ] Passagers : liste ; fiche avec note donnée par les chauffeurs, courses, annulations, absences, signalements reçus, nombre de personnes qui l'ont bloqué
+- [ ] Suspendre / réactiver un compte avec motif : les trajets et réservations en cours sont annulés et les personnes concernées prévenues
 - [ ] Trajets et réservations : listes, détail, annulation par un admin
 - [ ] Signalements et SOS : traitement avec note
+- [ ] Admins prévenus d'un nouveau dossier chauffeur, d'un signalement et d'un SOS
 - [ ] Réglages (`parametre`) : lecture pour tous, modification super_admin
 - [ ] Export CSV des statistiques pour l'investisseur (sans données personnelles)
 
