@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
+import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppMap, useLocationPermission } from '@/shared/map';
+import { useTheme, type Theme } from '@/shared/theme';
 
 // Sur Android, la boîte système a son propre texte : on explique donc AVANT de demander.
 const WHY_LOCATION =
@@ -13,10 +16,18 @@ const GPS_OFF =
 
 export function HomeScreen() {
   const { status, canAskAgain, request, servicesEnabled, enableServices } = useLocationPermission();
+  const styles = useStyles();
 
   return (
     <View style={styles.container}>
       <AppMap showUserLocation={status === 'granted' && servicesEnabled} />
+
+      {/* PROVISOIRE (session 3) : accès à l'écran de contrôle du thème, en dev seulement. */}
+      {__DEV__ && (
+        <Link href="/theme-preview" style={styles.devLink}>
+          Thème
+        </Link>
+      )}
 
       {status === 'undetermined' && (
         <LocationPanel text={WHY_LOCATION} action="Autoriser ma position" onPress={request} />
@@ -38,29 +49,62 @@ export function HomeScreen() {
 type LocationPanelProps = { text: string; action: string; onPress: () => void };
 
 function LocationPanel({ text, action, onPress }: LocationPanelProps) {
+  const styles = useStyles();
   return (
     <View style={styles.panel}>
       <Text style={styles.panelText}>{text}</Text>
-      <Pressable style={styles.button} onPress={onPress} accessibilityRole="button">
+      <Pressable
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+      >
         <Text style={styles.buttonText}>{action}</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  panel: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 32,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    elevation: 4,
-  },
-  panelText: { fontSize: 15, marginBottom: 12, color: '#1f2937' },
-  button: { backgroundColor: '#1d4ed8', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
-  buttonText: { color: '#ffffff', fontWeight: '600' },
-});
+/** Styles recalculés seulement quand le mode (clair/sombre) change. */
+function useStyles() {
+  const theme = useTheme();
+  return useMemo(() => createStyles(theme), [theme]);
+}
+
+const createStyles = ({ colors, typography, spacing, gutter, radii, shadows, controlHeight }: Theme) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    panel: {
+      position: 'absolute',
+      left: gutter,
+      right: gutter,
+      bottom: spacing[8],
+      padding: spacing[4],
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      boxShadow: shadows.card,
+    },
+    panelText: { ...typography.body, color: colors.text, marginBottom: spacing[3] },
+    button: {
+      height: controlHeight,
+      borderRadius: radii.full,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    buttonPressed: { backgroundColor: colors.primaryPressed },
+    buttonText: { ...typography.bodyStrong, color: colors.onPrimary },
+    devLink: {
+      ...typography.label,
+      position: 'absolute',
+      top: spacing[4],
+      right: gutter,
+      paddingHorizontal: spacing[3],
+      paddingVertical: spacing[2],
+      borderRadius: radii.full,
+      overflow: 'hidden',
+      color: colors.onInverse,
+      backgroundColor: colors.inverseSurface,
+    },
+  });

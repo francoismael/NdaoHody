@@ -29,6 +29,7 @@
     "react-native-web": "*",
     "@rnmapbox/maps": "*",
     "expo-dev-client": "*",
-    "expo-location": "*"
+    "expo-location": "*",
+    "@expo-google-fonts/inter": "*"
   }
 }
