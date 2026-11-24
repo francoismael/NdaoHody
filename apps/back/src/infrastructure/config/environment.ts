@@ -6,6 +6,8 @@ export interface Environment {
   PORT: number;
   DATABASE_URL: string;
   MONGODB_URI: string;
+  /** true: pending migrations are applied when the back starts (local development). */
+  DB_MIGRATIONS_RUN: boolean;
 }
 
 const REQUIRED_VARIABLES = ['DATABASE_URL', 'MONGODB_URI'] as const;
@@ -23,5 +25,6 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     PORT: Number(config['PORT'] ?? 3000),
     DATABASE_URL: String(config['DATABASE_URL']),
     MONGODB_URI: String(config['MONGODB_URI']),
+    DB_MIGRATIONS_RUN: config['DB_MIGRATIONS_RUN'] === 'true',
   };
 }

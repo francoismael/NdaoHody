@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "db:migrate": "ts-node -P apps/back/tsconfig.app.json node_modules/typeorm/cli.js migration:run -d apps/back/src/infrastructure/persistence/postgres/data-source.ts",
+    "db:revert": "ts-node -P apps/back/tsconfig.app.json node_modules/typeorm/cli.js migration:revert -d apps/back/src/infrastructure/persistence/postgres/data-source.ts",
+    "db:seed": "ts-node -P apps/back/tsconfig.app.json apps/back/src/infrastructure/persistence/postgres/seed.ts"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/francoismael/NdaoHody.git"
