@@ -155,6 +155,10 @@ export interface Trajet {
   prixParPlace: number;
   dateAnnulation: string | null;
   dateFin: string | null;
+  /** true : visible seulement par les femmes (option choisie par une conductrice).
+      Une femme, passagère ou conductrice, garde accès à tous les trajets normaux
+      avec des hommes : c'est son choix, jamais une obligation. */
+  reserveFemmes: boolean;
 }
 
 /** Dernière position du chauffeur (envoyée en direct toutes les 5 s). */
@@ -173,7 +177,8 @@ export interface DemandeRecherche {
   depart: Lieu;                   // position actuelle ou point choisi
   destination: Lieu;
   places: number;
-  quand: 'maintenant' | string;   // ou une date ISO pour plus tard
+  quand: string;                  // "maintenant" ou une date ISO pour plus tard
+  femmesSeulement?: boolean;      // passagère : n'afficher que les trajets réservés aux femmes (facultatif)
 }
 
 /** Un chauffeur qui passe sur le chemin du passager.
@@ -225,6 +230,34 @@ export interface SuiviReservation {
   cheminVersPassager: Chemin;     // chemin du chauffeur jusqu'au point de prise en charge
   arriveeDansMinutes: number;
   distanceMetres: number;         // < 500 -> bouton « Je suis déjà sur place »
+}
+
+
+/* ---------------------------------------------------------------------------
+   Lien de suivi pour un proche (table lien_suivi)
+   --------------------------------------------------------------------------- */
+export interface LienSuivi {
+  id: number;
+  reservationId: number;
+  jeton: string;
+  url: string;                    // ex. "https://ndaohody.mg/suivi/<jeton>", à partager par WhatsApp / SMS
+  consultations: number;
+  dateCreation: string;
+  dateExpiration: string | null;  // 24 h après la fin de la course
+}
+
+/** Ce que voit le proche, sans compte. Jamais de numéro de téléphone. */
+export interface SuiviPublic {
+  etat: 'en_attente' | 'chauffeur_en_approche' | 'chauffeur_sur_place' | 'en_course' | 'terminee' | 'annulee' | 'expire';
+  passagerPrenom: string;
+  chauffeurPrenom: string;
+  chauffeurPhotoUrl: string | null;
+  vehicule: Pick<Vehicule, 'type' | 'marque' | 'modele' | 'couleur' | 'immatriculation'>;
+  priseEnCharge: Lieu;
+  depose: Lieu;
+  chemin: Chemin;
+  positionChauffeur: Position | null;   // seulement pendant l'approche et la course
+  dateMiseAJour: string;
 }
 
 
@@ -302,7 +335,17 @@ export type TypeNotification =
   | 'chauffeur_sur_place' | 'attente_terminee' | 'attente_prolongee'
   | 'course_demarree' | 'course_terminee_noter'
   | 'reservation_annulee' | 'trajet_annule'
-  | 'kyc_valide' | 'kyc_refuse' | 'badge_obtenu';
+  | 'kyc_valide' | 'kyc_refuse' | 'badge_obtenu'
+  | 'rappel_depart' | 'nouveau_message' | 'demande_avis' | 'trajet_modifie';
+
+/** Types que l'utilisateur peut couper. Les autres (demande, acceptation, sur place…) restent toujours actifs. */
+export type TypeNotificationReglable = 'rappel_depart' | 'nouveau_message' | 'demande_avis' | 'badge_obtenu' | 'trajet_modifie';
+
+/** Préférence de notification (table preference_notification). */
+export interface PreferenceNotification {
+  type: TypeNotificationReglable;
+  active: boolean;
+}
 
 export interface Notification {
   id: string;                     // identifiant MongoDB

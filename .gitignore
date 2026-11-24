@@ -31,3 +31,7 @@ apps/mobile/ios/
 .DS_Store
 Thumbs.db
 *.log
+
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
+.vitest

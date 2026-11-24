@@ -19,7 +19,7 @@
    Les notifications push sont dans MongoDB : elles ne sont pas ici.
    ============================================================================= */
 
-DROP TABLE IF EXISTS blocage, alerte_sos, signalement, avis, message, conversation,
+DROP TABLE IF EXISTS preference_notification, lien_suivi, blocage, alerte_sos, signalement, avis, message, conversation,
     reservation, position_chauffeur, trajet, palier_prix, quartier, vehicule,
     document_chauffeur, code_otp, utilisateur, journal_admin, administrateur, parametre CASCADE;
 
@@ -223,6 +223,10 @@ CREATE TABLE trajet (
     prix_par_place INT NOT NULL,
     date_annulation TIMESTAMPTZ,
     date_fin TIMESTAMPTZ,
+    /* TRUE : seules les femmes voient ce trajet (option choisie par une conductrice).
+       Une femme, passagère ou conductrice, garde accès à tous les trajets normaux
+       avec des hommes : c'est son choix, jamais une obligation. */
+    reserve_femmes BOOLEAN NOT NULL DEFAULT FALSE,
 
     CONSTRAINT ck_trajet_type
         CHECK (type IN ('a_l_avance', 'immediat')),
@@ -461,6 +465,45 @@ CREATE TABLE blocage (
 );
 
 
+/* lien de suivi qu'un passager partage avec un proche (WhatsApp, SMS) :
+   le proche voit le trajet sans compte, jamais de numéro de téléphone.
+   Le lien expire 24 h après la fin de la course. */
+CREATE TABLE lien_suivi (
+    id SERIAL PRIMARY KEY,
+    reservation_id BIGINT NOT NULL UNIQUE,
+    jeton VARCHAR(64) NOT NULL UNIQUE,
+    consultations INT NOT NULL DEFAULT 0,
+    date_creation TIMESTAMPTZ NOT NULL DEFAULT now(),
+    date_expiration TIMESTAMPTZ,
+
+    CONSTRAINT fk_lien_suivi_reservation
+        FOREIGN KEY (reservation_id)
+        REFERENCES reservation(id)
+        ON DELETE CASCADE
+);
+
+
+/* types de notifications coupés par l'utilisateur ex: rappels, messages, badges, ...
+   (les notifications importantes : demande, acceptation, sur place, SOS, ne se coupent pas) */
+CREATE TABLE preference_notification (
+    id SERIAL PRIMARY KEY,
+    utilisateur_id BIGINT NOT NULL,
+    type_notification VARCHAR(50) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    CONSTRAINT ck_preference_type
+        CHECK (type_notification IN ('rappel_depart', 'nouveau_message', 'demande_avis', 'badge_obtenu', 'trajet_modifie')),
+
+    CONSTRAINT uq_preference_utilisateur_type
+        UNIQUE (utilisateur_id, type_notification),
+
+    CONSTRAINT fk_preference_utilisateur
+        FOREIGN KEY (utilisateur_id)
+        REFERENCES utilisateur(id)
+        ON DELETE CASCADE
+);
+
+
 /* =============================================================================
    2. INSERTIONS
    ============================================================================= */
@@ -587,24 +630,24 @@ INSERT INTO palier_prix (km_max, prix_max) VALUES
    5 Rakoto   demain 17h30 PUBLIÉ  Analakely -> Andoharanofotsy (sens inverse du 1)
    6 Rasoa    hier 8h    TERMINÉ   67 Ha -> Anosy
    7 Andry    demain 9h  ANNULÉ    67 Ha -> Anosy
-   8 Rasoa    immédiat   EN ROUTE  Itaosy -> Anosy */
-INSERT INTO trajet (chauffeur_id, vehicule_id, type, statut, depart_libelle, depart_latitude, depart_longitude, arrivee_libelle, arrivee_latitude, arrivee_longitude, chemin, distance_metres, duree_secondes, date_depart, places_total, places_libres, prix_par_place, date_annulation, date_fin) VALUES
+   8 Rasoa    immédiat   EN ROUTE  Itaosy -> Anosy, RÉSERVÉ AUX FEMMES */
+INSERT INTO trajet (chauffeur_id, vehicule_id, type, statut, depart_libelle, depart_latitude, depart_longitude, arrivee_libelle, arrivee_latitude, arrivee_longitude, chemin, distance_metres, duree_secondes, date_depart, places_total, places_libres, prix_par_place, date_annulation, date_fin, reserve_femmes) VALUES
 (1, 1, 'immediat',   'en_route', 'Andoharanofotsy, rond-point', -18.9850000, 47.5330000, 'Analakely, avenue de l''Indépendance', -18.9067000, 47.5253000,
-    '[[47.5330,-18.9850],[47.5280,-18.9600],[47.5250,-18.9420],[47.5210,-18.9160],[47.5253,-18.9067]]', 8910, 1458, '2026-11-24 09:54:00+03', 4, 3, 3000, NULL, NULL),
+    '[[47.5330,-18.9850],[47.5280,-18.9600],[47.5250,-18.9420],[47.5210,-18.9160],[47.5253,-18.9067]]', 8910, 1458, '2026-11-24 09:54:00+03', 4, 3, 3000, NULL, NULL, FALSE),
 (2, 3, 'a_l_avance', 'publie',   'Ivato, aéroport', -18.7969000, 47.4788000, 'Analakely, marché', -18.9067000, 47.5253000,
-    '[[47.4788,-18.7969],[47.4630,-18.8350],[47.5150,-18.8880],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 15800, 2585, '2026-11-25 07:00:00+03', 3, 1, 5000, NULL, NULL),
+    '[[47.4788,-18.7969],[47.4630,-18.8350],[47.5150,-18.8880],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 15800, 2585, '2026-11-25 07:00:00+03', 3, 1, 5000, NULL, NULL, FALSE),
 (3, 4, 'a_l_avance', 'publie',   'Itaosy, église', -18.9230000, 47.4710000, 'Ankatso, université', -18.9180000, 47.5560000,
-    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160],[47.5240,-18.9180],[47.5370,-18.9200],[47.5560,-18.9180]]', 9260, 1515, '2026-11-24 11:00:00+03', 3, 3, 3500, NULL, NULL),
+    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160],[47.5240,-18.9180],[47.5370,-18.9200],[47.5560,-18.9180]]', 9260, 1515, '2026-11-24 11:00:00+03', 3, 3, 3500, NULL, NULL, FALSE),
 (5, 5, 'immediat',   'en_cours', 'Ivandry, Galaxy', -18.8740000, 47.5280000, 'Analakely, Hôtel de ville', -18.9067000, 47.5253000,
-    '[[47.5280,-18.8740],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 3990, 653, '2026-11-24 09:45:00+03', 1, 0, 2500, NULL, NULL),
+    '[[47.5280,-18.8740],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 3990, 653, '2026-11-24 09:45:00+03', 1, 0, 2500, NULL, NULL, FALSE),
 (1, 1, 'a_l_avance', 'publie',   'Analakely, avenue de l''Indépendance', -18.9067000, 47.5253000, 'Andoharanofotsy, rond-point', -18.9850000, 47.5330000,
-    '[[47.5253,-18.9067],[47.5210,-18.9160],[47.5250,-18.9420],[47.5280,-18.9600],[47.5330,-18.9850]]', 8910, 1458, '2026-11-25 17:30:00+03', 4, 4, 3000, NULL, NULL),
+    '[[47.5253,-18.9067],[47.5210,-18.9160],[47.5250,-18.9420],[47.5280,-18.9600],[47.5330,-18.9850]]', 8910, 1458, '2026-11-25 17:30:00+03', 4, 4, 3000, NULL, NULL, FALSE),
 (2, 3, 'a_l_avance', 'termine',  '67 Ha, marché', -18.9030000, 47.5110000, 'Anosy, lac', -18.9160000, 47.5210000,
-    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-23 08:00:00+03', 3, 3, 2000, NULL, '2026-11-23 08:40:00+03'),
+    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-23 08:00:00+03', 3, 3, 2000, NULL, '2026-11-23 08:40:00+03', FALSE),
 (3, 4, 'a_l_avance', 'annule',   '67 Ha, marché', -18.9030000, 47.5110000, 'Anosy, lac', -18.9160000, 47.5210000,
-    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-25 09:00:00+03', 3, 3, 2000, '2026-11-24 09:30:00+03', NULL),
+    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-25 09:00:00+03', 3, 3, 2000, '2026-11-24 09:30:00+03', NULL, FALSE),
 (2, 3, 'immediat',   'en_route', 'Itaosy, église', -18.9230000, 47.4710000, 'Anosy, lac', -18.9160000, 47.5210000,
-    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160]]', 5480, 897, '2026-11-24 09:48:00+03', 3, 2, 2500, NULL, NULL);
+    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160]]', 5480, 897, '2026-11-24 09:48:00+03', 3, 2, 2500, NULL, NULL, TRUE);
 
 
 INSERT INTO position_chauffeur (chauffeur_id, trajet_id, latitude, longitude, en_ligne, date_mise_a_jour) VALUES
@@ -673,3 +716,17 @@ INSERT INTO alerte_sos (utilisateur_id, reservation_id, latitude, longitude, sta
 
 INSERT INTO blocage (utilisateur_id, bloque_id) VALUES
 (6, 10);
+
+
+/* Hanta (réservation 1) et Voahirana (réservation 11) ont partagé leur trajet avec un proche */
+INSERT INTO lien_suivi (reservation_id, jeton, consultations, date_creation, date_expiration) VALUES
+(1,  'k3J9vQ2mX7pL0aR5tY8wZ1cB4nD6fG2hS9uE3iO7', 2, '2026-11-24 09:58:00+03', NULL),
+(11, 'p8T1yU4rE7wQ0oI3uY6tR9eW2qA5sD8fG1hJ4kL7', 0, '2026-11-24 09:51:00+03', NULL),
+(7,  'z2X5cV8bN1mQ4wE7rT0yU3iO6pA9sD2fG5hJ8kL1', 5, '2026-11-23 07:55:00+03', '2026-11-24 08:35:00+03');
+
+
+/* préférences : Fetra coupe les rappels, Hanta coupe les badges et garde les messages */
+INSERT INTO preference_notification (utilisateur_id, type_notification, active) VALUES
+(7, 'rappel_depart',   FALSE),
+(6, 'badge_obtenu',    FALSE),
+(6, 'nouveau_message', TRUE);

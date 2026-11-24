@@ -30,8 +30,8 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 | 9 | Suivi en direct | Carte et minutes avant l'arrivée |
 | 10 | Arrivée et course | Sur place à 500 m, attente 15 min, démarrer, terminer |
 | 11 | Après la course | Avis, badges |
-| 12 | Notifications | Push FCM + historique MongoDB |
-| 13 | Sécurité des usagers | SOS, signalements, blocages, messagerie |
+| 12 | Notifications | Push FCM + historique MongoDB + préférences |
+| 13 | Sécurité des usagers | SOS, signalements, blocages, lien de suivi pour un proche, messagerie |
 | 14 | Back-office complet | Tableau de bord, modération, réglages |
 | 15 | Mise en ligne | Tests de bout en bout, reprise des anciens comptes, serveur |
 
@@ -133,6 +133,8 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 - [ ] `POST /trajets` : départ (position actuelle ou point choisi), destination, véhicule, places, prix, **maintenant** ou **date + heure**
 - [ ] Le serveur demande le chemin à Mapbox et l'enregistre
 - [ ] Règles : chauffeur et véhicule validés, places ≤ places du véhicule, prix ≤ palier, un seul trajet parti à la fois, pas de doublon, 60 jours max à l'avance
+- [ ] Option **« Réservé aux femmes »** (`reserve_femmes`) : possible seulement pour une conductrice (sexe `femme`) ; refusée pour un homme
+- [ ] Cette option est **un choix, jamais une obligation** : une conductrice publie des trajets normaux quand elle veut, et y accepte hommes et femmes
 - [ ] Prix suggéré selon `palier_prix`
 - [ ] Trajet à l'avance : `POST /trajets/:id/partir` (« Je pars »), rappels 1 h et 10 min avant, annulation automatique s'il ne part pas
 - [ ] `PATCH /trajets/:id` (avant le départ, passagers prévenus), `POST /trajets/:id/annuler`, `GET /trajets/actif`
@@ -155,6 +157,10 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] Trajet parti : chauffeur en ligne et pas encore passé au point du passager
 - [ ] Trajet à l'avance : heure de passage estimée dans la plage demandée
 - [ ] Places libres ≥ places demandées ; ni le passager lui-même, ni un utilisateur bloqué
+- [ ] Trajets **réservés aux femmes** : visibles seulement par les femmes
+- [ ] **Une femme a accès à tout**, passagère comme conductrice : elle voit et rejoint tous les trajets normaux (homme ou femme au volant, avec des passagers hommes), elle publie des trajets normaux, et elle peut en plus utiliser les trajets réservés aux femmes. C'est son choix, aucune restriction pour elle
+- [ ] Filtre facultatif `femmesSeulement` : une passagère qui le souhaite n'affiche que les trajets réservés aux femmes (désactivé par défaut)
+- [ ] Réserver un trajet réservé aux femmes quand on est un homme → refusé (même en appelant l'API directement)
 - [ ] Tri : chauffeurs notés (meilleure note d'abord), puis non notés ; à égalité, le plus proche
 - [ ] Réponse = `ResultatRecherche` (sans téléphone)
 
@@ -232,6 +238,10 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] Renvoi automatique des envois en échec (3 essais)
 - [ ] `GET /notifications`, `PATCH /notifications/:id/lu`, `PATCH /notifications/tout-lu`
 - [ ] Types : voir `TypeNotification` dans [data-objets.ts](data-objets.ts)
+- [ ] **Préférences de notifications** : `GET /moi/preferences-notifications`, `PATCH /moi/preferences-notifications` (table `preference_notification`)
+  - [ ] Se coupent : rappels de départ, nouveaux messages, demandes d'avis, badges, trajet modifié
+  - [ ] Ne se coupent jamais : nouvelle demande, acceptation / refus / expiration, chauffeur sur place, annulation, SOS
+  - [ ] Une notification coupée n'est ni enregistrée ni envoyée en push
 
 ---
 
@@ -240,6 +250,11 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] `POST /sos` avec position → alerte immédiate au back-office
 - [ ] `POST /signalements` (motifs : comportement, sécurité, arnaque, absent, véhicule différent, autre)
 - [ ] `POST /blocages`, `DELETE /blocages/:id` : les deux ne se voient plus
+- [ ] **Lien de suivi pour un proche** (table `lien_suivi`)
+  - [ ] `POST /reservations/:id/lien-suivi` : crée (ou renvoie) un lien `/suivi/<jeton>` (jeton aléatoire de 40 caractères) à partager par WhatsApp / SMS
+  - [ ] `GET /suivi/:jeton` (public, sans compte) → `SuiviPublic` : état, prénoms, véhicule, plaque, chemin, position du chauffeur pendant l'approche et la course
+  - [ ] Jamais de numéro de téléphone ; page non indexée ; 30 consultations / min par adresse IP
+  - [ ] Le lien expire 24 h après la fin (ou l'annulation) de la course
 - [ ] Messagerie par réservation (texte + vocal) en WebSocket, messages effacés après 24 h
 
 ---
