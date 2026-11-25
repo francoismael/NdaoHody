@@ -1,6 +1,7 @@
-import type { Reservation, StatutReservation, Trajet } from '@contract';
+import type { Reservation, StatutReservation, Trajet, TypeDocument, Vehicule } from '@contract';
 
 import { isNearPickup } from '@/features/bookings/rules';
+import type { DriverApplication } from '@/features/verification/types';
 import { indexAtFraction, nearestPointIndex, type LngLat } from '@/shared/map';
 import { queryClient } from '@/shared/query';
 import { advanceClock, currentTime, setClockSpeed } from '@/shared/utils';
@@ -80,8 +81,8 @@ export async function getFocus(): Promise<DemoFocus | null> {
   });
 }
 
-/** One call to the simulated API as another user, then every screen refetches. */
-async function actAs(userId: number, method: HttpMethod, path: string, body?: unknown): Promise<void> {
+/** One call to the simulated API as another user (null: the back-office), then every screen refetches. */
+async function actAs(userId: number | null, method: HttpMethod, path: string, body?: unknown): Promise<void> {
   const db = await getDb();
   dispatch(db, currentTime(), userId, method, path, body);
   await saveDb();
@@ -144,6 +145,34 @@ export async function createTestBooking(): Promise<void> {
     depose: toLieu(trajet.chemin[drop], 'Point de dépose'),
   });
 }
+
+/* The back-office (bloc 2): reviews the demo user's driver application. */
+
+/** What the panel shows about the demo user's application. */
+export interface DemoApplication extends DriverApplication {
+  vehicules: Vehicule[];
+}
+
+export async function getApplication(): Promise<DemoApplication> {
+  const db = await getDb();
+  const userId = me();
+  const application = dispatch(db, currentTime(), userId, 'GET', '/me/documents');
+  const vehicules = dispatch(db, currentTime(), userId, 'GET', '/me/vehicles');
+  return copyOut<DemoApplication>({ ...copyOut<DriverApplication>(application), vehicules });
+}
+
+/** The admin validates the documents, then every vehicle waiting (two back-office actions, one button). */
+export async function adminApproves(): Promise<void> {
+  const userId = me();
+  await actAs(null, 'POST', `/admin/drivers/${userId}/approve`);
+  const db = await getDb();
+  const waiting = db.vehicules.filter((v) => v.utilisateurId === userId && v.statut === 'en_attente');
+  for (const vehicule of waiting) await actAs(null, 'POST', `/admin/vehicles/${vehicule.id}/approve`);
+}
+
+/** The admin refuses some documents (all when `documents` is empty), with a reason shown to the driver. */
+export const adminRejects = (motif: string, documents: TypeDocument[] = []) =>
+  actAs(null, 'POST', `/admin/drivers/${me()}/reject`, { motif, documents });
 
 /* Time jumps: same clock for everyone, so countdowns and the car stay in step. */
 

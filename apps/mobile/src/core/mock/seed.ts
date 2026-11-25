@@ -57,6 +57,7 @@ function emptyDb(now: Date): MockDb {
     alertesSos: [],
     liensSuivi: [],
     motifsRefus: {},
+    numerosPermis: {},
     drives: {},
     sequences: {
       utilisateur: 1,
@@ -119,6 +120,7 @@ function addDriverKit(db: MockDb, now: Date, vehicle: Omit<Vehicule, 'parDefaut'
       dateEnvoi: isoIn(now, -30 * DAY_MINUTES),
     });
   });
+  db.numerosPermis[vehicle.utilisateurId] = `MG2020${String(vehicle.utilisateurId).padStart(4, '0')}`;
   // photoUrl: no picture in the demo; screens show the vehicle icon instead.
   db.vehicules.push({ ...vehicle, photoUrl: '', parDefaut: true, statut: 'valide', motifRefus: null });
 }

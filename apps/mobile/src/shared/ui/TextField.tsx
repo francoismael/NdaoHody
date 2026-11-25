@@ -6,7 +6,7 @@ import { useTheme, type Theme } from '@/shared/theme';
 import { FieldMessage } from './FieldMessage';
 
 /** What the field holds: it decides the keyboard and the autofill (never set them by hand). */
-export type TextFieldKind = 'text' | 'phone' | 'givenName' | 'familyName';
+export type TextFieldKind = 'text' | 'phone' | 'givenName' | 'familyName' | 'reference';
 
 export type TextFieldProps = {
   /** Visible label above the field, also read by TalkBack. */
@@ -34,6 +34,8 @@ const kinds: Record<TextFieldKind, KindProps> = {
   phone: { keyboardType: 'phone-pad', autoComplete: 'tel', textContentType: 'telephoneNumber', autoCapitalize: 'none', autoCorrect: false },
   givenName: { keyboardType: 'default', autoComplete: 'given-name', textContentType: 'givenName', autoCapitalize: 'words', autoCorrect: false },
   familyName: { keyboardType: 'default', autoComplete: 'family-name', textContentType: 'familyName', autoCapitalize: 'words', autoCorrect: false },
+  /** Letters and digits typed as printed (plate, licence number). */
+  reference: { keyboardType: 'default', autoComplete: 'off', autoCapitalize: 'characters', autoCorrect: false },
 };
 
 /** Champ du PWA (Components/ui/Champ): label, input 56 dp, error under the field. */

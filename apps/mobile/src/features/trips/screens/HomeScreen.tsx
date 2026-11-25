@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSession } from '@/features/auth';
+import { DriverApplicationCard } from '@/features/verification';
 import { AppMap, RouteLine, useLocationPermission } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button } from '@/shared/ui';
@@ -56,10 +57,10 @@ export function HomeScreen() {
         )}
         {isDriver ? (
           <>
+            <DriverApplicationCard />
             <Button label="Mes trajets" onPress={() => router.push('/my-trips')} />
             <Button label="Demande reçue" onPress={() => router.push('/request/demo')} variant="secondary" />
             <Button label="Course en cours" onPress={() => router.push('/driving/demo')} variant="secondary" />
-            <Button label="Vérification" onPress={() => router.push('/verification')} variant="ghost" />
           </>
         ) : (
           <Button label="Rechercher un trajet" onPress={() => router.push('/search')} />

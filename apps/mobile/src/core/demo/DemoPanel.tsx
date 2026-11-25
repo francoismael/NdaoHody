@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useStore } from 'zustand';
 
+import { DOCUMENT_LABELS } from '@/features/verification/rules';
 import { AppMap, MovingMarker, RouteLine } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button } from '@/shared/ui';
@@ -37,14 +38,17 @@ export function DemoPanel() {
   const speed = settings.clock?.speed ?? 1;
 
   const [focus, setFocus] = useState<engine.DemoFocus | null>(null);
+  const [application, setApplication] = useState<engine.DemoApplication | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
       setFocus(await engine.getFocus());
+      setApplication(await engine.getApplication());
     } catch (error) {
       setFocus(null);
+      setApplication(null);
       setMessage(error instanceof Error ? error.message : 'Lecture impossible.');
     }
   }, []);
@@ -179,6 +183,45 @@ export function DemoPanel() {
             {f && !playsDriver ? act('Annuler la demande', engine.passengerCancels, engine.allowed(f, 'annulee_passager')) : null}
             {f && !playsDriver ? act('Fin du délai', engine.skipWait, f.reservation.statut === 'en_attente') : null}
           </View>
+        </>
+      ) : null}
+
+      {application && (application.documents.length > 0 || application.statutChauffeur !== 'aucun') ? (
+        <>
+          <Text style={styles.section}>Dossier chauffeur (l’admin)</Text>
+          <View style={styles.card} accessible accessibilityLiveRegion="polite">
+            <Text style={styles.strong}>Statut : {application.statutChauffeur}</Text>
+            {application.documents.map((d) => (
+              <Text key={d.id} style={styles.text}>
+                {DOCUMENT_LABELS[d.type]} : {d.statut}
+                {d.motifRefus ? ` (${d.motifRefus})` : ''}
+              </Text>
+            ))}
+            {application.vehicules.map((v) => (
+              <Text key={v.id} style={styles.text}>
+                Véhicule {v.immatriculation} : {v.statut}
+              </Text>
+            ))}
+          </View>
+          {application.statutChauffeur === 'en_attente' ? (
+            <View style={styles.wrap}>
+              <Button label="Valider" variant="secondary" width="auto" loading={busy === 'Validation'} onPress={() => void run('Validation', engine.adminApproves)} />
+              <Button
+                label="Refuser le selfie"
+                variant="secondary"
+                width="auto"
+                loading={busy === 'Refus du selfie'}
+                onPress={() => void run('Refus du selfie', () => engine.adminRejects('Visage pas assez visible', ['selfie']))}
+              />
+              <Button
+                label="Refuser tout"
+                variant="secondary"
+                width="auto"
+                loading={busy === 'Refus du dossier'}
+                onPress={() => void run('Refus du dossier', () => engine.adminRejects('Photos illisibles'))}
+              />
+            </View>
+          ) : null}
         </>
       ) : null}
 

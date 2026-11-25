@@ -44,6 +44,8 @@ export interface MockDb {
   drives: Record<number, Drive>;
   /** GAP #3 (sent to the backend): the contract has no field for the refusal reason. */
   motifsRefus: Record<number, string>;
+  /** Licence number by user id: a back-only field (User.numeroPermis), not in the Utilisateur data object. */
+  numerosPermis: Record<number, string>;
   sequences: Record<Sequence, number>;
 }
 
@@ -60,8 +62,9 @@ export interface Drive {
 /**
  * A stored database with an older version is seeded again.
  * 2 (R3): adds `drives`. 3 (25/11): contract Tarif, reservations carry distanceMetres + prixParPlace.
+ * 4 (bloc 2): adds `numerosPermis` (driver application, back rules).
  */
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export const nextId = (db: MockDb, sequence: Sequence): number => {
   const id = db.sequences[sequence];
