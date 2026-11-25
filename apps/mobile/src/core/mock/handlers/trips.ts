@@ -4,7 +4,7 @@ import { haversineMeters, type LngLat } from '@/shared/map';
 import { addMinutes, isRecord } from '@/shared/utils';
 
 import { approach } from '../drive';
-import { seatPrice, totalPrice } from '../pricing';
+import { quoteForTrip } from '../pricing';
 import {
   HttpError,
   findOr404,
@@ -20,7 +20,7 @@ import {
   type RequestContext,
 } from '../server';
 import { iso } from '../time';
-import { nearestIndex, segmentMetres, segmentSeconds, toLieu, toLngLat } from '../tripGeo';
+import { nearestIndex, segmentSeconds, toLieu, toLngLat } from '../tripGeo';
 import { nextId } from '../types';
 import { toPublicProfile, toVehicleSummary, userById } from '../views';
 
@@ -98,7 +98,7 @@ function search(ctx: RequestContext): ResultatRecherche[] {
       depose: toLieu(trajet.chemin[drop.index], `Près de ${demande.destination.libelle}`),
       arriveeDansMinutes,
       heurePassage,
-      prixTotal: totalPrice(segmentMetres(trajet, pickup.index, drop.index), demande.places),
+      ...quoteForTrip(ctx.db, trajet, pickup.index, drop.index, demande.places),
     });
   });
 
@@ -143,7 +143,6 @@ function publish(ctx: RequestContext): Trajet {
     dateDepart,
     placesTotal,
     placesLibres: placesTotal,
-    prixParPlace: seatPrice(distanceMetres),
     dateAnnulation: null,
     dateFin: null,
     reserveFemmes: user.sexe === 'femme' && optionalBoolean(ctx.body, 'reserveFemmes'),

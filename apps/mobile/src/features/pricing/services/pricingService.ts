@@ -1,7 +1,9 @@
+import type { TypeVehicule } from '@contract';
+
 import { request } from '@/core/mock';
 
 import type { PriceEstimate } from '../types';
 
-/** GAP #1 (provisional decision): the server computes every price; the app only shows it. */
-export const estimatePrice = (distanceMetres: number, places: number) =>
-  request<PriceEstimate>('POST', '/pricing/estimate', { distanceMetres, places });
+/** The server computes every price (contract: Tarif per vehicle type); the app only shows it. */
+export const estimatePrice = (distanceMetres: number, places: number, typeVehicule: TypeVehicule) =>
+  request<PriceEstimate>('POST', '/pricing/estimate', { distanceMetres, places, typeVehicule });
