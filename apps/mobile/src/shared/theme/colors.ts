@@ -130,6 +130,7 @@ export const lightColors = {
 
   // Toujours sombre (navigation, carte sombre)
   surfaceFixedDark: palette.night,
+  textOnFixedDark: palette.white, // ajout (bloc 2) : texte sur l'écran caméra
   textOnFixedDarkMuted: palette.nightMuted,
 
   // Élément choisi « inversé » (puce, segment)
@@ -193,6 +194,7 @@ export const darkColors: ThemeColors = {
   warningSurface: palette.amberDark50,
 
   surfaceFixedDark: palette.dark650,
+  textOnFixedDark: palette.white,
   textOnFixedDarkMuted: palette.nightMuted, // non redéfini dans le sombre du PWA
 
   inverseSurface: palette.light100,
