@@ -33,7 +33,10 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#0E1512"
+          }
         }
       ],
       "@rnmapbox/maps",
@@ -42,7 +45,27 @@
         {
           "locationWhenInUsePermission": "NdaoHody utilise ta position pour te montrer les trajets près de toi et définir tes points de départ et d'arrivée."
         }
-      ]
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "../../node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+            "../../node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
+            "../../node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf",
+            "../../node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+            "../../node_modules/@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf"
+          ]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "NdaoHody utilise l'appareil photo pour photographier ton permis et prendre ton selfie de vérification.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

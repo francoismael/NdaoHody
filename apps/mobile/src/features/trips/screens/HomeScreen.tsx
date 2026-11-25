@@ -4,9 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSession } from '@/features/auth';
-import { AppMap, useLocationPermission } from '@/shared/map';
+import { AppMap, RouteLine, useLocationPermission } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button } from '@/shared/ui';
+
+import { useDemoPosition, useTripsAround } from '../hooks/useTrips';
 
 // Sur Android, la boîte système a son propre texte : on explique donc AVANT de demander.
 const WHY_LOCATION =
@@ -24,10 +26,22 @@ export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { spacing } = useTheme();
   const styles = useStyles();
+  // PROVISIONAL (R2 check): routes passing near the demo position. Real content in R12.
+  const here = useDemoPosition();
+  const around = useTripsAround(isDriver ? null : here);
+  const aroundNote = around.isPending
+    ? 'Recherche des trajets proches…'
+    : around.isError
+      ? around.error.message
+      : `${around.data.length} trajet(s) passent près de toi`;
 
   return (
     <View style={styles.container}>
-      <AppMap showUserLocation={status === 'granted' && servicesEnabled} />
+      <AppMap showUserLocation={status === 'granted' && servicesEnabled}>
+        {around.data?.map((trajet) => (
+          <RouteLine key={trajet.id} id={`trip-${trajet.id}`} coordinates={trajet.chemin} />
+        ))}
+      </AppMap>
 
       {/* PROVISOIRE (R1) : coquille de l'accueil de chaque rôle et liens vers ses écrans. */}
       <View style={[styles.shell, { top: insets.top + spacing[10] + spacing[4] }]}>
@@ -35,6 +49,11 @@ export function HomeScreen() {
           {isDriver ? 'Accueil chauffeur' : 'Accueil passager'}
         </Text>
         <Text style={styles.shellNote}>Coquille : contenu en {isDriver ? 'R8' : 'R12'}</Text>
+        {!isDriver && (
+          <Text style={styles.shellNote} accessibilityLiveRegion="polite">
+            {aroundNote}
+          </Text>
+        )}
         {isDriver ? (
           <>
             <Button label="Mes trajets" onPress={() => router.push('/my-trips')} />

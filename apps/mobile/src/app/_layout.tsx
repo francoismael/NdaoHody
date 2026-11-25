@@ -4,10 +4,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 
-import { useSession } from '@/features/auth';
+import { useSession, useSessionReady } from '@/features/auth';
+import { QueryProvider } from '@/shared/query';
 import { useAppFonts, useTheme } from '@/shared/theme';
 
-// Garde l'écran de démarrage tant que la police n'est pas prête.
+// Keep the splash screen until the font and the saved session are ready.
 SplashScreen.preventAutoHideAsync();
 
 /**
@@ -21,7 +22,10 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const fontsReady = useAppFonts();
   const theme = useTheme();
+  const sessionReady = useSessionReady();
   const { signedIn, isPassenger, isDriver } = useSession();
+  // Guards must not run before the saved session is read, or they redirect to /phone.
+  const ready = fontsReady && sessionReady;
 
   // Fond de la fenêtre native : évite un flash blanc derrière les écrans en sombre.
   useEffect(() => {
@@ -29,13 +33,13 @@ export default function RootLayout() {
   }, [theme.colors.background]);
 
   useEffect(() => {
-    if (fontsReady) SplashScreen.hideAsync();
-  }, [fontsReady]);
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
 
-  if (!fontsReady) return null;
+  if (!ready) return null;
 
   return (
-    <>
+    <QueryProvider>
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -90,6 +94,6 @@ export default function RootLayout() {
         <Stack.Screen name="theme-preview" options={{ title: 'Thème (dev)' }} />
         <Stack.Screen name="ui-preview" options={{ title: 'UI (dev)' }} />
       </Stack>
-    </>
+    </QueryProvider>
   );
 }
