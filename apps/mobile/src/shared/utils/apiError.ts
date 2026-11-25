@@ -25,3 +25,10 @@ export class ApiError extends Error implements ApiErrorBody {
 }
 
 export const isApiError = (error: unknown): error is ApiError => error instanceof ApiError;
+
+/**
+ * A 4xx: the server refused what the user sent (wrong number, wrong code, too soon).
+ * Shown next to the field. Anything else (network, 5xx) is shown as a banner.
+ */
+export const isUserInputError = (error: unknown): error is ApiError =>
+  isApiError(error) && error.status >= 400 && error.status < 500;

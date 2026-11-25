@@ -53,8 +53,9 @@ export default function RootLayout() {
         {/* 1. Parcours non connecté */}
         <Stack.Protected guard={!signedIn} redirectTo="/">
           <Stack.Screen name="(auth)/phone" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/code" options={{ title: 'Code' }} />
-          <Stack.Screen name="(auth)/name" options={{ title: 'Ton nom' }} />
+          {/* Empty header: the screen shows its own title; the bar keeps the back arrow. */}
+          <Stack.Screen name="(auth)/code" options={{ title: '' }} />
+          <Stack.Screen name="(auth)/name" options={{ title: '' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={signedIn} redirectTo="/phone">
