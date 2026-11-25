@@ -4,10 +4,10 @@ import { addMinutes } from '@/shared/utils';
 
 import { SEAT_HOLDING, refreshDerived } from '../derived';
 import { notify } from '../notify';
-import { totalPrice } from '../pricing';
+import { quoteForTrip } from '../pricing';
 import { HttpError, findOr404, idParam, requireLieu, requireNumber, requireString, requireUser, type MockRoute, type RequestContext } from '../server';
 import { iso } from '../time';
-import { nearestIndex, segmentMetres } from '../tripGeo';
+import { nearestIndex } from '../tripGeo';
 import { nextId } from '../types';
 import { transition } from '../reservationFlow';
 import { driverParties, reservationParties, userById } from '../views';
@@ -34,7 +34,7 @@ function createReservation(ctx: RequestContext, trajet: Trajet, input: Pick<Rese
     trajetId: trajet.id,
     passagerId: passager.id,
     places: input.places,
-    prixTotal: totalPrice(segmentMetres(trajet, pickup, drop), input.places),
+    ...quoteForTrip(ctx.db, trajet, pickup, drop, input.places),
     priseEnCharge: input.priseEnCharge,
     depose: input.depose,
     statut: 'en_attente',

@@ -57,8 +57,11 @@ export interface Drive {
   nearPickup: number[];
 }
 
-/** 2 (R3): adds `drives`. A stored database with an older version is seeded again. */
-export const DB_VERSION = 2;
+/**
+ * A stored database with an older version is seeded again.
+ * 2 (R3): adds `drives`. 3 (25/11): contract Tarif, reservations carry distanceMetres + prixParPlace.
+ */
+export const DB_VERSION = 3;
 
 export const nextId = (db: MockDb, sequence: Sequence): number => {
   const id = db.sequences[sequence];
