@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useTheme, type Theme } from '@/shared/theme';
@@ -9,11 +10,12 @@ import { useSession } from '../hooks/useSession';
 
 /**
  * PROVISOIRE (R1) : interrupteurs de la session simulée.
- * Remplacé par le panneau de démo en R3, retiré en R32.
+ * Le panneau de démo (route `demo`, R3) joue l'autre personne ; cet écran garde la session. Retiré en R32.
  */
 export function DevControlScreen() {
   const { signedIn, isDriver, signIn, signOut, setRole } = useSession();
   const resetDemo = useResetDemo();
+  const router = useRouter();
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const track = { false: theme.colors.borderStrong, true: theme.colors.primary };
@@ -40,6 +42,7 @@ export function DevControlScreen() {
           accessibilityLabel="Rôle chauffeur"
         />
       </View>
+      <Button label="Ouvrir le panneau de démo" onPress={() => router.push('/demo')} hint="Jouer l’autre personne, changer la vitesse" />
       <Button
         label="Remettre la démo à zéro"
         variant="secondary"

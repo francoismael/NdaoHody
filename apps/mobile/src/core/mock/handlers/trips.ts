@@ -3,6 +3,7 @@ import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Tr
 import { haversineMeters, type LngLat } from '@/shared/map';
 import { addMinutes, isRecord } from '@/shared/utils';
 
+import { approach } from '../drive';
 import { seatPrice, totalPrice } from '../pricing';
 import {
   HttpError,
@@ -80,9 +81,10 @@ function search(ctx: RequestContext): ResultatRecherche[] {
     let heurePassage: string | null = null;
     const position = ctx.db.positions.find((p) => p.trajetId === trajet.id && p.enLigne);
     if (trajet.statut === 'en_route' && position) {
-      const driverIndex = nearestIndex(trajet, position).index;
-      if (driverIndex > pickup.index) return; // already passed the passenger
-      arriveeDansMinutes = Math.max(1, Math.ceil(segmentSeconds(trajet, driverIndex, pickup.index) / 60));
+      const [longitude, latitude] = trajet.chemin[pickup.index];
+      const left = approach(ctx.db, trajet, { longitude, latitude }, ctx.now);
+      if (!left) return; // already passed the passenger
+      arriveeDansMinutes = Math.max(1, Math.ceil(left.secondes / 60));
     } else {
       heurePassage = iso(new Date(new Date(trajet.dateDepart).getTime() + segmentSeconds(trajet, 0, pickup.index) * 1000));
     }

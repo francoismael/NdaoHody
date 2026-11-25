@@ -19,8 +19,10 @@ auth · profile · verification · trips · bookings · messages · notification
 écran → hook → service → core/mock (aujourd'hui) | API (demain)
 - Un écran n'importe JAMAIS un service ni core/mock.
 - Seuls les services touchent core/mock.
+- Exception unique : la route dev `app/demo.tsx` affiche `core/demo/DemoPanel` (panneau de régie, pas un écran métier ; il passe par les routes simulées).
 - shared n'importe rien de features ni de core.
-- core n'importe que shared et les types des domaines.
+- core n'importe que shared, et les fichiers `types.ts` et `rules.ts` des domaines (jamais leur index.ts).
+- Une règle métier pure utilisée par les écrans ET le faux serveur (ex. seuil de 500 m) vit dans `features/<domaine>/rules.ts`, sans import.
 - Entre domaines : uniquement via index.ts, sans boucle.
 - Pas de dossier vide "au cas où" : un dossier naît avec son premier fichier.
 

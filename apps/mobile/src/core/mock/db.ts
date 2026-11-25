@@ -1,5 +1,5 @@
 import { readJson, writeJson } from '@/shared/storage';
-import { isRecord } from '@/shared/utils';
+import { currentTime, isRecord } from '@/shared/utils';
 
 import { fetchMissingRoutes, loadRouteCache } from './routeCache';
 import { createSeed } from './seed';
@@ -17,7 +17,7 @@ const isMockDb = (value: unknown): value is MockDb =>
 /** New dataset relative to now. Asks Mapbox first for roads not yet saved (silent if offline). */
 async function reseed(): Promise<MockDb> {
   await fetchMissingRoutes();
-  const db = createSeed(new Date());
+  const db = createSeed(currentTime());
   current = db;
   await writeJson(DB_KEY, db);
   return db;

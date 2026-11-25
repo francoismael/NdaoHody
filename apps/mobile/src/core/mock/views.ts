@@ -32,3 +32,10 @@ export function reservationParties(ctx: RequestContext, reservationId: number) {
   }
   return { reservation, trajet, passagerId: reservation.passagerId, chauffeurId: trajet.chauffeurId };
 }
+
+/** Same as reservationParties, but only the trip's driver may act. */
+export function driverParties(ctx: RequestContext, reservationId: number) {
+  const parties = reservationParties(ctx, reservationId);
+  if (ctx.userId !== parties.chauffeurId) throw new HttpError(403, 'Seul le chauffeur peut faire cette action.');
+  return parties;
+}

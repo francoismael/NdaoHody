@@ -17,7 +17,7 @@ SplashScreen.preventAutoHideAsync();
  *  2. Connecté : le parcours de connexion disparaît (historique compris).
  *  3. Rôle : les écrans d'un rôle sont protégés par ce rôle.
  *  4. Communs : protégés seulement par « connecté », un seul exemplaire.
- *  5. Dev : hors des gardes, retirés en R32.
+ *  5. Dev : hors des gardes, retirés en R32 (sauf `demo`, la régie, cachée pour la démo).
  */
 export default function RootLayout() {
   const fontsReady = useAppFonts();
@@ -91,6 +91,7 @@ export default function RootLayout() {
 
         {/* 5. Dev (PROVISOIRES) */}
         <Stack.Screen name="control" options={{ title: 'Contrôle (dev)' }} />
+        <Stack.Screen name="demo" options={{ title: 'Panneau de démo' }} />
         <Stack.Screen name="theme-preview" options={{ title: 'Thème (dev)' }} />
         <Stack.Screen name="ui-preview" options={{ title: 'UI (dev)' }} />
       </Stack>
