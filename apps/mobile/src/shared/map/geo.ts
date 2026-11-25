@@ -74,3 +74,31 @@ export function thinPath(path: LngLat[], minStepMeters: number): LngLat[] {
   result.push(path[path.length - 1]);
   return result;
 }
+
+/**
+ * Point at `meters` along the path (same behaviour as turf.along): past the end,
+ * the last point is returned and `done` is true, so arrival is never missed.
+ */
+export function pointAlong(path: LngLat[], meters: number): { point: LngLat; done: boolean } {
+  if (path.length === 0) throw new RangeError('pointAlong: empty path');
+  if (meters <= 0) return { point: path[0], done: path.length === 1 };
+  let walked = 0;
+  for (let i = 1; i < path.length; i += 1) {
+    const step = haversineMeters(path[i - 1], path[i]);
+    if (walked + step >= meters) {
+      const t = step === 0 ? 0 : (meters - walked) / step;
+      const [lng1, lat1] = path[i - 1];
+      const [lng2, lat2] = path[i];
+      return { point: [lng1 + (lng2 - lng1) * t, lat1 + (lat2 - lat1) * t], done: false };
+    }
+    walked += step;
+  }
+  return { point: path[path.length - 1], done: true };
+}
+
+/**
+ * Where a point sits along the path, in meters from the start
+ * (projected on the nearest path point; paths are thinned to ~20 m).
+ */
+export const metersAlong = (path: LngLat[], point: LngLat): number =>
+  pathLengthMeters(path, 0, nearestPointIndex(path, point).index);

@@ -57,6 +57,7 @@ function emptyDb(now: Date): MockDb {
     alertesSos: [],
     liensSuivi: [],
     motifsRefus: {},
+    drives: {},
     sequences: {
       utilisateur: 1,
       document: 1,

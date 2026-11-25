@@ -1,7 +1,8 @@
 import type { Badge, StatutReservation, Utilisateur } from '@contract';
 
+import { advanceDrives } from './drive';
 import { notify } from './notify';
-import { iso } from './time';
+import { transition } from './reservationFlow';
 import type { MockDb } from './types';
 
 /** Statuses that hold seats in the car. */
@@ -24,8 +25,7 @@ function badgeOf(user: Utilisateur, now: Date): Badge {
 function expireRequests(db: MockDb, now: Date): void {
   db.reservations.forEach((reservation) => {
     if (reservation.statut !== 'en_attente' || new Date(reservation.dateExpiration) > now) return;
-    reservation.statut = 'expiree';
-    reservation.dateReponse = iso(now);
+    transition(reservation, 'expiree', now);
     notify(db, now, reservation.passagerId, 'demande_expiree', 'Pas de réponse', 'Le chauffeur n’a pas répondu à temps. Tu peux relancer ou choisir un autre chauffeur.', {
       reservationId: reservation.id,
       trajetId: reservation.trajetId,
@@ -35,6 +35,7 @@ function expireRequests(db: MockDb, now: Date): void {
 
 /** Recomputes every derived field so the data always agrees with itself. */
 export function refreshDerived(db: MockDb, now: Date): void {
+  advanceDrives(db, now);
   expireRequests(db, now);
 
   db.trajets.forEach((trajet) => {

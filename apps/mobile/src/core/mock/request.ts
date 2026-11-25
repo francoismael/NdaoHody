@@ -1,11 +1,13 @@
-import { ApiError, delay } from '@/shared/utils';
+import { ApiError, currentTime, delay } from '@/shared/utils';
 
 import { sessionStore } from '../session/sessionStore';
+import { autoReply } from './autoReply';
 import { getDb, saveDb } from './db';
 import { refreshDerived } from './derived';
 import { mockRoutes } from './handlers';
 import { HttpError, matchPattern, type HttpMethod, type MockRoute } from './server';
 import { iso } from './time';
+import type { MockDb } from './types';
 
 export const API_PREFIX = '/api/v1';
 
@@ -33,19 +35,14 @@ function splitQuery(path: string): { pathname: string; query: Record<string, str
 }
 
 /**
- * The simulated API. Same signature the real HTTP client will have: services
- * call `request<T>('POST', '/reservations', body)` and never know the data is fake.
- * The result is a copy: nobody outside the server can change its data by mistake.
+ * Runs one route on the database, as `userId`. Synchronous and without latency:
+ * used by `request` (the app) and by the demo engine (the "other person").
+ * Throws an ApiError, like the real server's error body.
  */
-export async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
-  const [min, max] = LATENCY_MS;
-  const [db] = await Promise.all([getDb(), delay(min + Math.random() * (max - min))]);
-  const now = new Date();
+export function dispatch(db: MockDb, now: Date, userId: number | null, method: HttpMethod, path: string, body?: unknown): unknown {
   const fullPath = API_PREFIX + path;
   const fail = (status: number, message: string): ApiError =>
     new ApiError({ status, message, timestamp: iso(now), path: fullPath });
-
-  if (Math.random() < failureRate) throw fail(503, 'Le service est momentanément indisponible. Réessaie.');
 
   const { pathname, query } = splitQuery(path);
   let match: { route: MockRoute; params: Record<string, string> } | null = null;
@@ -61,15 +58,36 @@ export async function request<T>(method: HttpMethod, path: string, body?: unknow
 
   try {
     refreshDerived(db, now);
-    const result = route.handler({ db, now, userId: sessionStore.getState().userId, params, query, body });
-    if (method !== 'GET') {
-      refreshDerived(db, now);
-      await saveDb();
-    }
-    // Same boundary as `await response.json()`: the caller states the type it expects.
-    return JSON.parse(JSON.stringify(result ?? null)) as T;
+    const result = route.handler({ db, now, userId, params, query, body });
+    if (method !== 'GET') refreshDerived(db, now);
+    return result;
   } catch (error) {
     if (error instanceof HttpError) throw fail(error.status, error.message);
     throw error;
   }
+}
+
+/** Same boundary as `await response.json()`: the caller states the type it expects. */
+export const copyOut = <T>(result: unknown): T => JSON.parse(JSON.stringify(result ?? null)) as T;
+
+/**
+ * The simulated API. Same signature the real HTTP client will have: services
+ * call `request<T>('POST', '/reservations', body)` and never know the data is fake.
+ * The result is a copy: nobody outside the server can change its data by mistake.
+ */
+export async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
+  const [min, max] = LATENCY_MS;
+  const [db] = await Promise.all([getDb(), delay(min + Math.random() * (max - min))]);
+  const now = currentTime();
+
+  if (Math.random() < failureRate) {
+    throw new ApiError({ status: 503, message: 'Le service est momentanément indisponible. Réessaie.', timestamp: iso(now), path: API_PREFIX + path });
+  }
+
+  const drivesBefore = JSON.stringify(db.drives);
+  const simulated = autoReply(db, now, dispatch);
+  const result = dispatch(db, now, sessionStore.getState().userId, method, path, body);
+  // A car that stopped or restarted is saved even on a GET: after a restart it resumes from the right place.
+  if (method !== 'GET' || simulated || JSON.stringify(db.drives) !== drivesBefore) await saveDb();
+  return copyOut<T>(result);
 }

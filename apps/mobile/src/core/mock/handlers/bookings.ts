@@ -9,7 +9,8 @@ import { HttpError, findOr404, idParam, requireLieu, requireNumber, requireStrin
 import { iso } from '../time';
 import { nearestIndex, segmentMetres } from '../tripGeo';
 import { nextId } from '../types';
-import { reservationParties, userById } from '../views';
+import { transition } from '../reservationFlow';
+import { driverParties, reservationParties, userById } from '../views';
 
 /** The driver has 3 minutes to answer (validated rule). */
 const ANSWER_DELAY_MIN = 3;
@@ -58,8 +59,7 @@ function createReservation(ctx: RequestContext, trajet: Trajet, input: Pick<Rese
 
 /** Only the trip's driver answers, and only a request still waiting. */
 function pendingForDriver(ctx: RequestContext) {
-  const parties = reservationParties(ctx, idParam(ctx));
-  if (ctx.userId !== parties.chauffeurId) throw new HttpError(403, 'Seul le chauffeur peut répondre.');
+  const parties = driverParties(ctx, idParam(ctx));
   if (parties.reservation.statut === 'expiree') throw new HttpError(409, 'La demande a expiré.');
   if (parties.reservation.statut !== 'en_attente') throw new HttpError(409, 'Cette demande a déjà une réponse.');
   return parties;
@@ -108,8 +108,7 @@ export const bookingsRoutes: MockRoute[] = [
       if (ctx.userId !== reservation.passagerId) throw new HttpError(403, 'Seul le passager peut annuler sa demande.');
       // Validated rule: a passenger cancels only before the driver's answer.
       if (reservation.statut !== 'en_attente') throw new HttpError(409, 'Tu ne peux plus annuler : le chauffeur a déjà répondu.');
-      reservation.statut = 'annulee_passager';
-      reservation.dateAnnulation = iso(ctx.now);
+      transition(reservation, 'annulee_passager', ctx.now);
       notify(ctx.db, ctx.now, chauffeurId, 'reservation_annulee', 'Demande annulée', 'Le passager a annulé sa demande.', { reservationId: reservation.id });
       return reservation;
     },
@@ -129,8 +128,7 @@ export const bookingsRoutes: MockRoute[] = [
     handler: (ctx): Reservation => {
       const { reservation, trajet } = pendingForDriver(ctx);
       if (trajet.placesLibres < reservation.places) throw new HttpError(409, 'Plus assez de places libres.');
-      reservation.statut = 'acceptee';
-      reservation.dateReponse = iso(ctx.now);
+      transition(reservation, 'acceptee', ctx.now);
       if (!ctx.db.conversations.some((c) => c.reservationId === reservation.id)) {
         ctx.db.conversations.push({ id: nextId(ctx.db, 'conversation'), reservationId: reservation.id, messages: [] } satisfies Conversation);
       }
@@ -150,8 +148,7 @@ export const bookingsRoutes: MockRoute[] = [
       const motif = requireString(ctx.body, 'motif');
       if (motif.length < 3) throw new HttpError(400, 'Indique un motif de refus.');
       const { reservation, trajet } = pendingForDriver(ctx);
-      reservation.statut = 'refusee';
-      reservation.dateReponse = iso(ctx.now);
+      transition(reservation, 'refusee', ctx.now);
       ctx.db.motifsRefus[reservation.id] = motif;
       notify(ctx.db, ctx.now, reservation.passagerId, 'demande_refusee', 'Demande refusée', `Motif : ${motif}`, { reservationId: reservation.id, trajetId: trajet.id });
       return reservation;
