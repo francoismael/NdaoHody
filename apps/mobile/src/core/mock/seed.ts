@@ -297,7 +297,7 @@ function syncSequences(db: MockDb): void {
 export function createSeed(now: Date): MockDb {
   const db = emptyDb(now);
 
-  addUser(db, now, USERS.hery, '+261340000001', 'Hery', 'Rakoto', null, 120, 'aucun');
+  addUser(db, now, USERS.hery, '+261340000001', 'Hery', 'Rakoto', 'homme', 120, 'aucun');
   // Passengers are not asked their sex; Voahirana gave it to see women-only trips.
   addUser(db, now, USERS.voahirana, '+261340000002', 'Voahirana', 'Randria', 'femme', 60, 'aucun');
   addUser(db, now, USERS.tiana, '+261340000003', 'Tiana', 'Rasolofo', 'homme', 400, 'valide');

@@ -1,4 +1,4 @@
-import type { Mode, Utilisateur } from '@contract';
+import type { Mode, Sexe, Utilisateur } from '@contract';
 
 /** Active space: one account, two spaces. Same values as the API (`Mode`). */
 export type Role = Mode;
@@ -32,5 +32,8 @@ export type OtpVerification = {
   token: string;
 };
 
-/** Last step of a sign-up: the name (first name required, last name optional, like the PWA). */
-export type SignUpName = { prenom: string; nom: string | null };
+/**
+ * Last step of a sign-up: the name (first name required, last name optional, like the PWA)
+ * and the sex (required for everyone, like the back; it cannot be changed afterwards).
+ */
+export type SignUpName = { prenom: string; nom: string | null; sexe: Sexe };

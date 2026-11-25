@@ -5,6 +5,7 @@ import { authRoutes } from './auth';
 import { bookingsRoutes } from './bookings';
 import { messagesRoutes } from './messages';
 import { notificationsRoutes } from './notifications';
+import { placesRoutes } from './places';
 import { pricingRoutes } from './pricing';
 import { profileRoutes } from './profile';
 import { reviewsRoutes } from './reviews';
@@ -19,6 +20,7 @@ export const mockRoutes: MockRoute[] = [
   ...profileRoutes,
   ...verificationRoutes,
   ...tripsRoutes,
+  ...placesRoutes,
   ...pricingRoutes,
   ...bookingsRoutes,
   ...rideRoutes,

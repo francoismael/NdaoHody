@@ -1,6 +1,7 @@
 export { HomeScreen } from './screens/HomeScreen';
 export { PublishScreen } from './screens/PublishScreen';
 export { PublishRouteScreen } from './screens/PublishRouteScreen';
+export { PublishSeatsScreen } from './screens/PublishSeatsScreen';
 export { MyTripsScreen } from './screens/MyTripsScreen';
 export { SearchScreen } from './screens/SearchScreen';
 export { ResultsScreen } from './screens/ResultsScreen';
@@ -9,11 +10,17 @@ export { DrivingScreen } from './screens/DrivingScreen';
 export {
   tripsKeys,
   useDemoPosition,
+  useDestinations,
   useMyTrips,
+  useNearestPlace,
   useNearbyDrivers,
+  usePlaces,
   usePublishTrip,
+  useRoutePreview,
   useSearchTrips,
   useTrip,
   useTripsAround,
 } from './hooks/useTrips';
-export type { PublishTripInput } from './types';
+export { usePublishAccess } from './hooks/usePublishAccess';
+export type { PublishAccess } from './hooks/usePublishAccess';
+export type { Place, PublishTripInput, RoutePreview } from './types';

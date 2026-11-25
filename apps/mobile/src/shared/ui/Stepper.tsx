@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme, type Theme } from '@/shared/theme';
 
 import { FieldMessage } from './FieldMessage';
+import { useFormErrorTarget } from './formErrors';
 
 export type StepperProps = {
   label: string;
@@ -20,12 +21,13 @@ export type StepperProps = {
 export function Stepper({ label, value, min, max, onChange, disabled = false, error, hint }: StepperProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
+  const errorTarget = useFormErrorTarget(Boolean(error));
   const set = (next: number) => onChange(Math.min(max, Math.max(min, next)));
   const canDecrease = !disabled && value > min;
   const canIncrease = !disabled && value < max;
 
   return (
-    <View style={s.wrapper}>
+    <View ref={errorTarget} style={s.wrapper}>
       <Text style={s.label} importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </Text>

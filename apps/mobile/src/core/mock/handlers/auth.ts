@@ -101,8 +101,10 @@ export const authRoutes: MockRoute[] = [
         utilisateur = newUser(nextId(db, 'utilisateur'), telephone, now);
         db.utilisateurs.push(utilisateur);
       }
-      // No first name yet = sign-up not finished (also after an interrupted sign-up).
-      return { utilisateur, nouveau: utilisateur.prenom === null, token: `mock-token-${utilisateur.id}` };
+      // No first name or no sex yet = sign-up not finished (interrupted sign-up, or an
+      // account made before the sex was asked to everyone).
+      const nouveau = utilisateur.prenom === null || utilisateur.sexe === null;
+      return { utilisateur, nouveau, token: `mock-token-${utilisateur.id}` };
     },
   },
 ];

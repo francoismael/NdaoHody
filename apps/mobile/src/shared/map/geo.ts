@@ -102,3 +102,17 @@ export function pointAlong(path: LngLat[], meters: number): { point: LngLat; don
  */
 export const metersAlong = (path: LngLat[], point: LngLat): number =>
   pathLengthMeters(path, 0, nearestPointIndex(path, point).index);
+
+/** The box around a path, as Mapbox's camera wants it (north-east and south-west corners). */
+export function boundsOf(path: LngLat[]): { ne: LngLat; sw: LngLat } {
+  if (path.length === 0) throw new RangeError('boundsOf: empty path');
+  let [minLng, minLat] = path[0];
+  let [maxLng, maxLat] = path[0];
+  path.forEach(([lng, lat]) => {
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+  });
+  return { ne: [maxLng, maxLat], sw: [minLng, minLat] };
+}
