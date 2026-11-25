@@ -1,9 +1,14 @@
 import { useMemo } from 'react';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppMap, useLocationPermission } from '@/shared/map';
+import { useSession } from '@/features/auth';
+import { AppMap, RouteLine, useLocationPermission } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
+import { Button } from '@/shared/ui';
+
+import { useDemoPosition, useTripsAround } from '../hooks/useTrips';
 
 // Sur Android, la boîte système a son propre texte : on explique donc AVANT de demander.
 const WHY_LOCATION =
@@ -16,17 +21,64 @@ const GPS_OFF =
 
 export function HomeScreen() {
   const { status, canAskAgain, request, servicesEnabled, enableServices } = useLocationPermission();
+  const { isDriver } = useSession();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { spacing } = useTheme();
   const styles = useStyles();
+  // PROVISIONAL (R2 check): routes passing near the demo position. Real content in R12.
+  const here = useDemoPosition();
+  const around = useTripsAround(isDriver ? null : here);
+  const aroundNote = around.isPending
+    ? 'Recherche des trajets proches…'
+    : around.isError
+      ? around.error.message
+      : `${around.data.length} trajet(s) passent près de toi`;
 
   return (
     <View style={styles.container}>
-      <AppMap showUserLocation={status === 'granted' && servicesEnabled} />
+      <AppMap showUserLocation={status === 'granted' && servicesEnabled}>
+        {around.data?.map((trajet) => (
+          <RouteLine key={trajet.id} id={`trip-${trajet.id}`} coordinates={trajet.chemin} />
+        ))}
+      </AppMap>
 
-      {/* PROVISOIRE (session 3) : accès à l'écran de contrôle du thème, en dev seulement. */}
+      {/* PROVISOIRE (R1) : coquille de l'accueil de chaque rôle et liens vers ses écrans. */}
+      <View style={[styles.shell, { top: insets.top + spacing[10] + spacing[4] }]}>
+        <Text style={styles.shellTitle} accessibilityRole="header">
+          {isDriver ? 'Accueil chauffeur' : 'Accueil passager'}
+        </Text>
+        <Text style={styles.shellNote}>Coquille : contenu en {isDriver ? 'R8' : 'R12'}</Text>
+        {!isDriver && (
+          <Text style={styles.shellNote} accessibilityLiveRegion="polite">
+            {aroundNote}
+          </Text>
+        )}
+        {isDriver ? (
+          <>
+            <Button label="Mes trajets" onPress={() => router.push('/my-trips')} />
+            <Button label="Demande reçue" onPress={() => router.push('/request/demo')} variant="secondary" />
+            <Button label="Course en cours" onPress={() => router.push('/driving/demo')} variant="secondary" />
+            <Button label="Vérification" onPress={() => router.push('/verification')} variant="ghost" />
+          </>
+        ) : (
+          <Button label="Rechercher un trajet" onPress={() => router.push('/search')} />
+        )}
+      </View>
+
+      {/* PROVISOIRE (sessions 3, 4 et R1) : accès aux écrans de contrôle, en dev seulement. */}
       {__DEV__ && (
-        <Link href="/theme-preview" style={styles.devLink}>
-          Thème
-        </Link>
+        <View style={[styles.devLinks, { top: insets.top + spacing[3] }]}>
+          <Link href="/theme-preview" style={styles.devLink}>
+            Thème
+          </Link>
+          <Link href="/ui-preview" style={styles.devLink}>
+            UI
+          </Link>
+          <Link href="/control" style={styles.devLink}>
+            Contrôle
+          </Link>
+        </View>
       )}
 
       {status === 'undetermined' && (
@@ -95,11 +147,26 @@ const createStyles = ({ colors, typography, spacing, gutter, radii, shadows, con
     },
     buttonPressed: { backgroundColor: colors.primaryPressed },
     buttonText: { ...typography.bodyStrong, color: colors.onPrimary },
+    shell: {
+      position: 'absolute',
+      left: gutter,
+      right: gutter,
+      gap: spacing[2],
+      padding: spacing[4],
+      borderRadius: radii.lg,
+      backgroundColor: colors.surface,
+      boxShadow: shadows.card,
+    },
+    shellTitle: { ...typography.heading, color: colors.text },
+    shellNote: { ...typography.small, color: colors.textMuted },
+    devLinks: {
+      position: 'absolute',
+      right: gutter,
+      flexDirection: 'row',
+      gap: spacing[2],
+    },
     devLink: {
       ...typography.label,
-      position: 'absolute',
-      top: spacing[4],
-      right: gutter,
       paddingHorizontal: spacing[3],
       paddingVertical: spacing[2],
       borderRadius: radii.full,

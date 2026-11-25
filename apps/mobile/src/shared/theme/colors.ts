@@ -16,6 +16,8 @@
  *    (la valeur de --c-splash est celle de brand, à reprendre au prochain rebuild).
  *
  * Ajout : onPrimary (texte sur un bouton principal), écrit en dur dans le PWA.
+ * Ajout (R1) : navSurface, navBorder, navActive, repris des jetons --ax-* de
+ * accueil.css (barre du bas, BarreNavigation).
  */
 
 const palette = {
@@ -67,6 +69,7 @@ const palette = {
   light300: '#A3B5AC',
   light400: '#93A69C',
   blueDark: '#16243A',
+  navDark: '#121A16',
 
   red600: '#B83A29',
   red50: '#FBECE9',
@@ -142,6 +145,11 @@ export const lightColors = {
 
   // Information (ex. élément non lu)
   infoSurface: palette.blue50,
+
+  // Barre d'onglets du bas (accueil.css : --ax-nav-bg, --ax-line, --ax-accent-tx)
+  navSurface: palette.white,
+  navBorder: 'rgba(10, 15, 13, 0.08)',
+  navActive: palette.green900,
 } as const;
 
 /** La liste des rôles : une faute de frappe devient une erreur TypeScript. */
@@ -197,4 +205,8 @@ export const darkColors: ThemeColors = {
   mapPlaceholder: palette.dark750,
 
   infoSurface: palette.blueDark,
+
+  navSurface: palette.navDark,
+  navBorder: 'rgba(255, 255, 255, 0.06)',
+  navActive: palette.mintBright,
 };

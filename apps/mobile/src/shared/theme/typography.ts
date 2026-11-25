@@ -51,7 +51,9 @@ export type TextRole =
   | 'small'
   | 'caption'
   | 'label'
-  | 'number';
+  | 'number'
+  | 'tab'
+  | 'tabActive';
 
 export const typography: Record<TextRole, TextStyle> = {
   /** .t-display : grand titre d'accueil */
@@ -77,4 +79,8 @@ export const typography: Record<TextRole, TextStyle> = {
     ...role(20, 'extraBold', BODY_LINE_HEIGHT, -0.03),
     fontVariant: ['tabular-nums'],
   },
+  /** .bn__item : libellé d'onglet (accueil.css, 500 12px) */
+  tab: role(12, 'medium', BODY_LINE_HEIGHT),
+  /** .bn__item.is-actif : onglet actif (700) */
+  tabActive: role(12, 'bold', BODY_LINE_HEIGHT),
 };
