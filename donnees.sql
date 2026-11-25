@@ -21,7 +21,7 @@
 
 DROP TABLE IF EXISTS preference_notification, lien_suivi, blocage, alerte_sos, signalement, avis, message, conversation,
     reservation, position_chauffeur, trajet, tarif, quartier, vehicule,
-    document_chauffeur, code_otp, utilisateur, journal_admin, administrateur, parametre CASCADE;
+    document_chauffeur, session_utilisateur, code_otp, utilisateur, journal_admin, administrateur, parametre CASCADE;
 
 
 /* =============================================================================
@@ -46,6 +46,8 @@ CREATE TABLE administrateur (
     actif BOOLEAN NOT NULL DEFAULT TRUE,
     cree_par BIGINT,
     derniere_connexion TIMESTAMPTZ,
+    echecs_connexion INT NOT NULL DEFAULT 0,   -- mots de passe faux d'affilée
+    bloque_jusqua TIMESTAMPTZ,                -- bloqué 15 min après 5 échecs
     date_creation TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT ck_administrateur_role
@@ -91,6 +93,7 @@ CREATE TABLE utilisateur (
     courses_chauffeur INT NOT NULL DEFAULT 0,
     absences INT NOT NULL DEFAULT 0,
     telephone_verifie BOOLEAN NOT NULL DEFAULT FALSE,
+    numero_permis VARCHAR(30) UNIQUE,   -- unique sur tous les comptes, supprimés compris : retrouve l'ancien compte d'un chauffeur
     date_creation TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT ck_utilisateur_sexe
@@ -122,6 +125,23 @@ CREATE TABLE code_otp (
     date_expiration TIMESTAMPTZ NOT NULL,
     date_utilisation TIMESTAMPTZ,
     date_creation TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+/* téléphones connectés : un jeton de rafraîchissement (30 jours) par session, on garde son hash.
+   date_revocation : déconnexion, renouvellement du jeton, compte suspendu ou supprimé */
+CREATE TABLE session_utilisateur (
+    id SERIAL PRIMARY KEY,
+    utilisateur_id BIGINT NOT NULL,
+    jeton_hash VARCHAR(64) NOT NULL UNIQUE,
+    date_expiration TIMESTAMPTZ NOT NULL,
+    date_revocation TIMESTAMPTZ,
+    date_creation TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT fk_session_utilisateur
+        FOREIGN KEY (utilisateur_id)
+        REFERENCES utilisateur(id)
+        ON DELETE CASCADE
 );
 
 

@@ -20,6 +20,9 @@
     "paths": {
       "types": [
         "./libs/shared/types/src/index.ts"
+      ],
+      "@contract": [
+        "./data-objets.ts"
       ]
     }
   },

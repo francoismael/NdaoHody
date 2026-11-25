@@ -42,44 +42,51 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 
 ## Étape 0 — Socle
 
-- [ ] Corriger `CONTRIBUTING.md` (`apps/back` au lieu de `apps/api`), ajouter `apps/back/.env.example`
-- [ ] `docker-compose.yml` : PostgreSQL 16 + PostGIS, MongoDB 7
+- [x] Corriger `CONTRIBUTING.md` (`apps/back` au lieu de `apps/api`), ajouter `apps/back/.env.example`
 - [ ] Configuration validée au démarrage (`@nestjs/config`) : base, Mongo, JWT, Mapbox, FCM, SMS
-- [ ] Architecture DDD reprise de `ndaohody-back` : `domain` / `application` / `infrastructure` / `api`, filtre d'erreurs `{ status, message, timestamp }`, UnitOfWork, horloge
-- [ ] Migrations TypeORM à partir de `donnees.sql` + colonnes PostGIS (`geography`) et index GIST pour les positions et chemins
-- [ ] Données de démonstration = insertions de `donnees.sql`
-- [ ] Swagger (`/api/docs`), validation des corps, helmet, CORS, limitation de débit
-- [ ] Préfixes : `/api/v1` (app) et `/api/admin` (back-office)
+  - [x] Base, Mongo, port, CORS
+  - [x] JWT, SMS, stockage des fichiers (étape 1)
+  - [ ] Mapbox (étape 5), FCM (étape 12)
+- [x] Architecture DDD reprise de `ndaohody-back` : `domain` / `application` / `infrastructure` / `api`, filtre d'erreurs `{ status, message, timestamp }`, UnitOfWork, horloge
+- [x] Migrations TypeORM à partir de `donnees.sql` + colonnes PostGIS (`geography`) et index GIST pour les positions et chemins
+- [x] Données de démonstration = insertions de `donnees.sql` (`npm run db:seed`)
+- [x] Swagger (`/api/docs`), validation des corps, helmet, CORS, limitation de débit
+- [x] Préfixes : `/api/v1` (app) et `/api/admin` (back-office)
 - [ ] `libs/shared/types` : reprendre `data-objets.ts`
-- [ ] CI : lint + tests + build avec PostgreSQL et MongoDB
+- [x] CI : lint + tests + build (sans base de données : les tests remplacent les ports par des faux)
 
-**Fini quand** : `GET /api/sante` répond `postgres: ok, mongodb: ok`.
+Pas de Docker en local : PostgreSQL et MongoDB tournent directement sur le PC.
+
+**Fini quand** : `GET /api/health` répond `postgres: ok, mongodb: ok`.
 
 ---
 
 ## Étape 1 — Connexion par SMS
 
-- [ ] `POST /auth/otp/envoyer` : numéro normalisé `+261…`, code à 6 chiffres haché, valable 5 min, renvoi après 60 s, 5 codes max par jour (`code_otp`)
-- [ ] Port `SmsSender` + adaptateur (journal en local, vrai fournisseur ensuite)
-- [ ] `POST /auth/otp/verifier` : 3 essais max ; crée le compte s'il n'existe pas
-- [ ] Jeton d'accès JWT (15 min) + jeton de rafraîchissement (30 jours)
-- [ ] `POST /auth/rafraichir`, `POST /auth/deconnexion`
-- [ ] Garde JWT sur toutes les routes de l'app
-- [ ] Compte suspendu → connexion refusée avec message clair
-- [ ] Limitation de débit **par compte** pour un utilisateur connecté (et non par adresse IP : à Madagascar, beaucoup de téléphones partagent la même IP chez l'opérateur) ; par IP **et** par numéro sur l'envoi / la vérification du code SMS, avec des limites strictes
+Routes en anglais, comme celles qu'appelle déjà l'app mobile, sous `/api/v1`.
 
-**Fini quand** : un numéro reçoit un code, se connecte et appelle `GET /moi`.
+- [x] `POST /auth/otp` : numéro normalisé `+261…`, code à 6 chiffres haché, valable 5 min (`parametre.otp_duree_minutes`), renvoi après 60 s, 5 codes max par jour (`code_otp`)
+- [x] Port `SmsSender` + adaptateur (journal en local, vrai fournisseur ensuite ; `SMS_PROVIDER=log` refusé en production)
+- [x] `POST /auth/otp/verify` : 3 essais max ; crée le compte s'il n'existe pas
+- [x] Jeton d'accès JWT (15 min) + jeton de rafraîchissement (30 jours, haché dans la table `session_utilisateur`)
+- [x] `POST /auth/refresh` (rotation : un jeton ne sert qu'une fois ; un jeton déjà utilisé ferme toutes les sessions), `POST /auth/logout`
+- [x] Garde JWT sur toutes les routes de l'app (`@Authenticated()`)
+- [x] Compte suspendu → connexion refusée avec message clair (aussi à l'envoi du code, et à chaque appel)
+- [x] Limitation de débit **par compte** pour un utilisateur connecté (et non par adresse IP : à Madagascar, beaucoup de téléphones partagent la même IP chez l'opérateur) ; par IP **et** par numéro sur l'envoi / la vérification du code SMS, avec des limites strictes
+
+**Fini quand** : un numéro reçoit un code, se connecte et appelle `GET /me`.
 
 ---
 
 ## Étape 2 — Profil et mode
 
-- [ ] `GET /moi`, `PATCH /moi` : nom, prénom, sexe obligatoires pour un nouveau compte
-- [ ] Photo de profil (envoi, redimensionnement, stockage)
-- [ ] `PATCH /moi/mode` : passager ↔ chauffeur (publier exige un chauffeur validé)
-- [ ] `POST /appareils`, `DELETE /appareils` : jeton FCM du téléphone (MongoDB)
-- [ ] `DELETE /moi` : suppression douce, refusée pendant une course
-- [ ] Ancien compte incomplet → l'app reçoit `profilIncomplet: true`
+- [x] `GET /me`, `PATCH /me` : nom, prénom, sexe obligatoires pour un nouveau compte ; le sexe ne change plus une fois choisi (trajets réservés aux femmes)
+- [x] Photo de profil `PUT /me/photo` (JPEG, PNG ou WebP, 5 Mo max, recadrée en 512 × 512, stockage local derrière le port `FileStorage`)
+- [x] `PATCH /me/mode` : passager ↔ chauffeur (publier exige un chauffeur validé)
+- [x] `POST /me/devices`, `DELETE /me/devices` : jeton FCM du téléphone (MongoDB, collection `appareils`)
+- [x] `DELETE /me` : suppression douce, refusée pendant une course (numéro libéré, sessions fermées)
+- [x] Ancien compte incomplet → l'app reçoit `profilIncomplet: true`
+- [ ] Refuser la réservation d'un profil incomplet (à faire à l'étape 8)
 
 **Fini quand** : un nouvel utilisateur complète son profil et ne peut pas réserver tant qu'il est incomplet.
 
@@ -87,12 +94,14 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 
 ## Étape 3 — Back-office : comptes et rôles
 
-- [ ] Commande `create-super-admin` (le premier super admin ne passe pas par l'API)
-- [ ] `POST /admin/auth/connexion` : e-mail + mot de passe, JWT séparé de celui de l'app, blocage après 5 échecs
-- [ ] Garde de rôles `@Roles(...)` ; garde « lecture seule » : un investisseur ne peut appeler que des `GET`
-- [ ] super_admin seulement : créer / désactiver un admin ou un investisseur, réinitialiser un mot de passe
-- [ ] Journal automatique de toute action d'écriture (`journal_admin`)
-- [ ] Réponses pour investisseur sans données personnelles (téléphones, documents, messages)
+Routes sous `/api/admin`.
+
+- [x] Commande `npm run admin:create-super -- --email ... --name "..."` (le premier super admin ne passe pas par l'API ; mot de passe temporaire affiché une fois)
+- [x] `POST /admin/auth/login` : e-mail + mot de passe (bcrypt), JWT séparé de celui de l'app (`JWT_ADMIN_SECRET`, 8 h), blocage 15 min après 5 échecs ; `GET /admin/auth/me`
+- [x] Garde de rôles `@AdminRoles(...)` ; garde « lecture seule » : un investisseur ne peut appeler que des `GET`
+- [x] super_admin seulement (`/admin/accounts`) : créer / désactiver un admin ou un investisseur, réinitialiser un mot de passe (mot de passe temporaire)
+- [x] Journal automatique de toute action d'écriture (`journal_admin`, intercepteur + `@Audit(...)`)
+- [x] Réponses pour investisseur sans données personnelles (téléphones, documents, permis, plaques)
 
 | Droit | super_admin | admin | investisseur |
 |---|:-:|:-:|:-:|
@@ -107,11 +116,13 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 
 ## Étape 4 — Devenir chauffeur
 
-- [ ] Stockage privé des fichiers, liens à durée limitée
-- [ ] `POST /chauffeur/documents` : permis recto, verso, selfie → `statut_chauffeur = en_attente`
-- [ ] `GET/POST/PATCH/DELETE /chauffeur/vehicules` : plusieurs véhicules, plaque unique, moto = 1 place, photo, véhicule par défaut
-- [ ] Back-office : file des dossiers, valider / refuser avec motif (documents et véhicules)
-- [ ] Notification au chauffeur (validé / refusé)
+- [x] Stockage privé des fichiers (`PRIVATE_UPLOADS_DIR`), liens signés valables 10 min (`GET /api/files`)
+- [x] `GET/POST /me/documents` : permis recto (avec son numéro, envoyé en premier), verso, selfie → `statut_chauffeur = en_attente`
+- [x] `GET/POST/PATCH/DELETE /me/vehicles` : plusieurs véhicules, plaque unique, moto = 1 place, photo, véhicule par défaut ; supprimer = archiver (la plaque reste liée au compte)
+- [x] **Anti-fraude** : numéro de permis et plaque uniques sur **tous** les comptes, supprimés compris. Un chauffeur qui supprime son compte puis se réinscrit (même avec une nouvelle puce) avec le même permis ou la même plaque retrouve **son ancien compte** (historique, avis, et plus tard ce qu'il doit), à revérifier par un admin ; le compte tout juste créé est fermé. Permis ou plaque d'un autre compte encore utilisé → refusé
+- [x] Back-office : file des dossiers, valider / refuser avec motif (`/admin/drivers`, `/admin/vehicles`)
+- [x] Notification au chauffeur (validé / refusé) : historique MongoDB (`notifications`) ; le push FCM vient à l'étape 12
+- [ ] L'admin compare le numéro de permis saisi avec la photo avant de valider (à rappeler dans l'écran du back-office)
 
 **Fini quand** : un chauffeur validé avec un véhicule validé peut publier.
 

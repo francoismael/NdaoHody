@@ -6,14 +6,55 @@
 git clone <url-du-depot>
 cd <nom-du-projet>
 npm install
-cp apps/api/.env.example apps/api/.env
+cp apps/back/.env.example apps/back/.env
 cp apps/mobile/.env.example apps/mobile/.env
 ```
+
+### Configurer le back (`apps/back/.env`)
+
+Prérequis : PostgreSQL (avec PostGIS) et MongoDB installés et démarrés sur ton PC (pas de Docker).
+
+1. **Base de données** : dans `DATABASE_URL`, mets ton utilisateur et ton mot de passe PostgreSQL, puis crée la base `ndaohody` si elle n'existe pas.
+
+2. **Les 3 clés secrètes** : lance cette commande **3 fois**. Chaque fois, elle affiche une nouvelle valeur aléatoire :
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+   ```
+
+   Colle la 1re valeur après `JWT_ACCESS_SECRET=`, la 2e après `JWT_ADMIN_SECRET=` et la 3e après `HASH_SECRET=` (sans espace ni guillemets).
+
+   | Clé | Rôle |
+   |---|---|
+   | `JWT_ACCESS_SECRET` | Signe les jetons de connexion de l'app mobile |
+   | `JWT_ADMIN_SECRET` | Signe les jetons de connexion du back-office |
+   | `HASH_SECRET` | Protège les codes SMS et les jetons stockés en base, et signe les liens vers les photos de permis |
+
+   Règles :
+   - les 3 valeurs doivent être **différentes** et faire au moins 32 caractères, sinon le back refuse de démarrer ;
+   - chaque développeur génère **ses propres clés** : ne les partage pas, ne les envoie à personne ;
+   - en production, on génère d'autres clés **une seule fois**, à la mise en place du serveur, et on ne les change plus (sinon tout le monde est déconnecté).
+
+3. **Le reste** (`SMS_PROVIDER=log`, dossiers d'upload, etc.) peut garder les valeurs de `.env.example`. Avec `SMS_PROVIDER=log`, le code SMS de connexion s'affiche dans la console du back.
+
+4. **Données de démonstration** (facultatif) :
+
+   ```bash
+   npm run db:migrate   # crée les tables (inutile si DB_MIGRATIONS_RUN=true)
+   npm run db:seed      # charge les données de donnees.sql
+   ```
+
+   Compte super admin de démonstration : `superadmin@ndaohody.test` / `Ndaohody2026!`.
+   Sans données de démonstration, crée ton premier super admin :
+
+   ```bash
+   npm run admin:create-super -- --email toi@ndaohody.mg --name "Ton Nom"
+   ```
 
 Lancer les projets :
 
 ```bash
-npx nx serve api      # API NestJS
+npx nx serve back     # API NestJS (http://localhost:3000/api, docs : /api/docs)
 npx nx start mobile   # App Expo (scanner le QR code avec Expo Go)
 ```
 

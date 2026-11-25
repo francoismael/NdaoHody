@@ -1,8 +1,11 @@
+import { resolve } from 'path';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { ApiExceptionFilter } from '../../api/filter/api-exception.filter';
+import { ApiExceptionFilter } from '../../api/filter/ApiExceptionFilter';
+import { UPLOADS_URL_PATH } from '../adapter/LocalFileStorageAdapter';
 
 export const GLOBAL_PREFIX = 'api';
 export const DOCS_PATH = `${GLOBAL_PREFIX}/docs`;
@@ -10,14 +13,15 @@ export const DOCS_PATH = `${GLOBAL_PREFIX}/docs`;
 /**
  * HTTP setup shared by every route: security headers, CORS, validation, error format and docs.
  */
-export function setupHttpServer(app: INestApplication): void {
+export function setupHttpServer(app: NestExpressApplication): void {
   const config = app.get(ConfigService);
   const isProduction = config.getOrThrow<string>('NODE_ENV') === 'production';
 
   app.setGlobalPrefix(GLOBAL_PREFIX);
 
   // Swagger UI needs inline scripts, and it is only served outside production.
-  app.use(helmet({ contentSecurityPolicy: isProduction ? undefined : false }));
+  // cross-origin: the back-office (another origin) shows the profile photos served below.
+  app.use(helmet({ contentSecurityPolicy: isProduction ? undefined : false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   app.enableCors({ origin: config.getOrThrow<string[]>('CORS_ORIGINS'), credentials: true });
 
@@ -30,6 +34,13 @@ export function setupHttpServer(app: INestApplication): void {
   );
 
   app.useGlobalFilters(new ApiExceptionFilter());
+
+  // Profile photos written by LocalFileStorageAdapter (outside the /api prefix).
+  app.useStaticAssets(resolve(process.cwd(), config.getOrThrow<string>('UPLOADS_DIR')), {
+    prefix: `${UPLOADS_URL_PATH}/`,
+    index: false,
+    dotfiles: 'deny',
+  });
 
   if (!isProduction) {
     setupSwagger(app);
