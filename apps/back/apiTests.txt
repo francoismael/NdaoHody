@@ -1,0 +1,275 @@
+NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 4)
+Adresse de base : http://localhost:3000
+Swagger : http://localhost:3000/api/docs
+
+LES JETONS (TOKENS)
+-------------------
+/api/v1/auth/otp/verify renvoie 2 jetons :
+
+  accessToken   valable 15 min   -> à mettre dans le HEADER de chaque appel protégé :
+                                    Authorization: Bearer <accessToken>
+                                    (Swagger : bouton "Authorize" en haut, coller l'accessToken seul)
+  refreshToken  valable 30 jours -> ne va JAMAIS dans le header ; seulement dans le BODY
+                                    de /auth/refresh et /auth/logout
+
+Quand l'accessToken a expiré (réponse 401), appeler /auth/refresh avec le refreshToken :
+on reçoit un nouvel accessToken ET un nouveau refreshToken, qui remplacent les anciens.
+
+[TOKEN APP]   = header  Authorization: Bearer <accessToken reçu par /api/v1/auth/otp/verify>
+[TOKEN ADMIN] = header  Authorization: Bearer <accessToken reçu par /api/admin/auth/login>
+                (le back-office n'a qu'un accessToken, valable 8 h, pas de refreshToken)
+[FORM-DATA]   = body en form-data (envoi de fichier), pas en JSON
+{...}         = dans une URL : à remplacer par la vraie valeur (ex. {id du véhicule} -> 8)
+
+Code SMS : il s'affiche dans le terminal du back (SMS_PROVIDER=log).
+Données de démo : npm run db:seed (remet la base à zéro).
+
+
+==============================================================
+ ÉTAPE 0 — SOCLE
+==============================================================
+
+GET http://localhost:3000/api/health
+-> Vérifie que PostgreSQL et MongoDB répondent : { "postgres": "ok", "mongodb": "ok" }.
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 1 — CONNEXION PAR SMS
+==============================================================
+
+POST http://localhost:3000/api/v1/auth/otp
+-> Envoie un code à 6 chiffres par SMS au numéro (visible dans le terminal du back).
+   1 code par minute, 5 codes par jour, valable 5 minutes.
+{
+  "telephone": "034 12 345 67"
+}
+
+POST http://localhost:3000/api/v1/auth/otp/verify
+-> Vérifie le code (3 essais). Crée le compte si le numéro est nouveau ("nouveau": true).
+   Renvoie accessToken (15 min) et refreshToken (30 jours) : garde-les pour la suite.
+{
+  "telephone": "034 12 345 67",
+  "code": "code reçu par SMS"
+}
+
+POST http://localhost:3000/api/v1/auth/refresh
+-> Quand l'accessToken a expiré (après 15 min, les appels renvoient 401) : donne un nouvel
+   accessToken et un nouveau refreshToken, sans redemander de code SMS.
+   Remplace les deux anciens jetons. L'ancien refreshToken ne marche plus ; s'il est
+   réutilisé (vol probable), toutes les sessions de l'utilisateur sont fermées.
+   Pas de header Authorization : le refreshToken va dans le body.
+{
+  "refreshToken": "refreshToken reçu par /otp/verify (ou par le dernier /refresh)"
+}
+
+POST http://localhost:3000/api/v1/auth/logout
+-> Déconnecte ce téléphone : son refreshToken ne marche plus.
+   Pas de header Authorization : le refreshToken va dans le body.
+{
+  "refreshToken": "refreshToken actuel du téléphone"
+}
+
+
+==============================================================
+ ÉTAPE 2 — PROFIL ET MODE                         [TOKEN APP]
+==============================================================
+
+GET http://localhost:3000/api/v1/me
+-> Renvoie le compte connecté, avec "profilIncomplet" (true s'il manque nom, prénom ou sexe).
+(pas de body)
+
+PATCH http://localhost:3000/api/v1/me
+-> Complète ou modifie le profil. Pour un nouveau compte, les 3 champs sont obligatoires.
+   Le sexe ne peut plus changer une fois choisi.
+{
+  "nom": "ton nom",
+  "prenom": "ton prénom",
+  "sexe": "homme ou femme"
+}
+
+PATCH http://localhost:3000/api/v1/me/mode
+-> Bascule entre l'espace passager et l'espace chauffeur.
+{
+  "mode": "passager ou chauffeur"
+}
+
+PUT http://localhost:3000/api/v1/me/photo                  [FORM-DATA]
+-> Envoie la photo de profil (recadrée en 512 x 512). Remplace l'ancienne.
+  photo = (fichier image : jpg, png ou webp, 5 Mo max)
+
+POST http://localhost:3000/api/v1/me/devices
+-> Enregistre le téléphone pour recevoir les notifications push (MongoDB, collection "appareils").
+   Le jeton FCM est l'adresse unique du téléphone chez Firebase (le service de Google qui
+   envoie les notifications push). C'est l'app mobile qui l'obtient auprès de Firebase.
+   Pour tester maintenant : n'importe quel texte, ex. "fcm-test-123"
+   (aucune notification n'est encore envoyée : ça arrive à l'étape 12).
+{
+  "jeton": "jeton FCM donné par Firebase sur le téléphone",
+  "plateforme": "android ou ios"
+}
+
+DELETE http://localhost:3000/api/v1/me/devices
+-> Le téléphone ne reçoit plus les notifications push (à appeler à la déconnexion).
+{
+  "jeton": "le même jeton FCM qu'à l'enregistrement"
+}
+
+DELETE http://localhost:3000/api/v1/me
+-> Supprime le compte (refusé pendant une course). Le numéro est libéré, toutes les sessions sont fermées.
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 3 — BACK-OFFICE : COMPTES ET RÔLES
+==============================================================
+
+POST http://localhost:3000/api/admin/auth/login
+-> Connexion au back-office. Renvoie un accessToken valable 8 h.
+   Compte bloqué 15 min après 5 mauvais mots de passe.
+{
+  "email": "superadmin@ndaohody.test",
+  "motDePasse": "Ndaohody2026!"
+}
+(comptes de démo : superadmin@ndaohody.test, admin@ndaohody.test, invest@ndaohody.test
+ — même mot de passe Ndaohody2026!)
+
+GET http://localhost:3000/api/admin/auth/me                [TOKEN ADMIN]
+-> Renvoie le compte du back-office connecté (nom, e-mail, rôle).
+(pas de body)
+
+--- super_admin seulement ---
+
+GET http://localhost:3000/api/admin/accounts               [TOKEN ADMIN]
+-> Liste tous les comptes du back-office (et leurs id).
+(pas de body)
+
+POST http://localhost:3000/api/admin/accounts              [TOKEN ADMIN]
+-> Crée un compte admin ou investisseur. La réponse contient un mot de passe
+   temporaire, affiché une seule fois : à donner à la personne.
+{
+  "nomComplet": "nom complet de la personne",
+  "email": "son e-mail",
+  "role": "admin ou investisseur"
+}
+
+PATCH http://localhost:3000/api/admin/accounts/{id du compte}/active    [TOKEN ADMIN]
+-> Désactive (false) ou réactive (true) un compte. Un compte désactivé perd l'accès tout de suite.
+{
+  "actif": false
+}
+
+POST http://localhost:3000/api/admin/accounts/{id du compte}/reset-password   [TOKEN ADMIN]
+-> Donne un nouveau mot de passe temporaire et débloque le compte.
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 4 — DEVENIR CHAUFFEUR
+==============================================================
+
+--- Côté app (le chauffeur)                       [TOKEN APP] ---
+
+GET http://localhost:3000/api/v1/me/documents
+-> Montre où en est le dossier chauffeur : statut, numéro de permis, documents envoyés
+   (avec un lien vers chaque photo, valable 10 min).
+(pas de body)
+
+POST http://localhost:3000/api/v1/me/documents             [FORM-DATA]
+-> Envoie le recto du permis avec son numéro. TOUJOURS EN PREMIER.
+   Si ce permis appartient à un ancien compte supprimé, cet ancien compte est réactivé
+   (la réponse contient "compteReactive").
+  type         = permis_recto
+  numeroPermis = numéro écrit sur le permis
+  fichier      = (photo du recto)
+
+POST http://localhost:3000/api/v1/me/documents             [FORM-DATA]
+-> Envoie le verso du permis.
+  type    = permis_verso
+  fichier = (photo du verso)
+
+POST http://localhost:3000/api/v1/me/documents             [FORM-DATA]
+-> Envoie le selfie. Avec les 3 documents, le dossier part en validation (statut "en_attente").
+  type    = selfie
+  fichier = (selfie du chauffeur)
+
+GET http://localhost:3000/api/v1/me/vehicles
+-> Liste les véhicules du chauffeur (et leurs id), le véhicule par défaut en premier.
+(pas de body)
+
+POST http://localhost:3000/api/v1/me/vehicles              [FORM-DATA]
+-> Ajoute un véhicule, en attente de validation par un admin.
+   Si la plaque appartient à un ancien compte supprimé, cet ancien compte est réactivé.
+  type            = voiture ou moto
+  marque          = marque du véhicule      (facultatif)
+  modele          = modèle du véhicule      (facultatif)
+  couleur         = couleur du véhicule
+  immatriculation = plaque, ex. 4321 TBX
+  places          = nombre de places passagers (moto : 1, voiture : 1 à 8)
+  photo           = (photo du véhicule, plaque visible)
+
+PATCH http://localhost:3000/api/v1/me/vehicles/{id du véhicule}
+-> Modifie la description ou choisit le véhicule par défaut.
+   Un véhicule validé dont la description change repasse en validation.
+{
+  "couleur": "nouvelle couleur",
+  "parDefaut": true
+}
+
+DELETE http://localhost:3000/api/v1/me/vehicles/{id du véhicule}
+-> Retire le véhicule (archivé : sa plaque reste liée au compte).
+   Refusé si un trajet publié ou en cours l'utilise.
+(pas de body)
+
+--- Côté back-office (validation)                 [TOKEN ADMIN] ---
+
+GET http://localhost:3000/api/admin/drivers/applications
+-> Liste les dossiers chauffeurs en attente, avec les photos et le numéro de permis.
+   Compare le numéro saisi avec la photo du permis avant de valider.
+(pas de body)
+
+POST http://localhost:3000/api/admin/drivers/{id de l'utilisateur}/approve
+-> Valide le dossier : l'utilisateur devient chauffeur validé et reçoit une notification.
+(pas de body)
+
+POST http://localhost:3000/api/admin/drivers/{id de l'utilisateur}/reject
+-> Refuse le dossier avec un motif montré au chauffeur, qui renvoie les documents concernés.
+{
+  "motif": "raison du refus",
+  "documents": ["permis_recto"]
+}
+(documents facultatif : permis_recto, permis_verso, selfie ; sans lui, tout est refusé)
+
+GET http://localhost:3000/api/admin/vehicles/pending
+-> Liste les véhicules en attente de validation.
+(pas de body)
+
+POST http://localhost:3000/api/admin/vehicles/{id du véhicule}/approve
+-> Valide le véhicule et prévient le chauffeur.
+(pas de body)
+
+POST http://localhost:3000/api/admin/vehicles/{id du véhicule}/reject
+-> Refuse le véhicule avec un motif montré au chauffeur.
+{
+  "motif": "raison du refus"
+}
+
+--- Test anti-fraude (ancien compte retrouvé) ---
+
+1. Connexion avec 034 00 000 03, puis DELETE /api/v1/me
+2. Connexion avec un numéro jamais utilisé, ex. 032 99 999 99 (nouveau compte)
+3. POST /api/v1/me/vehicles avec immatriculation = 1357 TBD (plaque de l'ancien compte)
+-> la réponse contient "compteReactive" : l'ancien compte n°3 revient,
+   avec de nouveaux jetons à utiliser à la place des anciens.
+
+
+==============================================================
+ DONNÉES DE DÉMO UTILES (après npm run db:seed)
+==============================================================
+
+  034 00 000 03   chauffeur validé, voiture 1357 TBD (test anti-fraude)
+  034 00 000 04   utilisateur n°4 : dossier chauffeur + véhicule n°6 en attente (back-office)
+  034 00 000 09   ancien compte incomplet (profilIncomplet: true)
+  034 00 000 10   compte suspendu (connexion refusée)
+  034 00 000 01   course en cours (suppression du compte refusée)
+  Tout autre numéro (ex. 032 99 999 99) : nouveau compte.

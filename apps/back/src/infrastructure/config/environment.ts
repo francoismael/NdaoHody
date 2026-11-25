@@ -11,10 +11,30 @@ export interface Environment {
   DB_MIGRATIONS_RUN: boolean;
   /** Web origins allowed to call the API (back-office). The native app sends no origin. */
   CORS_ORIGINS: string[];
+  /** Signs the access tokens (JWT) of the native app. */
+  JWT_ACCESS_SECRET: string;
+  /** Signs the access tokens (JWT) of the back-office. Different from JWT_ACCESS_SECRET. */
+  JWT_ADMIN_SECRET: string;
+  /** Key used to hash SMS codes and refresh tokens before they are stored. */
+  HASH_SECRET: string;
+  /** "log": SMS are written in the server logs (local development). */
+  SMS_PROVIDER: SmsProvider;
+  /** Folder where uploaded files (profile photos) are written. */
+  UPLOADS_DIR: string;
+  /** Folder of the private files (driver licences, selfies): only reachable through temporary links. */
+  PRIVATE_UPLOADS_DIR: string;
+  /** Public address of the API, used to build the links of uploaded files. */
+  PUBLIC_BASE_URL: string;
 }
 
-const REQUIRED_VARIABLES = ['DATABASE_URL', 'MONGODB_URI'] as const;
+export type SmsProvider = 'log';
+
+const SMS_PROVIDERS: readonly SmsProvider[] = ['log'];
+const SECRET_VARIABLES = ['JWT_ACCESS_SECRET', 'JWT_ADMIN_SECRET', 'HASH_SECRET'] as const;
+const REQUIRED_VARIABLES = ['DATABASE_URL', 'MONGODB_URI', ...SECRET_VARIABLES] as const;
+const MIN_SECRET_LENGTH = 32;
 const DEFAULT_CORS_ORIGINS = 'http://localhost:4200';
+const DEFAULT_PORT = '3000';
 
 export function validateEnvironment(config: Record<string, unknown>): Environment {
   const missing = REQUIRED_VARIABLES.filter((key) => !config[key]);
@@ -25,9 +45,29 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     );
   }
 
+  const weakSecrets = SECRET_VARIABLES.filter((key) => readString(config, key).length < MIN_SECRET_LENGTH);
+  if (weakSecrets.length > 0) {
+    throw new Error(`${weakSecrets.join(', ')} must be at least ${MIN_SECRET_LENGTH} characters long.`);
+  }
+  if (new Set(SECRET_VARIABLES.map((key) => readString(config, key))).size < SECRET_VARIABLES.length) {
+    // Same secret for the app and the back-office: an app token could open the back-office.
+    throw new Error(`${SECRET_VARIABLES.join(', ')} must all be different.`);
+  }
+
+  const smsProvider = readString(config, 'SMS_PROVIDER', 'log');
+  if (!isSmsProvider(smsProvider)) {
+    throw new Error(`SMS_PROVIDER must be one of: ${SMS_PROVIDERS.join(', ')}.`);
+  }
+  const nodeEnv = readString(config, 'NODE_ENV', 'development');
+  if (nodeEnv === 'production' && smsProvider === 'log') {
+    // The logs would contain every sign-in code.
+    throw new Error('SMS_PROVIDER=log is for local development only: set a real SMS provider in production.');
+  }
+
+  const port = readString(config, 'PORT', DEFAULT_PORT);
   return {
-    NODE_ENV: readString(config, 'NODE_ENV', 'development'),
-    PORT: Number(readString(config, 'PORT', '3000')),
+    NODE_ENV: nodeEnv,
+    PORT: Number(port),
     DATABASE_URL: readString(config, 'DATABASE_URL'),
     MONGODB_URI: readString(config, 'MONGODB_URI'),
     DB_MIGRATIONS_RUN: readString(config, 'DB_MIGRATIONS_RUN', 'false') === 'true',
@@ -35,7 +75,18 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
       .split(',')
       .map((origin) => origin.trim())
       .filter((origin) => origin.length > 0),
+    JWT_ACCESS_SECRET: readString(config, 'JWT_ACCESS_SECRET'),
+    JWT_ADMIN_SECRET: readString(config, 'JWT_ADMIN_SECRET'),
+    HASH_SECRET: readString(config, 'HASH_SECRET'),
+    SMS_PROVIDER: smsProvider,
+    UPLOADS_DIR: readString(config, 'UPLOADS_DIR', 'apps/back/uploads'),
+    PRIVATE_UPLOADS_DIR: readString(config, 'PRIVATE_UPLOADS_DIR', 'apps/back/private-uploads'),
+    PUBLIC_BASE_URL: readString(config, 'PUBLIC_BASE_URL', `http://localhost:${port}`).replace(/\/$/, ''),
   };
+}
+
+function isSmsProvider(value: string): value is SmsProvider {
+  return (SMS_PROVIDERS as readonly string[]).includes(value);
 }
 
 /** Values from .env are strings; anything else falls back to the default. */

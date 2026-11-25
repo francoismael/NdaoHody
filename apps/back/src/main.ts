@@ -1,11 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app/app.module';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { AppModule } from './app/AppModule';
 import { DOCS_PATH, GLOBAL_PREFIX, setupHttpServer } from './infrastructure/config/http';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   setupHttpServer(app);
 
   const port = app.get(ConfigService).getOrThrow<number>('PORT');

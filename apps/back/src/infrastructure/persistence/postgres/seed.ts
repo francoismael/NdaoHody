@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import dataSource from './data-source';
+import dataSource from './dataSource';
 
 /**
  * Loads the demo data (npm run db:seed).

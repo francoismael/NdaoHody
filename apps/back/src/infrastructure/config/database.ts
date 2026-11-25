@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { buildPostgresOptions } from '../persistence/postgres/postgres-options';
+import { buildPostgresOptions } from '../persistence/postgres/postgresOptions';
 
 /**
  * PostgreSQL (+ PostGIS): source of truth, holds all business data.
