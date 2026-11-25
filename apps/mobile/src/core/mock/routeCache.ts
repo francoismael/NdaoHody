@@ -20,7 +20,7 @@ const ROUTES_KEY = 'ndaohody:mock-routes';
 const DRAFT_DETOUR = 1.25; // straight line -> road distance
 const DRAFT_SPEED_MS = 5.5; // ~20 km/h in Tana traffic
 /** Keeps the saved database well under Android's ~2 MB per-entry limit. */
-const MIN_POINT_STEP_M = 20;
+export const MIN_POINT_STEP_M = 20;
 
 let cache: Partial<Record<ItineraryKey, StoredRoute>> = {};
 

@@ -29,7 +29,5 @@ export const getPlaces = () => request<Place[]>('GET', '/places');
 export const getNearestPlace = ({ latitude, longitude }: Position) =>
   request<Place>('GET', `/places/nearest?latitude=${latitude}&longitude=${longitude}`);
 
-export const getDestinations = (placeId: number) => request<Place[]>('GET', `/places/${placeId}/destinations`);
-
 export const getRoutePreview = (departId: number, arriveeId: number) =>
   request<RoutePreview>('GET', `/routes?departId=${departId}&arriveeId=${arriveeId}`);

@@ -19,7 +19,8 @@ import {
 } from '@/shared/utils';
 
 import { usePublishAccess } from '../hooks/usePublishAccess';
-import { usePublishTrip, useRoutePreview } from '../hooks/useTrips';
+import { usePublishTrip, useRouteBetween } from '../hooks/useTrips';
+import { decodePlace } from '../publishParams';
 import { PUBLISH_MESSAGES as M } from '../rules';
 
 /** Default seats offered for a car (PWA). */
@@ -38,8 +39,10 @@ export function PublishSeatsScreen() {
   const router = useRouter();
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
-  const params = useLocalSearchParams<{ departId: string; arriveeId: string; type: TypeTrajet; dateDepart?: string }>();
-  const route = useRoutePreview(Number(params.departId), Number(params.arriveeId));
+  const params = useLocalSearchParams<{ depart: string; arrivee: string; type: TypeTrajet; dateDepart?: string }>();
+  const depart = useMemo(() => decodePlace(params.depart), [params.depart]);
+  const arrivee = useMemo(() => decodePlace(params.arrivee), [params.arrivee]);
+  const route = useRouteBetween(depart, arrivee);
   const access = usePublishAccess();
   const me = useMe();
   const publish = usePublishTrip();
@@ -85,7 +88,7 @@ export function PublishSeatsScreen() {
     );
   }
 
-  if (access.status === 'loading' || route.isPending || me.isPending) {
+  if (access.status === 'loading' || route.isLoading || me.isPending) {
     return (
       <View style={[s.screen, s.center]}>
         <ActivityIndicator color={theme.colors.accent} accessibilityLabel="Chargement" />
@@ -125,11 +128,13 @@ export function PublishSeatsScreen() {
       ? access.error.message
       : access.status === 'blocked'
         ? M.notValidated
-        : route.isError
-          ? route.error.message
-          : publish.error && !seatsError
-            ? publish.error.message
-            : null;
+        : !depart || !arrivee
+          ? 'Trajet introuvable. Reviens à l’étape 1.'
+          : route.isError
+            ? route.error.message
+            : publish.error && !seatsError
+              ? publish.error.message
+              : null;
 
   return (
     <FormScreen

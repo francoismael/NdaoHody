@@ -25,6 +25,7 @@ export {
 } from './format';
 export { isRecord } from './guards';
 export { matchesSearch, searchKey } from './text';
+export { useDebouncedValue } from './useDebouncedValue';
 export {
   formatPhoneInput,
   formatPhoneNumber,

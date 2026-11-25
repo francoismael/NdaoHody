@@ -11,14 +11,17 @@ import { formatDistance, formatDuration } from '@/shared/utils';
 import { PlacePicker } from '../components/PlacePicker';
 import { PublishBlockedCard } from '../components/PublishBlockedCard';
 import { usePublishAccess } from '../hooks/usePublishAccess';
-import { useDemoPosition, useDestinations, useNearestPlace, usePlaces, useRoutePreview } from '../hooks/useTrips';
+import { toChosenPlace, useDemoPosition, useNearestPlace, useRouteBetween } from '../hooks/useTrips';
+import { encodePlace } from '../publishParams';
+import { MIN_TRIP_METRES, PUBLISH_MESSAGES as M } from '../rules';
+import type { ChosenPlace } from '../types';
 
 type Picking = 'depart' | 'arrivee' | null;
 
 /**
- * Publish, step 1 of 3: where from (my position or a chosen place) and where to.
- * Only places with a recorded road are offered, so the route is always drawn
- * on real streets. The route is seen by the driver only (preview).
+ * Publish, step 1 of 3: where from (my position or a searched place) and where to.
+ * The road is computed on real streets (Mapbox online, recorded roads offline);
+ * the driver alone sees this preview.
  */
 export function PublishScreen() {
   const router = useRouter();
@@ -30,19 +33,16 @@ export function PublishScreen() {
   // PROVISIONAL (like the passenger home, until GPS positions in R12/R22): the demo position.
   const here = useDemoPosition();
   const nearest = useNearestPlace(here);
-  const places = usePlaces();
+  const currentPlace = useMemo(() => (nearest.data ? toChosenPlace(nearest.data) : null), [nearest.data]);
   const [fromCurrent, setFromCurrent] = useState(true);
-  const [chosenDepartId, setChosenDepartId] = useState<number | null>(null);
-  const [wantedArriveeId, setWantedArriveeId] = useState<number | null>(null);
+  const [chosenDepart, setChosenDepart] = useState<ChosenPlace | null>(null);
+  const [arrivee, setArrivee] = useState<ChosenPlace | null>(null);
   const [picking, setPicking] = useState<Picking>(null);
   const [panelHeight, setPanelHeight] = useState(0);
 
-  const departId = fromCurrent ? (nearest.data?.id ?? null) : chosenDepartId;
-  const depart = fromCurrent ? (nearest.data ?? null) : (places.data?.find((p) => p.id === chosenDepartId) ?? null);
-  const destinations = useDestinations(departId);
-  // A destination that cannot be reached from the new departure is dropped.
-  const arrivee = destinations.data?.find((p) => p.id === wantedArriveeId) ?? null;
-  const route = useRoutePreview(departId, arrivee?.id ?? null);
+  const depart = fromCurrent ? currentPlace : chosenDepart;
+  const route = useRouteBetween(depart, arrivee);
+  const tooShort = route.data !== undefined && route.data.distanceMetres < MIN_TRIP_METRES;
 
   const fit = useMemo<MapFit | null>(() => {
     if (panelHeight === 0) return null;
@@ -70,13 +70,14 @@ export function PublishScreen() {
         <FieldRow
           s={s}
           label="Départ"
-          value={depart ? (fromCurrent ? `Ma position · ${depart.nom}` : depart.nom) : fromCurrent ? 'Ma position…' : 'Choisir'}
+          value={depart ? (fromCurrent ? `Ma position · ${depart.libelle}` : depart.libelle) : fromCurrent ? 'Ma position…' : 'Choisir'}
           onPress={() => setPicking('depart')}
         />
         {currentProblem ? <FieldMessage tone="danger" message={currentProblem} /> : null}
-        <FieldRow s={s} label="Destination" value={arrivee?.nom ?? 'Choisir'} onPress={() => setPicking('arrivee')} disabled={departId === null} />
+        <FieldRow s={s} label="Destination" value={arrivee?.libelle ?? 'Choisir'} onPress={() => setPicking('arrivee')} />
 
         {route.isError ? <FieldMessage tone="danger" message={route.error.message} /> : null}
+        {tooShort ? <FieldMessage tone="danger" message={M.tooShort} /> : null}
         {route.data ? (
           <View style={s.summary} accessible accessibilityLiveRegion="polite">
             <Text style={s.summaryMain}>
@@ -88,11 +89,11 @@ export function PublishScreen() {
 
         <Button
           label="Continuer"
-          disabled={!route.data || departId === null || !arrivee}
+          disabled={!route.data || !depart || !arrivee || tooShort}
           loading={route.isFetching && !route.data}
           onPress={() => {
-            if (departId === null || !arrivee) return;
-            router.push({ pathname: '/publish-route', params: { departId: String(departId), arriveeId: String(arrivee.id) } });
+            if (!depart || !arrivee) return;
+            router.push({ pathname: '/publish-route', params: { depart: encodePlace(depart), arrivee: encodePlace(arrivee) } });
           }}
         />
       </>
@@ -121,19 +122,19 @@ export function PublishScreen() {
       <PlacePicker
         visible={picking === 'depart'}
         title="D’où pars-tu ?"
-        places={places.data ?? []}
-        selected={fromCurrent ? 'current' : chosenDepartId}
+        near={here}
+        selected={depart}
         current={{
-          place: nearest.data ?? null,
+          place: currentPlace,
           problem: nearest.isError ? nearest.error.message : null,
           onSelect: () => {
             setFromCurrent(true);
             setPicking(null);
           },
         }}
-        onSelect={(id) => {
+        onSelect={(place) => {
           setFromCurrent(false);
-          setChosenDepartId(id);
+          setChosenDepart(place);
           setPicking(null);
         }}
         onClose={() => setPicking(null)}
@@ -141,11 +142,10 @@ export function PublishScreen() {
       <PlacePicker
         visible={picking === 'arrivee'}
         title="Où vas-tu ?"
-        places={destinations.data ?? []}
-        selected={arrivee?.id ?? null}
-        emptyText="Aucun trajet enregistré depuis ce départ. Choisis un autre départ."
-        onSelect={(id) => {
-          setWantedArriveeId(id);
+        near={here}
+        selected={arrivee}
+        onSelect={(place) => {
+          setArrivee(place);
           setPicking(null);
         }}
         onClose={() => setPicking(null)}

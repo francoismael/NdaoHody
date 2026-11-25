@@ -10,17 +10,19 @@ export { DrivingScreen } from './screens/DrivingScreen';
 export {
   tripsKeys,
   useDemoPosition,
-  useDestinations,
   useMyTrips,
   useNearestPlace,
   useNearbyDrivers,
   usePlaces,
   usePublishTrip,
-  useRoutePreview,
+  usePlaceAt,
+  usePlaceSearch,
+  useResolvePlace,
+  useRouteBetween,
   useSearchTrips,
   useTrip,
   useTripsAround,
 } from './hooks/useTrips';
 export { usePublishAccess } from './hooks/usePublishAccess';
 export type { PublishAccess } from './hooks/usePublishAccess';
-export type { Place, PublishTripInput, RoutePreview } from './types';
+export type { ChosenPlace, Place, PlaceSuggestionItem, PublishTripInput, RoutePreview } from './types';

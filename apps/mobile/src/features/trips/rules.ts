@@ -20,6 +20,14 @@ export const PLAN_STEP_MINUTES = 15;
 /** Hours offered as shortcuts (PWA EtapeQuand: HEURES_PROPOSEES), in minutes after midnight. */
 export const PLAN_SUGGESTED_MINUTES = [6 * 60, 7 * 60, 12 * 60, 17 * 60, 18 * 60] as const;
 
+/** "Près d’Ivato", "Près de Tanjombato": the approximate name of a touched point. */
+export function nearName(area: string): string {
+  return /^[aeiouyhàâéèêëîïôûù]/i.test(area) ? `Près d’${area}` : `Près de ${area}`;
+}
+
+/** Shorter than this is not a carpool trip (same place twice, a few streets). */
+export const MIN_TRIP_METRES = 500;
+
 /** A trip still to come or on the road: shown on the driver's home. */
 export const ACTIVE_TRIP_STATUSES: readonly StatutTrajet[] = ['publie', 'en_route', 'en_cours'];
 
@@ -30,6 +38,12 @@ export const PUBLISH_MESSAGES = {
   tooFarAhead: `Tu peux publier un trajet au plus ${PLAN_MAX_DAYS} jours à l’avance.`,
   alreadyOnRoad: 'Tu as déjà un trajet en route. Termine-le avant d’en publier un autre immédiat.',
   noRoute: 'Aucun trajet enregistré entre ces deux lieux. Choisis une autre destination.',
+  routeOffline: 'Pas de réseau pour calculer ce trajet. Réessaie, ou choisis deux lieux enregistrés.',
+  searchOffline: 'Recherche indisponible sans réseau : voici les lieux enregistrés.',
+  placeUnavailable: 'Impossible de récupérer ce lieu. Réessaie.',
+  /** Name of a touched point when neither Mapbox nor the known places help. */
+  unnamedPoint: 'Point choisi sur la carte',
+  tooShort: 'Ce trajet est trop court. Choisis une destination plus éloignée du départ.',
   noPlaceNearby: 'Aucun point de départ connu près de toi. Choisis-en un dans la liste.',
   seatsInvalid: (max: number): string => `Entre 1 et ${max} place(s).`,
 } as const;

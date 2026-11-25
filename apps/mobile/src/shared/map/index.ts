@@ -1,7 +1,5 @@
 export { AppMap, TANA_CENTER } from './AppMap';
-export type { MapFit, MapInsets } from './AppMap';
-export { MapPoints } from './MapPoints';
-export type { MapPoint } from './MapPoints';
+export type { MapFit, MapFocus, MapInsets } from './AppMap';
 export { MovingMarker } from './MovingMarker';
 export { RouteLine } from './RouteLine';
 export { useLocationPermission } from './useLocationPermission';
@@ -9,4 +7,6 @@ export type { LocationPermissionStatus } from './useLocationPermission';
 export { boundsOf, densify, haversineMeters, indexAtFraction, metersAlong, nearestPointIndex, pathLengthMeters, pointAlong, thinPath } from './geo';
 export type { LngLat } from './geo';
 export { fetchDrivingRoute } from './directions';
+export { areaNameAt, newSearchSession, PlaceSearchUnavailable, retrievePlace, suggestPlaces } from './placeSearch';
+export type { FoundPlace, PlaceSuggestion, SearchOptions } from './placeSearch';
 export type { DrivingRoute } from './directions';
