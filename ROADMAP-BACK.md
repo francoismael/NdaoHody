@@ -131,12 +131,11 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 
 ## Étape 6 — Publier un trajet
 
-- [ ] `POST /trajets` : départ (position actuelle ou point choisi), destination, véhicule, places, prix, **maintenant** ou **date + heure**
+- [ ] `POST /trajets` : départ (position actuelle ou point choisi), destination, véhicule, places, **maintenant** ou **date + heure** (pas de prix : il est calculé pour chaque passager, voir étape 8)
 - [ ] Le serveur demande le chemin à Mapbox et l'enregistre
-- [ ] Règles : chauffeur et véhicule validés, places ≤ places du véhicule, prix ≤ palier, un seul trajet parti à la fois, pas de doublon, 60 jours max à l'avance
+- [ ] Règles : chauffeur et véhicule validés, places ≤ places du véhicule, un seul trajet parti à la fois, pas de doublon, 60 jours max à l'avance
 - [ ] Option **« Réservé aux femmes »** (`reserve_femmes`) : possible seulement pour une conductrice (sexe `femme`) ; refusée pour un homme
 - [ ] Cette option est **un choix, jamais une obligation** : une conductrice publie des trajets normaux quand elle veut, et y accepte hommes et femmes
-- [ ] Prix suggéré selon `palier_prix`
 - [ ] Trajet à l'avance : `POST /trajets/:id/partir` (« Je pars »), rappels 1 h et 10 min avant, annulation automatique s'il ne part pas
 - [ ] `PATCH /trajets/:id` (avant le départ, passagers prévenus), `POST /trajets/:id/annuler`, `GET /trajets/actif`
 
@@ -163,7 +162,7 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] Filtre facultatif `femmesSeulement` : une passagère qui le souhaite n'affiche que les trajets réservés aux femmes (désactivé par défaut)
 - [ ] Réserver un trajet réservé aux femmes quand on est un homme → refusé (même en appelant l'API directement)
 - [ ] Tri : chauffeurs notés (meilleure note d'abord), puis non notés ; à égalité, le plus proche
-- [ ] Réponse = `ResultatRecherche` (sans téléphone)
+- [ ] Réponse = `ResultatRecherche` (sans téléphone), avec la distance du passager, le prix d'une place et le prix total pour les places demandées
 
 **Fini quand** : avec les données de démo, Tanjombato → Analakely trouve le trajet 1 et pas le trajet 5 (sens inverse).
 
@@ -171,7 +170,18 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 
 ## Étape 8 — Réserver
 
-- [ ] `POST /trajets/:id/reserver` : places, prise en charge, dépose, prix copié ; statut `en_attente`, expiration = maintenant + 3 min
+- [ ] `POST /trajets/:id/reserver` : places, prise en charge, dépose ; statut `en_attente`, expiration = maintenant + 3 min
+- [ ] **Places** : de 1 à toutes les places libres du trajet (ex. 3 places libres → le passager peut réserver les 3 pour lui et ses proches) ; refusé au-delà
+- [ ] **Prix calculé par le serveur** (jamais par l'app), puis figé sur la réservation :
+  - distance du passager = longueur de la route du chauffeur entre la prise en charge et la dépose (PostGIS)
+  - prix d'une place = max(prix minimum, km × prix au km), arrondi à la centaine supérieure, selon le type de véhicule (table `tarif`)
+
+    | Véhicule | Prix au km | Prix minimum | Exemple |
+    |---|---|---|---|
+    | Voiture | 300 Ar | 3 000 Ar | 12 km → 3 600 Ar |
+    | Moto | 500 Ar | 5 000 Ar | 13 km → 6 500 Ar |
+
+  - prix total = prix d'une place × places (ex. 3 places en voiture sur 12 km → 10 800 Ar)
 - [ ] Chauffeur prévenu (push + WebSocket)
 - [ ] `POST /reservations/:id/accepter` : places retirées en une seule opération (jamais deux fois la même place)
 - [ ] `POST /reservations/:id/refuser` : notification au passager
@@ -272,7 +282,7 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] Trajets et réservations : listes, détail, annulation par un admin
 - [ ] Signalements et SOS : traitement avec note
 - [ ] Admins prévenus d'un nouveau dossier chauffeur, d'un signalement et d'un SOS
-- [ ] Réglages (`parametre`) : lecture pour tous, modification super_admin
+- [ ] Réglages (`parametre`) et tarifs (`tarif` : prix minimum et prix au km de la voiture et de la moto) : lecture pour tous, modification super_admin ; un nouveau tarif ne change pas le prix des réservations déjà faites
 - [ ] Export CSV des statistiques pour l'investisseur (sans données personnelles)
 
 ---
@@ -296,7 +306,8 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 | `attente_minutes` | 15 | Compte à rebours |
 | `marge_route_metres` | 30 | Marge GPS « sur la route » |
 | `frequence_position_secondes` | 5 | Envoi de la position du chauffeur |
-| `prix_max_par_place` | 10000 | Prix maximum (Ar) |
 | `otp_duree_minutes` | 5 | Validité du code SMS |
+
+Les prix sont dans la table `tarif` (une ligne par type de véhicule : prix minimum, prix au km, arrondi), modifiable par le super admin.
 
 Détail de chaque tâche : `D:\ismael\Ndaohody\Taches-back-Ndaohody-v2.docx`.

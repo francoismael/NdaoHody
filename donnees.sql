@@ -20,7 +20,7 @@
    ============================================================================= */
 
 DROP TABLE IF EXISTS preference_notification, lien_suivi, blocage, alerte_sos, signalement, avis, message, conversation,
-    reservation, position_chauffeur, trajet, palier_prix, quartier, vehicule,
+    reservation, position_chauffeur, trajet, tarif, quartier, vehicule,
     document_chauffeur, code_otp, utilisateur, journal_admin, administrateur, parametre CASCADE;
 
 
@@ -193,11 +193,20 @@ CREATE TABLE quartier (
 );
 
 
-/* prix maximum par place selon la distance ex: jusqu'à 5 km -> 3 000 Ar */
-CREATE TABLE palier_prix (
-    id SERIAL PRIMARY KEY,
-    km_max DECIMAL(5,1),
-    prix_max INT NOT NULL
+/* tarif par type de véhicule, calculé sur la distance du PASSAGER (prise en charge -> dépose) :
+   prix d'une place = max(prix_minimum, distance en km x prix_par_km), arrondi à la centaine supérieure
+   ex: voiture 12 km -> 3 600 Ar ; moto 13 km -> 6 500 Ar ; prix total = prix d'une place x places */
+CREATE TABLE tarif (
+    type_vehicule VARCHAR(10) PRIMARY KEY,
+    prix_minimum INT NOT NULL,
+    prix_par_km INT NOT NULL,
+    arrondi INT NOT NULL DEFAULT 100,
+
+    CONSTRAINT ck_tarif_type
+        CHECK (type_vehicule IN ('moto', 'voiture')),
+
+    CONSTRAINT ck_tarif_montants
+        CHECK (prix_minimum > 0 AND prix_par_km > 0 AND arrondi > 0)
 );
 
 
@@ -220,7 +229,6 @@ CREATE TABLE trajet (
     date_depart TIMESTAMPTZ NOT NULL,
     places_total INT NOT NULL,
     places_libres INT NOT NULL,
-    prix_par_place INT NOT NULL,
     date_annulation TIMESTAMPTZ,
     date_fin TIMESTAMPTZ,
     /* TRUE : seules les femmes voient ce trajet (option choisie par une conductrice).
@@ -272,7 +280,12 @@ CREATE TABLE reservation (
     id SERIAL PRIMARY KEY,
     trajet_id BIGINT NOT NULL,
     passager_id BIGINT NOT NULL,
+    /* le passager réserve de 1 place à toutes les places libres du trajet */
     places INT NOT NULL DEFAULT 1,
+    /* distance du passager sur la route du chauffeur (prise en charge -> dépose) */
+    distance_metres INT NOT NULL,
+    /* calculé avec la table tarif au moment de la demande, puis figé */
+    prix_par_place INT NOT NULL,
     prix_total INT NOT NULL,
     prise_en_charge_libelle VARCHAR(150) NOT NULL,
     prise_en_charge_latitude DECIMAL(10,7) NOT NULL,
@@ -298,6 +311,9 @@ CREATE TABLE reservation (
 
     CONSTRAINT ck_reservation_places
         CHECK (places BETWEEN 1 AND 8),
+
+    CONSTRAINT ck_reservation_prix
+        CHECK (distance_metres > 0 AND prix_par_place > 0 AND prix_total = prix_par_place * places),
 
     CONSTRAINT fk_reservation_trajet
         FOREIGN KEY (trajet_id)
@@ -515,7 +531,6 @@ INSERT INTO parametre (cle, valeur, description) VALUES
 ('attente_minutes',        '15',    'Compte à rebours quand le chauffeur est sur place'),
 ('marge_route_metres',     '30',    'Marge GPS pour savoir si un point est sur la route du chauffeur'),
 ('frequence_position_secondes', '5', 'Envoi de la position du chauffeur'),
-('prix_max_par_place',     '10000', 'Prix maximum par place (Ar)'),
 ('otp_duree_minutes',      '5',     'Durée de validité du code SMS');
 
 
@@ -615,11 +630,10 @@ INSERT INTO quartier (nom, latitude, longitude) VALUES
 ('Ambohibao',       -18.8600000, 47.4700000);
 
 
-INSERT INTO palier_prix (km_max, prix_max) VALUES
-(5,    3000),
-(10,   5000),
-(15,   7000),
-(NULL, 10000);
+/* voiture : 300 Ar/km, au moins 3 000 Ar la place ; moto : 500 Ar/km, au moins 5 000 Ar */
+INSERT INTO tarif (type_vehicule, prix_minimum, prix_par_km, arrondi) VALUES
+('voiture', 3000, 300, 100),
+('moto',    5000, 500, 100);
 
 
 /* trajets (chemins simplifiés ; en vrai ils viennent de Mapbox)
@@ -631,23 +645,23 @@ INSERT INTO palier_prix (km_max, prix_max) VALUES
    6 Rasoa    hier 8h    TERMINÉ   67 Ha -> Anosy
    7 Andry    demain 9h  ANNULÉ    67 Ha -> Anosy
    8 Rasoa    immédiat   EN ROUTE  Itaosy -> Anosy, RÉSERVÉ AUX FEMMES */
-INSERT INTO trajet (chauffeur_id, vehicule_id, type, statut, depart_libelle, depart_latitude, depart_longitude, arrivee_libelle, arrivee_latitude, arrivee_longitude, chemin, distance_metres, duree_secondes, date_depart, places_total, places_libres, prix_par_place, date_annulation, date_fin, reserve_femmes) VALUES
+INSERT INTO trajet (chauffeur_id, vehicule_id, type, statut, depart_libelle, depart_latitude, depart_longitude, arrivee_libelle, arrivee_latitude, arrivee_longitude, chemin, distance_metres, duree_secondes, date_depart, places_total, places_libres, date_annulation, date_fin, reserve_femmes) VALUES
 (1, 1, 'immediat',   'en_route', 'Andoharanofotsy, rond-point', -18.9850000, 47.5330000, 'Analakely, avenue de l''Indépendance', -18.9067000, 47.5253000,
-    '[[47.5330,-18.9850],[47.5280,-18.9600],[47.5250,-18.9420],[47.5210,-18.9160],[47.5253,-18.9067]]', 8910, 1458, '2026-11-24 09:54:00+03', 4, 3, 3000, NULL, NULL, FALSE),
+    '[[47.5330,-18.9850],[47.5280,-18.9600],[47.5250,-18.9420],[47.5210,-18.9160],[47.5253,-18.9067]]', 8910, 1458, '2026-11-24 09:54:00+03', 4, 3, NULL, NULL, FALSE),
 (2, 3, 'a_l_avance', 'publie',   'Ivato, aéroport', -18.7969000, 47.4788000, 'Analakely, marché', -18.9067000, 47.5253000,
-    '[[47.4788,-18.7969],[47.4630,-18.8350],[47.5150,-18.8880],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 15800, 2585, '2026-11-25 07:00:00+03', 3, 1, 5000, NULL, NULL, FALSE),
+    '[[47.4788,-18.7969],[47.4630,-18.8350],[47.5150,-18.8880],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 15800, 2585, '2026-11-25 07:00:00+03', 3, 1, NULL, NULL, FALSE),
 (3, 4, 'a_l_avance', 'publie',   'Itaosy, église', -18.9230000, 47.4710000, 'Ankatso, université', -18.9180000, 47.5560000,
-    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160],[47.5240,-18.9180],[47.5370,-18.9200],[47.5560,-18.9180]]', 9260, 1515, '2026-11-24 11:00:00+03', 3, 3, 3500, NULL, NULL, FALSE),
+    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160],[47.5240,-18.9180],[47.5370,-18.9200],[47.5560,-18.9180]]', 9260, 1515, '2026-11-24 11:00:00+03', 3, 3, NULL, NULL, FALSE),
 (5, 5, 'immediat',   'en_cours', 'Ivandry, Galaxy', -18.8740000, 47.5280000, 'Analakely, Hôtel de ville', -18.9067000, 47.5253000,
-    '[[47.5280,-18.8740],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 3990, 653, '2026-11-24 09:45:00+03', 1, 0, 2500, NULL, NULL, FALSE),
+    '[[47.5280,-18.8740],[47.5240,-18.8890],[47.5300,-18.9010],[47.5253,-18.9067]]', 3990, 653, '2026-11-24 09:45:00+03', 1, 0, NULL, NULL, FALSE),
 (1, 1, 'a_l_avance', 'publie',   'Analakely, avenue de l''Indépendance', -18.9067000, 47.5253000, 'Andoharanofotsy, rond-point', -18.9850000, 47.5330000,
-    '[[47.5253,-18.9067],[47.5210,-18.9160],[47.5250,-18.9420],[47.5280,-18.9600],[47.5330,-18.9850]]', 8910, 1458, '2026-11-25 17:30:00+03', 4, 4, 3000, NULL, NULL, FALSE),
+    '[[47.5253,-18.9067],[47.5210,-18.9160],[47.5250,-18.9420],[47.5280,-18.9600],[47.5330,-18.9850]]', 8910, 1458, '2026-11-25 17:30:00+03', 4, 4, NULL, NULL, FALSE),
 (2, 3, 'a_l_avance', 'termine',  '67 Ha, marché', -18.9030000, 47.5110000, 'Anosy, lac', -18.9160000, 47.5210000,
-    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-23 08:00:00+03', 3, 3, 2000, NULL, '2026-11-23 08:40:00+03', FALSE),
+    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-23 08:00:00+03', 3, 3, NULL, '2026-11-23 08:40:00+03', FALSE),
 (3, 4, 'a_l_avance', 'annule',   '67 Ha, marché', -18.9030000, 47.5110000, 'Anosy, lac', -18.9160000, 47.5210000,
-    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-25 09:00:00+03', 3, 3, 2000, '2026-11-24 09:30:00+03', NULL, FALSE),
+    '[[47.5110,-18.9030],[47.5120,-18.9100],[47.5140,-18.9120],[47.5210,-18.9160]]', 1950, 319, '2026-11-25 09:00:00+03', 3, 3, '2026-11-24 09:30:00+03', NULL, FALSE),
 (2, 3, 'immediat',   'en_route', 'Itaosy, église', -18.9230000, 47.4710000, 'Anosy, lac', -18.9160000, 47.5210000,
-    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160]]', 5480, 897, '2026-11-24 09:48:00+03', 3, 2, 2500, NULL, NULL, TRUE);
+    '[[47.4710,-18.9230],[47.5130,-18.9220],[47.5210,-18.9160]]', 5480, 897, '2026-11-24 09:48:00+03', 3, 2, NULL, NULL, TRUE);
 
 
 INSERT INTO position_chauffeur (chauffeur_id, trajet_id, latitude, longitude, en_ligne, date_mise_a_jour) VALUES
@@ -670,19 +684,19 @@ INSERT INTO position_chauffeur (chauffeur_id, trajet_id, latitude, longitude, en
    10 Sitraka   trajet 6  absent (1 prolongation)
    11 Voahirana trajet 8  chauffeur sur place : fin de l'attente à 10h12
    12 Fetra     trajet 7  annulée par le chauffeur */
-INSERT INTO reservation (trajet_id, passager_id, places, prix_total, prise_en_charge_libelle, prise_en_charge_latitude, prise_en_charge_longitude, depose_libelle, depose_latitude, depose_longitude, statut, relance_de, date_demande, date_expiration, date_reponse, date_sur_place, fin_attente, prolongations, date_debut_course, date_fin_course, date_annulation) VALUES
-(1, 6,  1, 3000,  'Tanjombato, arrêt Jumbo',     -18.9600000, 47.5280000, 'Analakely, avenue de l''Indépendance', -18.9067000, 47.5253000, 'acceptee',            NULL, '2026-11-24 09:56:00+03', '2026-11-24 09:59:00+03', '2026-11-24 09:57:00+03', NULL, NULL, 0, NULL, NULL, NULL),
-(1, 7,  1, 3000,  'Ankadimbahoaka, pharmacie',   -18.9420000, 47.5250000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'en_attente',          NULL, '2026-11-24 09:59:00+03', '2026-11-24 10:02:00+03', NULL, NULL, NULL, 0, NULL, NULL, NULL),
-(4, 8,  1, 2500,  'Ankorondrano, Zone Galaxy',   -18.8890000, 47.5240000, 'Analakely, Hôtel de ville',            -18.9067000, 47.5253000, 'en_course',           NULL, '2026-11-24 09:46:00+03', '2026-11-24 09:49:00+03', '2026-11-24 09:47:00+03', '2026-11-24 09:51:00+03', '2026-11-24 10:06:00+03', 0, '2026-11-24 09:53:00+03', NULL, NULL),
-(2, 12, 2, 10000, 'Andraharo, rond-point',       -18.8880000, 47.5150000, 'Behoririka, lac',                      -18.9010000, 47.5300000, 'acceptee',            NULL, '2026-11-24 06:00:00+03', '2026-11-24 06:03:00+03', '2026-11-24 06:02:00+03', NULL, NULL, 0, NULL, NULL, NULL),
-(2, 7,  1, 5000,  'Talatamaty, marché',          -18.8350000, 47.4630000, 'Ankorondrano, Zone Galaxy',            -18.8890000, 47.5240000, 'expiree',             NULL, '2026-11-24 09:50:00+03', '2026-11-24 09:53:00+03', NULL, NULL, NULL, 0, NULL, NULL, NULL),
-(2, 7,  1, 5000,  'Talatamaty, marché',          -18.8350000, 47.4630000, 'Ankorondrano, Zone Galaxy',            -18.8890000, 47.5240000, 'en_attente',          5,    '2026-11-24 09:59:30+03', '2026-11-24 10:02:30+03', NULL, NULL, NULL, 0, NULL, NULL, NULL),
-(6, 6,  1, 2000,  '67 Ha, marché',               -18.9030000, 47.5110000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'terminee',            NULL, '2026-11-22 20:00:00+03', '2026-11-22 20:03:00+03', '2026-11-22 20:01:00+03', '2026-11-23 07:58:00+03', '2026-11-23 08:13:00+03', 0, '2026-11-23 08:02:00+03', '2026-11-23 08:35:00+03', NULL),
-(6, 12, 1, 2000,  'Isotry, Cité',                -18.9100000, 47.5120000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'terminee',            NULL, '2026-11-22 21:10:00+03', '2026-11-22 21:13:00+03', '2026-11-22 21:12:00+03', '2026-11-23 08:04:00+03', '2026-11-23 08:19:00+03', 0, '2026-11-23 08:06:00+03', '2026-11-23 08:38:00+03', NULL),
-(3, 8,  1, 3500,  'Anosy, lac',                  -18.9160000, 47.5210000, 'Ankatso, université',                  -18.9180000, 47.5560000, 'refusee',             NULL, '2026-11-24 08:30:00+03', '2026-11-24 08:33:00+03', '2026-11-24 08:31:00+03', NULL, NULL, 0, NULL, NULL, NULL),
-(6, 10, 1, 2000,  'Ampefiloha, gare',            -18.9120000, 47.5140000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'absent',              NULL, '2026-11-22 22:00:00+03', '2026-11-22 22:03:00+03', '2026-11-22 22:01:00+03', '2026-11-23 08:05:00+03', '2026-11-23 08:35:00+03', 1, NULL, NULL, NULL),
-(8, 12, 1, 2500,  'Andavamamba, carrefour',      -18.9220000, 47.5130000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'chauffeur_sur_place', NULL, '2026-11-24 09:49:00+03', '2026-11-24 09:52:00+03', '2026-11-24 09:50:00+03', '2026-11-24 09:57:00+03', '2026-11-24 10:12:00+03', 0, NULL, NULL, NULL),
-(7, 7,  1, 2000,  '67 Ha, marché',               -18.9030000, 47.5110000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'annulee_chauffeur',   NULL, '2026-11-23 10:00:00+03', '2026-11-23 10:03:00+03', '2026-11-23 10:01:00+03', NULL, NULL, 0, NULL, NULL, '2026-11-24 09:30:00+03');
+INSERT INTO reservation (trajet_id, passager_id, places, distance_metres, prix_par_place, prix_total, prise_en_charge_libelle, prise_en_charge_latitude, prise_en_charge_longitude, depose_libelle, depose_latitude, depose_longitude, statut, relance_de, date_demande, date_expiration, date_reponse, date_sur_place, fin_attente, prolongations, date_debut_course, date_fin_course, date_annulation) VALUES
+(1, 6,  1, 6051, 3000, 3000,  'Tanjombato, arrêt Jumbo',     -18.9600000, 47.5280000, 'Analakely, avenue de l''Indépendance', -18.9067000, 47.5253000, 'acceptee',            NULL, '2026-11-24 09:56:00+03', '2026-11-24 09:59:00+03', '2026-11-24 09:57:00+03', NULL, NULL, 0, NULL, NULL, NULL),
+(1, 7,  1, 2909, 3000, 3000,  'Ankadimbahoaka, pharmacie',   -18.9420000, 47.5250000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'en_attente',          NULL, '2026-11-24 09:59:00+03', '2026-11-24 10:02:00+03', NULL, NULL, NULL, 0, NULL, NULL, NULL),
+(4, 8,  1, 2273, 5000, 5000,  'Ankorondrano, Zone Galaxy',   -18.8890000, 47.5240000, 'Analakely, Hôtel de ville',            -18.9067000, 47.5253000, 'en_course',           NULL, '2026-11-24 09:46:00+03', '2026-11-24 09:49:00+03', '2026-11-24 09:47:00+03', '2026-11-24 09:51:00+03', '2026-11-24 10:06:00+03', 0, '2026-11-24 09:53:00+03', NULL, NULL),
+(2, 12, 2, 2426, 3000, 6000,  'Andraharo, rond-point',       -18.8880000, 47.5150000, 'Behoririka, lac',                      -18.9010000, 47.5300000, 'acceptee',            NULL, '2026-11-24 06:00:00+03', '2026-11-24 06:03:00+03', '2026-11-24 06:02:00+03', NULL, NULL, 0, NULL, NULL, NULL),
+(2, 7,  1, 8982, 3000, 3000,  'Talatamaty, marché',          -18.8350000, 47.4630000, 'Ankorondrano, Zone Galaxy',            -18.8890000, 47.5240000, 'expiree',             NULL, '2026-11-24 09:50:00+03', '2026-11-24 09:53:00+03', NULL, NULL, NULL, 0, NULL, NULL, NULL),
+(2, 7,  1, 8982, 3000, 3000,  'Talatamaty, marché',          -18.8350000, 47.4630000, 'Ankorondrano, Zone Galaxy',            -18.8890000, 47.5240000, 'en_attente',          5,    '2026-11-24 09:59:30+03', '2026-11-24 10:02:30+03', NULL, NULL, NULL, 0, NULL, NULL, NULL),
+(6, 6,  1, 1948, 3000, 3000,  '67 Ha, marché',               -18.9030000, 47.5110000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'terminee',            NULL, '2026-11-22 20:00:00+03', '2026-11-22 20:03:00+03', '2026-11-22 20:01:00+03', '2026-11-23 07:58:00+03', '2026-11-23 08:13:00+03', 0, '2026-11-23 08:02:00+03', '2026-11-23 08:35:00+03', NULL),
+(6, 12, 1, 1166, 3000, 3000,  'Isotry, Cité',                -18.9100000, 47.5120000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'terminee',            NULL, '2026-11-22 21:10:00+03', '2026-11-22 21:13:00+03', '2026-11-22 21:12:00+03', '2026-11-23 08:04:00+03', '2026-11-23 08:19:00+03', 0, '2026-11-23 08:06:00+03', '2026-11-23 08:38:00+03', NULL),
+(3, 8,  1, 3787, 3000, 3000,  'Anosy, lac',                  -18.9160000, 47.5210000, 'Ankatso, université',                  -18.9180000, 47.5560000, 'refusee',             NULL, '2026-11-24 08:30:00+03', '2026-11-24 08:33:00+03', '2026-11-24 08:31:00+03', NULL, NULL, 0, NULL, NULL, NULL),
+(6, 10, 1,  860, 3000, 3000,  'Ampefiloha, gare',            -18.9120000, 47.5140000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'absent',              NULL, '2026-11-22 22:00:00+03', '2026-11-22 22:03:00+03', '2026-11-22 22:01:00+03', '2026-11-23 08:05:00+03', '2026-11-23 08:35:00+03', 1, NULL, NULL, NULL),
+(8, 12, 1, 1073, 3000, 3000,  'Andavamamba, carrefour',      -18.9220000, 47.5130000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'chauffeur_sur_place', NULL, '2026-11-24 09:49:00+03', '2026-11-24 09:52:00+03', '2026-11-24 09:50:00+03', '2026-11-24 09:57:00+03', '2026-11-24 10:12:00+03', 0, NULL, NULL, NULL),
+(7, 7,  1, 1948, 3000, 3000,  '67 Ha, marché',               -18.9030000, 47.5110000, 'Anosy, lac',                           -18.9160000, 47.5210000, 'annulee_chauffeur',   NULL, '2026-11-23 10:00:00+03', '2026-11-23 10:03:00+03', '2026-11-23 10:01:00+03', NULL, NULL, 0, NULL, NULL, '2026-11-24 09:30:00+03');
 
 
 INSERT INTO conversation (reservation_id) VALUES

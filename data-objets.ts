@@ -128,10 +128,16 @@ export interface Quartier extends Position {
   nom: string;
 }
 
-export interface PalierPrix {
-  id: number;
-  kmMax: number | null;           // null = au-delà du dernier palier
-  prixMax: number;
+/** Tarif par type de véhicule (table tarif), modifiable par le super admin.
+    Prix d'une place = max(prixMinimum, km du passager x prixParKm), arrondi à la centaine supérieure.
+    Voiture : 300 Ar/km, au moins 3 000 Ar (12 km -> 3 600 Ar).
+    Moto : 500 Ar/km, au moins 5 000 Ar (13 km -> 6 500 Ar).
+    Le prix est toujours calculé par le serveur ; l'app l'affiche seulement. */
+export interface Tarif {
+  typeVehicule: TypeVehicule;
+  prixMinimum: number;
+  prixParKm: number;
+  arrondi: number;                // 100 : arrondi à la centaine supérieure
 }
 
 
@@ -151,8 +157,7 @@ export interface Trajet {
   dureeSecondes: number;
   dateDepart: string;
   placesTotal: number;
-  placesLibres: number;
-  prixParPlace: number;
+  placesLibres: number;           // un passager peut toutes les réserver
   dateAnnulation: string | null;
   dateFin: string | null;
   /** true : visible seulement par les femmes (option choisie par une conductrice).
@@ -191,7 +196,9 @@ export interface ResultatRecherche {
   depose: Lieu;
   arriveeDansMinutes: number | null;  // trajet parti : temps pour arriver au passager
   heurePassage: string | null;        // trajet à l'avance : heure estimée au point du passager
-  prixTotal: number;              // places x prixParPlace
+  distanceMetres: number;         // distance du passager : prise en charge -> dépose
+  prixParPlace: number;           // calculé par le serveur avec le tarif du véhicule
+  prixTotal: number;              // prixParPlace x places demandées
 }
 
 
@@ -202,8 +209,10 @@ export interface Reservation {
   id: number;
   trajetId: number;
   passagerId: number;
-  places: number;
-  prixTotal: number;
+  places: number;                 // de 1 à toutes les places libres du trajet
+  distanceMetres: number;         // distance du passager : prise en charge -> dépose
+  prixParPlace: number;           // figé au moment de la demande
+  prixTotal: number;              // prixParPlace x places
   priseEnCharge: Lieu;
   depose: Lieu;
   statut: StatutReservation;
