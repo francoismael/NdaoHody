@@ -70,7 +70,12 @@ export function ProfileScreen() {
         <Text style={s.name} accessibilityRole="header">
           {name}
         </Text>
-        {badge ? <UserBadge badge={badge} /> : null}
+        {badge ? (
+          // The tag sizes itself to its text (alignSelf flex-start): this box centers it.
+          <View style={s.badge}>
+            <UserBadge badge={badge} />
+          </View>
+        ) : null}
         <Text style={s.meta}>{formatPhoneNumber(user.telephone)}</Text>
         <Text style={s.meta}>{memberSince(user.dateCreation)}</Text>
       </View>
@@ -107,6 +112,7 @@ const createStyles = ({ colors, typography, spacing, gutter, radii }: Theme) =>
     center: { alignItems: 'center', justifyContent: 'center' },
     content: { padding: gutter, gap: spacing[6] },
     head: { alignItems: 'center', gap: spacing[2] },
+    badge: { alignItems: 'center' },
     name: { ...typography.title, color: colors.text, textAlign: 'center' },
     meta: { ...typography.small, color: colors.textMuted },
     stats: { flexDirection: 'row', gap: spacing[3] },
