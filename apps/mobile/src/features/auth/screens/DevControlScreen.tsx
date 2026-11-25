@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useTheme, type Theme } from '@/shared/theme';
-import { ShellScreen } from '@/shared/ui';
+import { Button, ShellScreen } from '@/shared/ui';
 
+import { useResetDemo } from '../hooks/useResetDemo';
 import { useSession } from '../hooks/useSession';
 
 /**
@@ -12,6 +13,7 @@ import { useSession } from '../hooks/useSession';
  */
 export function DevControlScreen() {
   const { signedIn, isDriver, signIn, signOut, setRole } = useSession();
+  const resetDemo = useResetDemo();
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const track = { false: theme.colors.borderStrong, true: theme.colors.primary };
@@ -32,12 +34,19 @@ export function DevControlScreen() {
         <Text style={styles.label}>Rôle chauffeur</Text>
         <Switch
           value={isDriver}
-          onValueChange={(on) => setRole(on ? 'driver' : 'passenger')}
+          onValueChange={(on) => setRole(on ? 'chauffeur' : 'passager')}
           trackColor={track}
           thumbColor={theme.colors.surface}
           accessibilityLabel="Rôle chauffeur"
         />
       </View>
+      <Button
+        label="Remettre la démo à zéro"
+        variant="secondary"
+        loading={resetDemo.isPending}
+        onPress={() => resetDemo.mutate()}
+        hint="Données de départ, cache vidé, déconnexion"
+      />
     </ShellScreen>
   );
 }

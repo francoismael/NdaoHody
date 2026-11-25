@@ -4,7 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/shared/theme';
 
-const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+import { mapboxToken as token } from './token';
+
 if (token) {
   Mapbox.setAccessToken(token);
 }

@@ -1,19 +1,38 @@
-import { sessionStore } from '@/core/session/sessionStore';
+import { DEMO_USER_ID } from '@/core/mock';
+import { SIGNED_OUT, sessionStore } from '@/core/session/sessionStore';
+import { clearQueryCache } from '@/shared/query';
 
 import type { Role, Session } from '../types';
 
-// Aujourd'hui : faux serveur (core). Demain : l'API, sans toucher aux écrans.
+// Session = app state (Zustand, saved on the device). Never in the query cache.
+// Block bodies: with `persist`, setState may return a Promise, so we do not return its result.
 
-export const getSession = (): Session => sessionStore.getSnapshot();
+export const getSession = (): Session => sessionStore.getState();
 
-export const subscribeSession = (listener: () => void): (() => void) =>
-  sessionStore.subscribe(listener);
+export const subscribeSession = (listener: () => void): (() => void) => sessionStore.subscribe(listener);
 
-export const signIn = (): void => sessionStore.update({ signedIn: true });
+/** false until the saved session is read back: guards must wait, or they redirect to /phone. */
+export const isSessionReady = (): boolean => sessionStore.persist.hasHydrated();
 
-export const signOut = (): void => sessionStore.update({ signedIn: false, role: 'passenger' });
+export const subscribeSessionReady = (listener: () => void): (() => void) =>
+  sessionStore.persist.onFinishHydration(() => listener());
 
-export const setRole = (role: Role): void => sessionStore.update({ role });
+export const signIn = (userId: number = DEMO_USER_ID): void => {
+  sessionStore.setState({ signedIn: true, userId });
+};
 
-export const switchRole = (): void =>
-  setRole(getSession().role === 'passenger' ? 'driver' : 'passenger');
+/** New account: the code is right but the name is still missing, so the user stays in the sign-in flow. */
+export const setPendingUser = (userId: number): void => {
+  sessionStore.setState({ signedIn: false, userId });
+};
+
+export const signOut = (): void => {
+  sessionStore.setState(SIGNED_OUT);
+  void clearQueryCache(); // the next account must not see this one's data
+};
+
+export const setRole = (role: Role): void => {
+  sessionStore.setState({ role });
+};
+
+export const switchRole = (): void => setRole(getSession().role === 'passager' ? 'chauffeur' : 'passager');

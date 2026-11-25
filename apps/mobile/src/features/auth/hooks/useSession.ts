@@ -2,10 +2,12 @@ import { useSyncExternalStore } from 'react';
 
 import {
   getSession,
+  isSessionReady,
   setRole,
   signIn,
   signOut,
   subscribeSession,
+  subscribeSessionReady,
   switchRole,
 } from '../services/sessionService';
 import type { Role } from '../types';
@@ -13,28 +15,35 @@ import type { Role } from '../types';
 export type UseSession = {
   signedIn: boolean;
   role: Role;
+  userId: number | null;
   isPassenger: boolean;
   isDriver: boolean;
-  signIn: () => void;
+  signIn: (userId?: number) => void;
   signOut: () => void;
   setRole: (role: Role) => void;
   switchRole: () => void;
 };
 
 /**
- * La session et ses actions. Les gardes de navigation lisent ce hook :
- * changer l'état suffit, la navigation en découle.
+ * The session and its actions. Navigation guards read this hook:
+ * changing the state is enough, navigation follows.
  */
 export function useSession(): UseSession {
-  const { signedIn, role } = useSyncExternalStore(subscribeSession, getSession);
+  const { signedIn, role, userId } = useSyncExternalStore(subscribeSession, getSession);
   return {
     signedIn,
     role,
-    isPassenger: role === 'passenger',
-    isDriver: role === 'driver',
+    userId,
+    isPassenger: role === 'passager',
+    isDriver: role === 'chauffeur',
     signIn,
     signOut,
     setRole,
     switchRole,
   };
+}
+
+/** true once the saved session has been read from the device. */
+export function useSessionReady(): boolean {
+  return useSyncExternalStore(subscribeSessionReady, isSessionReady);
 }
