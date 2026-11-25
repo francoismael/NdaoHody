@@ -19,10 +19,10 @@ import { refreshDerived } from './derived';
 import { ITINERARIES, type ItineraryKey } from './itineraries';
 import { notify } from './notify';
 import { PLACES, type PlaceKey } from './places';
-import { seatPrice, totalPrice } from './pricing';
+import { quoteForTrip } from './pricing';
 import { getRoute } from './routeCache';
 import { DAY_MINUTES, iso, isoIn, minutesUntilLocalTime } from './time';
-import { nearestIndex, segmentMetres, segmentSeconds, toLieu } from './tripGeo';
+import { nearestIndex, segmentSeconds, toLieu } from './tripGeo';
 import { DB_VERSION, type MockDb, type Sequence } from './types';
 
 /** The account the demo phone signs in with (passenger, can become a driver). */
@@ -152,7 +152,6 @@ function addTrip(db: MockDb, now: Date, input: TripInput): Trajet {
     dateDepart: isoIn(now, input.departMinutes),
     placesTotal: input.placesTotal,
     placesLibres: input.placesTotal, // computed by refreshDerived
-    prixParPlace: seatPrice(route.distanceMetres),
     dateAnnulation: null,
     dateFin: input.statut === 'termine' ? isoIn(now, input.departMinutes + Math.round(route.dureeSecondes / 60)) : null,
     reserveFemmes: input.reserveFemmes ?? false,
@@ -188,7 +187,7 @@ function addReservation(db: MockDb, now: Date, input: ReservationInput): Reserva
     trajetId: trajet.id,
     passagerId: input.passagerId,
     places: input.places,
-    prixTotal: totalPrice(segmentMetres(trajet, pickup, drop), input.places),
+    ...quoteForTrip(db, trajet, pickup, drop, input.places),
     priseEnCharge: toLieu(trajet.chemin[pickup], PLACES[input.from].libelle),
     depose: toLieu(trajet.chemin[drop], PLACES[input.to].libelle),
     statut: input.statut,
