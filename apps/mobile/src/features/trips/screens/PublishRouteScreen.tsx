@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import type { TypeTrajet } from '@contract';
@@ -7,7 +7,8 @@ import { Button, ChoiceGroup, Flash, FormScreen, type ChoiceOption, type FormScr
 import { currentTimeMs } from '@/shared/utils';
 
 import { DepartureTimePicker, nextQuarter } from '../components/DepartureTimePicker';
-import { useRoutePreview } from '../hooks/useTrips';
+import { useRouteBetween } from '../hooks/useTrips';
+import { decodePlace } from '../publishParams';
 import { PUBLISH_MESSAGES as M, departureProblem } from '../rules';
 
 const WHEN: readonly ChoiceOption<TypeTrajet>[] = [
@@ -18,10 +19,11 @@ const WHEN: readonly ChoiceOption<TypeTrajet>[] = [
 /** Publish, step 2 of 3: now (default) or a planned day and hour, checked on the demo clock. */
 export function PublishRouteScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ departId: string; arriveeId: string }>();
-  const departId = Number(params.departId);
-  const arriveeId = Number(params.arriveeId);
-  const route = useRoutePreview(departId, arriveeId);
+  const params = useLocalSearchParams<{ depart: string; arrivee: string }>();
+  const depart = useMemo(() => decodePlace(params.depart), [params.depart]);
+  const arrivee = useMemo(() => decodePlace(params.arrivee), [params.arrivee]);
+  // Already computed at step 1: read back from the query cache.
+  const route = useRouteBetween(depart, arrivee);
   const form = useRef<FormScreenHandle>(null);
 
   const [type, setType] = useState<TypeTrajet>('immediat');
@@ -39,7 +41,7 @@ export function PublishRouteScreen() {
     }
     router.push({
       pathname: '/publish-seats',
-      params: { departId: params.departId, arriveeId: params.arriveeId, type, ...(type === 'a_l_avance' ? { dateDepart: String(departure) } : {}) },
+      params: { depart: params.depart, arrivee: params.arrivee, type, ...(type === 'a_l_avance' ? { dateDepart: String(departure) } : {}) },
     });
   };
 

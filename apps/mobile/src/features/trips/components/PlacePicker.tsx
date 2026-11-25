@@ -1,86 +1,183 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Keyboard,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppMap, MapPoints, type MapFit, type MapPoint } from '@/shared/map';
-import { useTheme, type Theme } from '@/shared/theme';
-import { Button, ChoiceGroup, Icon, TextField, type ChoiceOption } from '@/shared/ui';
-import { matchesSearch } from '@/shared/utils';
+import type { Position } from '@contract';
 
-import type { Place } from '../types';
+import { AppMap, MovingMarker, newSearchSession, type LngLat, type MapFocus } from '@/shared/map';
+import { useTheme, type Theme } from '@/shared/theme';
+import { Button, FieldMessage, Icon, TextField } from '@/shared/ui';
+import { useDebouncedValue } from '@/shared/utils';
+
+import { PLACE_SEARCH_MIN_CHARS, usePlaceAt, usePlaceSearch, useResolvePlace } from '../hooks/useTrips';
+import { PUBLISH_MESSAGES as M } from '../rules';
+import type { ChosenPlace, PlaceSuggestionItem } from '../types';
+
+/** Wait this long after the last key before asking Mapbox (fewer requests, same feel). */
+const SEARCH_DEBOUNCE_MS = 300;
+const FOUND_ZOOM = 15;
+const CITY_ZOOM = 12;
+/** Opening: rises and fades in, decelerating (ease-out). Closing is a little quicker (ease-in). */
+const OPEN_MS = 420;
+const CLOSE_MS = 300;
+/** How far below its place the sheet starts, as a share of the screen height. */
+const RISE_SHARE = 0.12;
+
+/**
+ * Keeps the sheet on screen while it animates out, and drives one 0 → 1 value
+ * (built-in Animated, native driver: no library, no rebuild). Reduced motion: no movement.
+ * `opening`: changes at each opening (fresh content).
+ */
+function useSheetTransition(visible: boolean) {
+  const progress = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(visible);
+  const [opening, setOpening] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (visible) {
+      setMounted(true);
+      setOpening((n) => n + 1);
+    }
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (cancelled) return;
+      Animated.timing(progress, {
+        toValue: visible ? 1 : 0,
+        duration: reduced ? 0 : visible ? OPEN_MS : CLOSE_MS,
+        easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished && !visible && !cancelled) setMounted(false);
+      });
+    });
+    return () => {
+      cancelled = true;
+      progress.stopAnimation();
+    };
+  }, [visible, progress]);
+
+  return { mounted, progress, opening };
+}
 
 export type PlacePickerProps = {
   visible: boolean;
   title: string;
-  places: readonly Place[];
-  /** Highlighted row; `'current'` = the "my position" row. */
-  selected: number | 'current' | null;
-  onSelect: (placeId: number) => void;
+  /** Suggestions near this point first (the demo position, in Tana). */
+  near: Position;
+  /** The place already chosen, shown on the map when the sheet opens. */
+  selected: ChosenPlace | null;
+  onSelect: (place: ChosenPlace) => void;
   onClose: () => void;
-  /** Departure only: a first row "Ma position" (null subtitle = no known place nearby). */
-  current?: { place: Place | null; problem: string | null; onSelect: () => void };
-  /** Shown when `places` is empty. */
-  emptyText?: string;
+  /** Departure only: "my position" as a shortcut (null place = no known place nearby). */
+  current?: { place: ChosenPlace | null; problem: string | null; onSelect: () => void };
 };
 
 /**
- * Chooses a place among those the server knows (LieuSelect of the PWA), on the map (touch a
- * point) or in a list (with a search). Both offer only places with a recorded road: a free
- * address or map point would have none (decision of Bloc 3; the API's routing replaces it later).
- * Android back closes it.
+ * Search a place by name with suggestions (Mapbox Search Box), or touch the map to drop a
+ * point (named after what is there); see it on the map, choose it.
+ * Offline, the suggestions fall back to the known places. Android back closes the sheet.
  */
-
-type Mode = 'map' | 'list';
-
-const MODES: readonly ChoiceOption<Mode>[] = [
-  { value: 'map', label: 'Carte' },
-  { value: 'list', label: 'Liste' },
-];
-
-/** Space around the points when the map frames them. */
-const MAP_INSET = 32;
-export function PlacePicker({ visible, title, places, selected, onSelect, onClose, current, emptyText }: PlacePickerProps) {
+export function PlacePicker({ visible, onClose, ...content }: PlacePickerProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<Mode>('map');
-  const [query, setQuery] = useState('');
-  // On the map, a touch only points at a place; "Choisir" confirms it.
-  const [pointed, setPointed] = useState<number | null>(null);
-  const shown = places.filter((place) => matchesSearch(place.nom, query));
-  const points = useMemo<MapPoint[]>(() => places.map((p) => ({ id: p.id, coordinate: [p.longitude, p.latitude] })), [places]);
-  const fit = useMemo<MapFit | null>(
-    () =>
-      points.length >= 2
-        ? { coordinates: points.map((p) => p.coordinate), insets: { top: MAP_INSET, bottom: MAP_INSET, left: MAP_INSET, right: MAP_INSET } }
-        : null,
-    [points],
-  );
-  const initial = selected === 'current' ? (current?.place?.id ?? null) : selected;
-  const pointedPlace = places.find((p) => p.id === (pointed ?? initial)) ?? null;
+  const { height } = useWindowDimensions();
+  const { mounted, progress, opening } = useSheetTransition(visible);
 
-  // A fresh sheet each time it opens.
-  const reset = (): void => {
-    setQuery('');
-    setPointed(null);
-  };
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      {/* The publish screen stays visible behind, slowly dimmed: the eye keeps its place. */}
+      <Animated.View style={[StyleSheet.absoluteFill, s.backdrop, { opacity: progress }]} />
+      {/* The modal draws under the status bar (edge-to-edge): keep its height free. */}
+      <Animated.View
+        style={[
+          s.screen,
+          {
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            opacity: progress,
+            transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height * RISE_SHARE, 0] }) }],
+          },
+        ]}
+      >
+        {/* A new key at each opening: fresh search; while closing, the content stays as it was. */}
+        <PickerContent key={opening} {...content} onClose={onClose} />
+      </Animated.View>
+    </Modal>
+  );
+}
+
+type PickerContentProps = Omit<PlacePickerProps, 'visible'>;
+
+function PickerContent({ title, near, selected, onSelect, onClose, current }: PickerContentProps) {
+  const theme = useTheme();
+  const s = useMemo(() => createStyles(theme), [theme]);
+
+  // One Mapbox session per opening: from the first key to the chosen place.
+  const [sessionToken] = useState(newSearchSession);
+  const [query, setQuery] = useState('');
+  const [listOpen, setListOpen] = useState(true);
+  const [pointed, setPointed] = useState<ChosenPlace | null>(null);
+  const debounced = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
+  const search = usePlaceSearch(debounced, sessionToken, near);
+  const resolve = useResolvePlace();
+  const placeAt = usePlaceAt();
+  const busy = resolve.isPending || placeAt.isPending;
+
+  const shown = pointed ?? selected;
+  const focus = useMemo<MapFocus>(
+    () =>
+      shown
+        ? { coordinate: [shown.longitude, shown.latitude], zoom: FOUND_ZOOM }
+        : { coordinate: [near.longitude, near.latitude], zoom: CITY_ZOOM },
+    [shown, near],
+  );
+  const typed = debounced.trim().length >= PLACE_SEARCH_MIN_CHARS;
+  const showList = listOpen && typed;
+
+  // Nothing is reset on the way out: the sheet leaves exactly as it was seen.
   const close = (): void => {
-    reset();
+    Keyboard.dismiss();
     onClose();
   };
-  const select = (placeId: number): void => {
-    reset();
-    onSelect(placeId);
+  const choose = (place: ChosenPlace): void => {
+    Keyboard.dismiss();
+    onSelect(place);
   };
-  const selectCurrent = (): void => {
-    reset();
-    current?.onSelect();
+  const pick = (item: PlaceSuggestionItem): void => {
+    Keyboard.dismiss();
+    setListOpen(false);
+    placeAt.reset();
+    resolve.mutate({ item, sessionToken }, { onSuccess: setPointed });
+  };
+  /** A touch on the map: the point shows at once, its name follows (the last touch wins). */
+  const drop = (coordinate: LngLat): void => {
+    Keyboard.dismiss();
+    setListOpen(false);
+    resolve.reset();
+    const [longitude, latitude] = coordinate;
+    setPointed({ libelle: '', longitude, latitude, placeId: null });
+    placeAt.mutate(coordinate, {
+      onSuccess: (place) =>
+        setPointed((now) => (now && now.longitude === longitude && now.latitude === latitude ? place : now)),
+    });
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={close} statusBarTranslucent navigationBarTranslucent>
-      {/* The modal draws under the status bar (edge-to-edge): keep its height free. */}
-      <View style={[s.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <>
         <View style={s.header}>
           <Text style={s.title} accessibilityRole="header">
             {title}
@@ -89,130 +186,116 @@ export function PlacePicker({ visible, title, places, selected, onSelect, onClos
             <Icon name="x" />
           </Pressable>
         </View>
-        <View style={s.mode}>
-          <ChoiceGroup label="Choisir sur" options={MODES} value={mode} onChange={setMode} />
+
+        <View style={s.search}>
+          <TextField
+            label="Rechercher un lieu"
+            value={query}
+            onChangeText={(text) => {
+              setQuery(text);
+              setListOpen(true);
+            }}
+            placeholder="Ex. Analakely, Ivato, Ankorondrano…"
+            maxLength={80}
+            autoFocus={selected === null}
+          />
+          {resolve.isError ? <FieldMessage tone="danger" message={M.placeUnavailable} /> : null}
         </View>
 
-        {mode === 'map' ? (
-          <>
-            <View style={s.map}>
-              <AppMap fit={fit}>
-                <MapPoints id="place-picker" points={points} selectedId={pointedPlace?.id ?? null} onPress={setPointed} />
-              </AppMap>
+        <View style={s.body}>
+          {/* Moves and fades with the sheet (TextureView on Android). */}
+          <AppMap focus={focus} onPress={drop} insideAnimation>
+            {shown ? <MovingMarker id="place-picker-point" kind="place" coordinate={[shown.longitude, shown.latitude]} /> : null}
+          </AppMap>
+
+          {showList ? (
+            <View style={s.suggestions}>
+              {search.offline ? <Text style={s.note}>{M.searchOffline}</Text> : null}
+              <ScrollView keyboardShouldPersistTaps="handled" style={s.suggestionList}>
+                {search.items.map((item) => (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => pick(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.detail ? `${item.name}, ${item.detail}` : item.name}
+                    style={({ pressed }) => [s.suggestion, pressed && s.suggestionPressed]}
+                  >
+                    <Text style={s.suggestionName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    {item.detail ? (
+                      <Text style={s.suggestionDetail} numberOfLines={1}>
+                        {item.detail}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+                {search.items.length === 0 && !search.searching ? (
+                  <Text style={s.note} accessibilityLiveRegion="polite">
+                    Aucun lieu trouvé pour « {debounced.trim()} ».
+                  </Text>
+                ) : null}
+              </ScrollView>
+              {search.searching ? <ActivityIndicator style={s.spinner} color={theme.colors.accent} accessibilityLabel="Recherche" /> : null}
             </View>
-            <View style={s.mapCard}>
-              {places.length === 0 && emptyText ? <Text style={s.empty}>{emptyText}</Text> : null}
-              <Text style={s.mapHint} accessibilityLiveRegion="polite">
-                {pointedPlace ? pointedPlace.nom : 'Touche un point vert : ce sont les lieux où un trajet est enregistré.'}
-              </Text>
-              <Button label="Choisir ce lieu" disabled={!pointedPlace} onPress={() => pointedPlace && select(pointedPlace.id)} />
-              {current?.place ? (
-                <Button label={`Ma position · ${current.place.nom}`} variant="secondary" onPress={selectCurrent} />
-              ) : null}
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={s.search}>
-              <TextField
-                label="Rechercher un lieu"
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Ex. Ivato, Analakely…"
-                maxLength={40}
-              />
-            </View>
-            <ScrollView contentContainerStyle={s.list} keyboardShouldPersistTaps="handled">
-              {current && query.trim() === '' ? (
-                <Row
-                  s={s}
-                  icon="current"
-                  label="Ma position"
-                  detail={current.place ? `Près de toi : ${current.place.nom}` : (current.problem ?? 'Recherche…')}
-                  selected={selected === 'current'}
-                  disabled={!current.place}
-                  onPress={selectCurrent}
-                />
-              ) : null}
-              {shown.map((place) => (
-                <Row key={place.id} s={s} icon="place" label={place.nom} selected={selected === place.id} onPress={() => select(place.id)} />
-              ))}
-              {places.length === 0 && emptyText ? <Text style={s.empty}>{emptyText}</Text> : null}
-              {places.length > 0 && shown.length === 0 ? (
-                <Text style={s.empty} accessibilityLiveRegion="polite">
-                  Aucun lieu « {query.trim()} » parmi ceux qui ont un trajet enregistré.
-                </Text>
-              ) : null}
-            </ScrollView>
-          </>
-        )}
-      </View>
-    </Modal>
+          ) : null}
+        </View>
+
+        <View style={s.card}>
+          {busy ? (
+            <ActivityIndicator color={theme.colors.accent} accessibilityLabel="Recherche du nom du lieu" />
+          ) : (
+            <Text style={s.cardText} accessibilityLiveRegion="polite" numberOfLines={2}>
+              {shown ? shown.libelle : 'Tape le nom d’un lieu ou touche la carte.'}
+            </Text>
+          )}
+          <Button label="Choisir ce lieu" disabled={!pointed || busy} onPress={() => pointed && choose(pointed)} />
+          {current?.place ? (
+            <Button
+              label={`Ma position · ${current.place.libelle}`}
+              variant="secondary"
+              onPress={() => {
+                Keyboard.dismiss();
+                current.onSelect();
+              }}
+            />
+          ) : current?.problem ? (
+            <FieldMessage tone="muted" message={current.problem} />
+          ) : null}
+        </View>
+    </>
   );
 }
 
-type RowProps = {
-  s: ReturnType<typeof createStyles>;
-  icon: 'current' | 'place';
-  label: string;
-  detail?: string;
-  selected: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-};
-
-function Row({ s, icon, label, detail, selected, disabled = false, onPress }: RowProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected, disabled }}
-      accessibilityLabel={detail ? `${label}, ${detail}` : label}
-      style={({ pressed }) => [s.row, selected && s.rowSelected, pressed && s.rowPressed, disabled && s.rowDisabled]}
-    >
-      <View style={[s.dot, icon === 'current' && s.dotCurrent]} />
-      <View style={s.rowText}>
-        <Text style={[s.rowLabel, selected && s.rowLabelSelected]}>{label}</Text>
-        {detail ? <Text style={s.rowDetail}>{detail}</Text> : null}
-      </View>
-      {selected ? <Icon name="check" tone="accent" /> : null}
-    </Pressable>
-  );
-}
-
-const createStyles = ({ colors, typography, fontFamilies, spacing, gutter, radii, controlHeight }: Theme) =>
+const createStyles = ({ colors, typography, shadows, spacing, gutter, radii }: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
+    backdrop: { backgroundColor: colors.overlay },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: gutter, paddingVertical: spacing[4], gap: spacing[3] },
     title: { ...typography.heading, color: colors.text, flex: 1 },
     close: { padding: spacing[2], borderRadius: radii.full, backgroundColor: colors.fill },
-    mode: { paddingHorizontal: gutter, paddingBottom: spacing[3] },
-    map: { flex: 1 },
-    mapCard: { padding: gutter, gap: spacing[3], borderTopWidth: 1, borderTopColor: colors.surfaceBorder, backgroundColor: colors.surface },
-    mapHint: { ...typography.bodyStrong, color: colors.text },
-    search: { paddingHorizontal: gutter, paddingBottom: spacing[3] },
-    list: { paddingHorizontal: gutter, paddingBottom: spacing[6], gap: spacing[2] },
-    row: {
-      minHeight: controlHeight,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing[3],
-      paddingHorizontal: spacing[4],
-      paddingVertical: spacing[3],
+    search: { paddingHorizontal: gutter, paddingBottom: spacing[3], gap: spacing[2] },
+    body: { flex: 1 },
+    suggestions: {
+      position: 'absolute',
+      top: spacing[2],
+      left: gutter,
+      right: gutter,
+      maxHeight: '75%',
       borderRadius: radii.md,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.surfaceBorder,
       backgroundColor: colors.surface,
+      boxShadow: shadows.card,
+      overflow: 'hidden',
     },
-    rowSelected: { borderColor: colors.accent, backgroundColor: colors.accentSurface },
-    rowPressed: { borderColor: colors.borderStrong },
-    rowDisabled: { opacity: 0.6 },
-    dot: { width: 10, height: 10, borderRadius: radii.full, borderWidth: 2, borderColor: colors.accent },
-    dotCurrent: { backgroundColor: colors.accent },
-    rowText: { flex: 1, gap: spacing[1] },
-    rowLabel: { ...typography.body, color: colors.text },
-    rowLabelSelected: { fontFamily: fontFamilies.semiBold, color: colors.accent },
-    rowDetail: { ...typography.small, color: colors.textMuted },
-    empty: { ...typography.body, color: colors.textMuted, paddingVertical: spacing[4] },
+    suggestionList: { flexGrow: 0 },
+    suggestion: { paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[1], borderBottomWidth: 1, borderBottomColor: colors.border },
+    suggestionPressed: { backgroundColor: colors.fill },
+    suggestionName: { ...typography.bodyStrong, color: colors.text },
+    suggestionDetail: { ...typography.small, color: colors.textMuted },
+    note: { ...typography.small, color: colors.textMuted, padding: spacing[4] },
+    spinner: { padding: spacing[3] },
+    card: { padding: gutter, gap: spacing[3], borderTopWidth: 1, borderTopColor: colors.surfaceBorder, backgroundColor: colors.surface },
+    cardText: { ...typography.bodyStrong, color: colors.text },
   });

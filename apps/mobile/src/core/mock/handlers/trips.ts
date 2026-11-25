@@ -1,6 +1,6 @@
 import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet } from '@contract';
 
-import { ACTIVE_TRIP_STATUSES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
+import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
 import { haversineMeters, type LngLat } from '@/shared/map';
 import { addMinutes, isRecord } from '@/shared/utils';
 
@@ -129,6 +129,7 @@ function publish(ctx: RequestContext): Trajet {
   const placesTotal = Math.round(requireNumber(ctx.body, 'placesTotal'));
   if (placesTotal < 1 || placesTotal > vehicule.places) throw new HttpError(400, M.seatsInvalid(vehicule.places));
   const distanceMetres = Math.round(requireNumber(ctx.body, 'distanceMetres'));
+  if (distanceMetres < MIN_TRIP_METRES) throw new HttpError(400, M.tooShort);
   const dateDepart = type === 'immediat' ? iso(ctx.now) : requireString(ctx.body, 'dateDepart');
   if (type === 'a_l_avance') {
     const departureMs = new Date(dateDepart).getTime();

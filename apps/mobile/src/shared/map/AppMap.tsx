@@ -26,7 +26,20 @@ type AppMapProps = {
   showUserLocation?: boolean;
   /** When set, the camera frames these points instead of following the user. */
   fit?: MapFit | null;
+  /** When set (and no `fit`), the camera flies to this point. */
+  focus?: MapFocus | null;
+  /** A tap on the map (not a drag), with the touched point. Fires a little after the tap (double-tap check). */
+  onPress?: (coordinate: LngLat) => void;
+  /**
+   * The map moves or fades with its container (a sheet that slides in). Android: draws in a
+   * TextureView, which follows the animation, instead of the default GLSurfaceView, which does
+   * not (a bit slower: keep it for such maps). Read when the map is created only.
+   */
+  insideAnimation?: boolean;
 };
+
+/** Center the camera on one point (e.g. a place just found). */
+export type MapFocus = { coordinate: LngLat; zoom: number };
 
 /** The framed area never gets smaller than this: with bigger insets, Mapbox cannot place the camera. */
 const MIN_VISIBLE = 120;
@@ -45,7 +58,7 @@ function clampInsets(insets: MapInsets, width: number, height: number): MapInset
 }
 
 /** Carte de base de l'app : ne connaît rien du covoiturage. */
-export function AppMap({ children, showUserLocation = false, fit = null }: AppMapProps) {
+export function AppMap({ children, showUserLocation = false, fit = null, focus = null, onPress, insideAnimation = false }: AppMapProps) {
   const { colors, typography } = useTheme();
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   // Memoized: a new bounds object on every render would move the camera again.
@@ -69,12 +82,32 @@ export function AppMap({ children, showUserLocation = false, fit = null }: AppMa
 
   return (
     <View style={styles.map} onLayout={(event) => setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
-      <MapView style={[styles.map, { backgroundColor: colors.mapPlaceholder }]} scaleBarEnabled={false}>
+      <MapView
+        style={[styles.map, { backgroundColor: colors.mapPlaceholder }]}
+        scaleBarEnabled={false}
+        surfaceView={!insideAnimation}
+        onPress={
+          onPress
+            ? (feature) => {
+                const [lng, lat] = feature.geometry.coordinates;
+                if (typeof lng === 'number' && typeof lat === 'number') onPress([lng, lat]);
+              }
+            : undefined
+        }
+      >
         {bounds && padding ? (
           <Camera
             defaultSettings={{ centerCoordinate: TANA_CENTER, zoomLevel: 12 }}
             bounds={bounds}
             padding={padding}
+            animationDuration={FIT_DURATION_MS}
+            animationMode="easeTo"
+          />
+        ) : focus ? (
+          <Camera
+            defaultSettings={{ centerCoordinate: TANA_CENTER, zoomLevel: 12 }}
+            centerCoordinate={focus.coordinate}
+            zoomLevel={focus.zoom}
             animationDuration={FIT_DURATION_MS}
             animationMode="easeTo"
           />
