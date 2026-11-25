@@ -1,9 +1,10 @@
 import Mapbox, { Camera, LocationPuck, MapView } from '@rnmapbox/maps';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/shared/theme';
 
+import { boundsOf, type LngLat } from './geo';
 import { mapboxToken as token } from './token';
 
 if (token) {
@@ -13,15 +14,49 @@ if (token) {
 /** Centre d'Antananarivo. Ordre Mapbox : [longitude, latitude]. */
 export const TANA_CENTER: [number, number] = [47.5079, -18.8792];
 
+/** Space the camera keeps free on each side, in points (what covers the map: header, panel). */
+export type MapInsets = { top: number; bottom: number; left: number; right: number };
+
+/** Frame the camera on these points, leaving `insets` free (e.g. a route above a bottom panel). */
+export type MapFit = { coordinates: LngLat[]; insets: MapInsets };
+
 type AppMapProps = {
   children?: ReactNode;
   /** À n'activer que si la permission de localisation est accordée. */
   showUserLocation?: boolean;
+  /** When set, the camera frames these points instead of following the user. */
+  fit?: MapFit | null;
 };
 
+/** The framed area never gets smaller than this: with bigger insets, Mapbox cannot place the camera. */
+const MIN_VISIBLE = 120;
+const FIT_DURATION_MS = 600;
+
+/** Shrinks the insets so that at least MIN_VISIBLE points stay free in each direction. */
+function clampInsets(insets: MapInsets, width: number, height: number): MapInsets {
+  const scale = (a: number, b: number, size: number): [number, number] => {
+    const room = Math.max(0, size - MIN_VISIBLE);
+    const used = a + b;
+    return used <= room || used === 0 ? [a, b] : [(a * room) / used, (b * room) / used];
+  };
+  const [top, bottom] = scale(insets.top, insets.bottom, height);
+  const [left, right] = scale(insets.left, insets.right, width);
+  return { top, bottom, left, right };
+}
+
 /** Carte de base de l'app : ne connaît rien du covoiturage. */
-export function AppMap({ children, showUserLocation = false }: AppMapProps) {
+export function AppMap({ children, showUserLocation = false, fit = null }: AppMapProps) {
   const { colors, typography } = useTheme();
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  // Memoized: a new bounds object on every render would move the camera again.
+  const coordinates = fit?.coordinates;
+  const bounds = useMemo(() => (coordinates && coordinates.length > 0 ? boundsOf(coordinates) : null), [coordinates]);
+  const { top = 0, bottom = 0, left = 0, right = 0 } = fit?.insets ?? {};
+  const padding = useMemo(() => {
+    if (!size) return null;
+    const clamped = clampInsets({ top, bottom, left, right }, size.width, size.height);
+    return { paddingTop: clamped.top, paddingBottom: clamped.bottom, paddingLeft: clamped.left, paddingRight: clamped.right };
+  }, [size, top, bottom, left, right]);
 
   if (!token) {
     return (
@@ -31,16 +66,29 @@ export function AppMap({ children, showUserLocation = false }: AppMapProps) {
     );
   }
 
+
   return (
-    <MapView style={[styles.map, { backgroundColor: colors.mapPlaceholder }]} scaleBarEnabled={false}>
-      <Camera
-        defaultSettings={{ centerCoordinate: TANA_CENTER, zoomLevel: 12 }}
-        followUserLocation={showUserLocation}
-        followZoomLevel={15}
-      />
-      {showUserLocation && <LocationPuck />}
-      {children}
-    </MapView>
+    <View style={styles.map} onLayout={(event) => setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
+      <MapView style={[styles.map, { backgroundColor: colors.mapPlaceholder }]} scaleBarEnabled={false}>
+        {bounds && padding ? (
+          <Camera
+            defaultSettings={{ centerCoordinate: TANA_CENTER, zoomLevel: 12 }}
+            bounds={bounds}
+            padding={padding}
+            animationDuration={FIT_DURATION_MS}
+            animationMode="easeTo"
+          />
+        ) : (
+          <Camera
+            defaultSettings={{ centerCoordinate: TANA_CENTER, zoomLevel: 12 }}
+            followUserLocation={showUserLocation}
+            followZoomLevel={15}
+          />
+        )}
+        {showUserLocation && <LocationPuck />}
+        {children}
+      </MapView>
+    </View>
   );
 }
 

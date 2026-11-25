@@ -85,6 +85,7 @@ export default function RootLayout() {
             <Stack.Screen name="(driver)/vehicle" options={{ title: '' }} />
             <Stack.Screen name="(driver)/pending-validation" options={{ title: 'Mon dossier chauffeur' }} />
             <Stack.Screen name="(driver)/publish-route" options={{ title: 'Publier' }} />
+            <Stack.Screen name="(driver)/publish-seats" options={{ title: 'Publier' }} />
             <Stack.Screen name="(driver)/my-trips" options={{ title: 'Mes trajets' }} />
             <Stack.Screen name="(driver)/request/[id]" options={{ title: 'Demande' }} />
             <Stack.Screen name="(driver)/driving/[id]" options={{ title: 'Course' }} />

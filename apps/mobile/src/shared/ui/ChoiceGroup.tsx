@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme, type Theme } from '@/shared/theme';
 
 import { FieldMessage } from './FieldMessage';
+import { useFormErrorTarget } from './formErrors';
 import { Icon, type IconName } from './Icon';
 
 export type ChoiceOption<T extends string> = { value: T; label: string; icon?: IconName };
@@ -27,9 +28,10 @@ export type ChoiceGroupProps<T extends string> = {
 export function ChoiceGroup<T extends string>({ label, options, value, onChange, error, hint, disabled = false }: ChoiceGroupProps<T>) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
+  const errorTarget = useFormErrorTarget(Boolean(error));
 
   return (
-    <View style={s.wrapper}>
+    <View ref={errorTarget} style={s.wrapper}>
       <Text style={s.label} importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </Text>

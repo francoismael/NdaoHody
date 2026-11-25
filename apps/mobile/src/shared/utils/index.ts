@@ -14,7 +14,17 @@ export {
 export type { ClockState } from './clock';
 export { secondsUntil, useSecondsLeft } from './countdown';
 export { addMinutes, delay, toIsoWithOffset } from './date';
+export {
+  formatAriary,
+  formatClockMinutes,
+  formatDay,
+  formatDayTime,
+  formatDistance,
+  formatDuration,
+  formatTime,
+} from './format';
 export { isRecord } from './guards';
+export { matchesSearch, searchKey } from './text';
 export {
   formatPhoneInput,
   formatPhoneNumber,

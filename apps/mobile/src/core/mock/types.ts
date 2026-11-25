@@ -64,7 +64,7 @@ export interface Drive {
  * 2 (R3): adds `drives`. 3 (25/11): contract Tarif, reservations carry distanceMetres + prixParPlace.
  * 4 (bloc 2): adds `numerosPermis` (driver application, back rules).
  */
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export const nextId = (db: MockDb, sequence: Sequence): number => {
   const id = db.sequences[sequence];

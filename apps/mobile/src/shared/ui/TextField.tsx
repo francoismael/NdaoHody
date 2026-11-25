@@ -4,6 +4,7 @@ import { StyleSheet, Text, TextInput, View, type TextInputInstance, type TextInp
 import { useTheme, type Theme } from '@/shared/theme';
 
 import { FieldMessage } from './FieldMessage';
+import { useFormErrorTarget } from './formErrors';
 
 /** What the field holds: it decides the keyboard and the autofill (never set them by hand). */
 export type TextFieldKind = 'text' | 'phone' | 'givenName' | 'familyName' | 'reference';
@@ -57,9 +58,10 @@ export function TextField({
   const s = useMemo(() => createStyles(theme), [theme]);
   const [focused, setFocused] = useState(false);
   const hasError = Boolean(error);
+  const errorTarget = useFormErrorTarget(hasError);
 
   return (
-    <View style={s.wrapper}>
+    <View ref={errorTarget} style={s.wrapper}>
       <Text style={s.label} importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </Text>

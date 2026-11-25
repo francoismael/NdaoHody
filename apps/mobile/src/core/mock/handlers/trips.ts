@@ -1,5 +1,6 @@
 import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet } from '@contract';
 
+import { ACTIVE_TRIP_STATUSES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
 import { haversineMeters, type LngLat } from '@/shared/map';
 import { addMinutes, isRecord } from '@/shared/utils';
 
@@ -118,16 +119,27 @@ function requireChemin(body: unknown): Chemin {
 
 function publish(ctx: RequestContext): Trajet {
   const user = requireUser(ctx);
-  if (user.statutChauffeur !== 'valide') throw new HttpError(403, 'Ton compte chauffeur n’est pas encore validé.');
-  const vehicule = ctx.db.vehicules.find((v) => v.utilisateurId === user.id && v.parDefaut && v.statut === 'valide');
-  if (!vehicule) throw new HttpError(409, 'Aucun véhicule validé.');
+  const mine = ctx.db.vehicules.filter((v) => v.utilisateurId === user.id);
+  const blocker = publishBlocker(user.statutChauffeur, mine);
+  if (blocker === 'not_validated') throw new HttpError(403, M.notValidated);
+  const vehicule = mine.find((v) => v.parDefaut && v.statut === 'valide');
+  if (blocker || !vehicule) throw new HttpError(409, M.vehiclePending);
 
   const type = requireOneOf(ctx.body, 'type', ['immediat', 'a_l_avance'] as const);
   const placesTotal = Math.round(requireNumber(ctx.body, 'placesTotal'));
-  if (placesTotal < 1 || placesTotal > vehicule.places) throw new HttpError(400, `Entre 1 et ${vehicule.places} place(s).`);
+  if (placesTotal < 1 || placesTotal > vehicule.places) throw new HttpError(400, M.seatsInvalid(vehicule.places));
   const distanceMetres = Math.round(requireNumber(ctx.body, 'distanceMetres'));
   const dateDepart = type === 'immediat' ? iso(ctx.now) : requireString(ctx.body, 'dateDepart');
-  if (type === 'a_l_avance' && new Date(dateDepart) <= ctx.now) throw new HttpError(400, 'Choisis une heure de départ à venir.');
+  if (type === 'a_l_avance') {
+    const departureMs = new Date(dateDepart).getTime();
+    if (Number.isNaN(departureMs)) throw new HttpError(400, 'dateDepart invalide.');
+    const problem = departureProblem(departureMs, ctx.now.getTime());
+    if (problem) throw new HttpError(400, problem === 'past' ? M.pastDeparture : M.tooFarAhead);
+  }
+  const onRoad = ctx.db.trajets.some(
+    (t) => t.chauffeurId === user.id && t.type === 'immediat' && ACTIVE_TRIP_STATUSES.includes(t.statut),
+  );
+  if (type === 'immediat' && onRoad) throw new HttpError(409, M.alreadyOnRoad);
 
   const trajet: Trajet = {
     id: nextId(ctx.db, 'trajet'),

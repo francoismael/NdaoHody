@@ -1,15 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSession } from '@/features/auth';
-import { DriverApplicationCard } from '@/features/verification';
-import { AppMap, RouteLine, useLocationPermission } from '@/shared/map';
+import { AppMap, RouteLine, useLocationPermission, type MapFit } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button } from '@/shared/ui';
 
-import { useDemoPosition, useTripsAround } from '../hooks/useTrips';
+import { DriverHomePanel } from '../components/DriverHomePanel';
+import { usePublishAccess } from '../hooks/usePublishAccess';
+import { useDemoPosition, useMyTrips, useTripsAround } from '../hooks/useTrips';
+import { ACTIVE_TRIP_STATUSES } from '../rules';
 
 // Sur Android, la boîte système a son propre texte : on explique donc AVANT de demander.
 const WHY_LOCATION =
@@ -25,11 +27,33 @@ export function HomeScreen() {
   const { isDriver } = useSession();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { spacing } = useTheme();
+  const { spacing, gutter } = useTheme();
   const styles = useStyles();
+  const access = usePublishAccess();
+  const myTrips = useMyTrips();
+  const [panelHeight, setPanelHeight] = useState(0);
+  // Driver: coming and on-the-road trips, soonest first; drawn on the map (only he sees them).
+  const activeTrips = useMemo(
+    () =>
+      (isDriver ? (myTrips.data ?? []) : [])
+        .filter((t) => ACTIVE_TRIP_STATUSES.includes(t.statut))
+        .sort((a, b) => a.dateDepart.localeCompare(b.dateDepart)),
+    [isDriver, myTrips.data],
+  );
+  const fit = useMemo<MapFit | null>(
+    () =>
+      activeTrips.length > 0 && panelHeight > 0
+        ? {
+            coordinates: activeTrips.flatMap((t) => t.chemin),
+            insets: { top: insets.top + spacing[10] * 2, bottom: panelHeight + spacing[8], left: gutter, right: gutter },
+          }
+        : null,
+    [activeTrips, panelHeight, insets.top, spacing, gutter],
+  );
   // PROVISIONAL (R2 check): routes passing near the demo position. Real content in R12.
   const here = useDemoPosition();
   const around = useTripsAround(isDriver ? null : here);
+  const locationTop = isDriver ? insets.top + spacing[10] + spacing[4] : null;
   const aroundNote = around.isPending
     ? 'Recherche des trajets proches…'
     : around.isError
@@ -38,34 +62,29 @@ export function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <AppMap showUserLocation={status === 'granted' && servicesEnabled}>
-        {around.data?.map((trajet) => (
+      <AppMap showUserLocation={status === 'granted' && servicesEnabled} fit={fit}>
+        {(isDriver ? activeTrips : (around.data ?? [])).map((trajet) => (
           <RouteLine key={trajet.id} id={`trip-${trajet.id}`} coordinates={trajet.chemin} />
         ))}
       </AppMap>
 
-      {/* PROVISOIRE (R1) : coquille de l'accueil de chaque rôle et liens vers ses écrans. */}
-      <View style={[styles.shell, { top: insets.top + spacing[10] + spacing[4] }]}>
-        <Text style={styles.shellTitle} accessibilityRole="header">
-          {isDriver ? 'Accueil chauffeur' : 'Accueil passager'}
-        </Text>
-        <Text style={styles.shellNote}>Coquille : contenu en {isDriver ? 'R8' : 'R12'}</Text>
-        {!isDriver && (
+      {isDriver ? (
+        <View style={styles.driverPanel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
+          <DriverHomePanel access={access} trips={activeTrips} />
+        </View>
+      ) : (
+        /* PROVISOIRE (R1) : coquille de l'accueil passager, contenu en R12. */
+        <View style={[styles.shell, { top: insets.top + spacing[10] + spacing[4] }]}>
+          <Text style={styles.shellTitle} accessibilityRole="header">
+            Accueil passager
+          </Text>
+          <Text style={styles.shellNote}>Coquille : contenu en R12</Text>
           <Text style={styles.shellNote} accessibilityLiveRegion="polite">
             {aroundNote}
           </Text>
-        )}
-        {isDriver ? (
-          <>
-            <DriverApplicationCard />
-            <Button label="Mes trajets" onPress={() => router.push('/my-trips')} />
-            <Button label="Demande reçue" onPress={() => router.push('/request/demo')} variant="secondary" />
-            <Button label="Course en cours" onPress={() => router.push('/driving/demo')} variant="secondary" />
-          </>
-        ) : (
           <Button label="Rechercher un trajet" onPress={() => router.push('/search')} />
-        )}
-      </View>
+        </View>
+      )}
 
       {/* PROVISOIRE (sessions 3, 4 et R1) : accès aux écrans de contrôle, en dev seulement. */}
       {__DEV__ && (
@@ -82,29 +101,31 @@ export function HomeScreen() {
         </View>
       )}
 
+      {/* The driver's panel sits at the bottom: the location panel then goes on top. */}
       {status === 'undetermined' && (
-        <LocationPanel text={WHY_LOCATION} action="Autoriser ma position" onPress={request} />
+        <LocationPanel text={WHY_LOCATION} action="Autoriser ma position" onPress={request} top={locationTop} />
       )}
       {status === 'denied' && (
         <LocationPanel
           text={DENIED_LOCATION}
           action={canAskAgain ? 'Réessayer' : 'Ouvrir les réglages'}
           onPress={request}
+          top={locationTop}
         />
       )}
       {status === 'granted' && !servicesEnabled && (
-        <LocationPanel text={GPS_OFF} action="Activer la localisation" onPress={enableServices} />
+        <LocationPanel text={GPS_OFF} action="Activer la localisation" onPress={enableServices} top={locationTop} />
       )}
     </View>
   );
 }
 
-type LocationPanelProps = { text: string; action: string; onPress: () => void };
+type LocationPanelProps = { text: string; action: string; onPress: () => void; /** null = at the bottom. */ top: number | null };
 
-function LocationPanel({ text, action, onPress }: LocationPanelProps) {
+function LocationPanel({ text, action, onPress, top }: LocationPanelProps) {
   const styles = useStyles();
   return (
-    <View style={styles.panel}>
+    <View style={[styles.panel, top !== null && { top, bottom: undefined }]}>
       <Text style={styles.panelText}>{text}</Text>
       <Pressable
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
@@ -148,6 +169,18 @@ const createStyles = ({ colors, typography, spacing, gutter, radii, shadows, con
     },
     buttonPressed: { backgroundColor: colors.primaryPressed },
     buttonText: { ...typography.bodyStrong, color: colors.onPrimary },
+    driverPanel: {
+      position: 'absolute',
+      left: gutter,
+      right: gutter,
+      bottom: spacing[4],
+      padding: spacing[4],
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      boxShadow: shadows.card,
+    },
     shell: {
       position: 'absolute',
       left: gutter,

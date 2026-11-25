@@ -1,0 +1,53 @@
+import type { StatutChauffeur, StatutTrajet, Vehicule } from '@contract';
+
+/**
+ * Publishing rules, shared by the screens and the simulated server.
+ * Type-only imports: core may import this file.
+ */
+
+/** "My position" counts as a known place when one is this close (demo places). */
+export const NEAREST_PLACE_MAX_METRES = 1500;
+
+/** A trip can be planned this many days ahead at most (PWA: JOURS_MAX_A_L_AVANCE). */
+export const PLAN_MAX_DAYS = 60;
+
+/** Days offered as pills on the "when" step (PWA EtapeQuand: JOURS_AFFICHES). */
+export const PLAN_DAYS_SHOWN = 14;
+
+/** Planned time moves by this step, like the PWA clock (− / +). */
+export const PLAN_STEP_MINUTES = 15;
+
+/** Hours offered as shortcuts (PWA EtapeQuand: HEURES_PROPOSEES), in minutes after midnight. */
+export const PLAN_SUGGESTED_MINUTES = [6 * 60, 7 * 60, 12 * 60, 17 * 60, 18 * 60] as const;
+
+/** A trip still to come or on the road: shown on the driver's home. */
+export const ACTIVE_TRIP_STATUSES: readonly StatutTrajet[] = ['publie', 'en_route', 'en_cours'];
+
+export const PUBLISH_MESSAGES = {
+  notValidated: 'Ton compte chauffeur n’est pas encore validé.',
+  vehiclePending: 'Ton véhicule n’est pas encore validé.',
+  pastDeparture: 'Choisis une heure de départ à venir.',
+  tooFarAhead: `Tu peux publier un trajet au plus ${PLAN_MAX_DAYS} jours à l’avance.`,
+  alreadyOnRoad: 'Tu as déjà un trajet en route. Termine-le avant d’en publier un autre immédiat.',
+  noRoute: 'Aucun trajet enregistré entre ces deux lieux. Choisis une autre destination.',
+  noPlaceNearby: 'Aucun point de départ connu près de toi. Choisis-en un dans la liste.',
+  seatsInvalid: (max: number): string => `Entre 1 et ${max} place(s).`,
+} as const;
+
+/** Why a driver cannot publish, or null. Checked by the server AND shown by the screens. */
+export type PublishBlocker = 'not_validated' | 'vehicle_pending';
+
+export function publishBlocker(
+  statutChauffeur: StatutChauffeur,
+  vehicles: readonly Pick<Vehicule, 'parDefaut' | 'statut'>[],
+): PublishBlocker | null {
+  if (statutChauffeur !== 'valide') return 'not_validated';
+  return vehicles.some((v) => v.parDefaut && v.statut === 'valide') ? null : 'vehicle_pending';
+}
+
+/** Problem with a planned departure, read on the DEMO clock (`nowMs`), or null. */
+export function departureProblem(departureMs: number, nowMs: number): 'past' | 'too_far' | null {
+  if (departureMs <= nowMs) return 'past';
+  if (departureMs > nowMs + PLAN_MAX_DAYS * 24 * 60 * 60 * 1000) return 'too_far';
+  return null;
+}
