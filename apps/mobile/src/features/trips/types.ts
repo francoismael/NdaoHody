@@ -29,6 +29,22 @@ export type PlaceSuggestionItem = { key: string; name: string; detail: string | 
   | { source: 'known'; place: ChosenPlace }
 );
 
+/** What every driver card shows, at home and in the search: the trip, the driver, his vehicle. */
+export type DriverCardData = Pick<ResultatRecherche, 'trajet' | 'chauffeur' | 'vehicule'>;
+
+/**
+ * What the passenger asked in the search form, kept as he chose it (prefilled when he edits).
+ * `fromCurrent`: "my position" (the known place nearest the demo position);
+ * `later`: null = now, else the wanted time (ms, demo clock).
+ */
+export type SearchCriteria = {
+  fromCurrent: boolean;
+  depart: ChosenPlace;
+  destination: ChosenPlace;
+  places: number;
+  later: number | null;
+};
+
 /**
  * GET /trips/around: a driver on the road who will pass near the passenger, soonest first.
  * GAP #9 (to send to the backend): no "drivers passing near me" route in data-objets.ts yet;

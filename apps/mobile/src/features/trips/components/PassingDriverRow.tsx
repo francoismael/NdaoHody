@@ -1,20 +1,26 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { UserBadge, toDisplayBadge } from '@/features/profile';
 import { useTheme, type Theme } from '@/shared/theme';
-import { Avatar, Button, Icon } from '@/shared/ui';
-import { formatDuration } from '@/shared/utils';
+import { Avatar, Icon } from '@/shared/ui';
 
-import type { PassingDriver } from '../types';
+import type { DriverCardData } from '../types';
 
 type PassingDriverRowProps = {
-  driver: PassingDriver;
-  /** 1 = the soonest: the same number is drawn on the map. */
+  driver: DriverCardData;
+  /** 1 = first in the server's order (same number on the map, at home). */
   rank: number;
+  /** When he passes the passenger: "passe dans" + "6 min", or "passe demain" + "07:42". */
+  when: { label: string; value: string };
   selected: boolean;
   onSelect: () => void;
-  onBook: () => void;
+  /** Lines under the driver, always shown (search: the passenger's part of the trip). */
+  details?: readonly string[];
+  /** One line in the accent colour under the details (search: the total price). */
+  highlight?: string;
+  /** Shown once the card is chosen (the buttons). */
+  actions: ReactNode;
 };
 
 const seatsText = (n: number): string => (n > 1 ? `${n} places libres` : '1 place libre');
@@ -22,17 +28,19 @@ const seatsText = (n: number): string => (n > 1 ? `${n} places libres` : '1 plac
 const ratingText = (note: number | null, count: number): string =>
   note === null ? 'Pas encore noté' : `${note.toFixed(1).replace('.', ',')} · ${count} avis`;
 
-function vehicleText({ type, marque, modele, couleur }: PassingDriver['vehicule']): string {
+function vehicleText({ type, marque, modele, couleur }: DriverCardData['vehicule']): string {
   const name = [marque, modele].filter(Boolean).join(' ') || (type === 'moto' ? 'Moto' : 'Voiture');
   return `${name} · ${couleur}`;
 }
 
-/** One driver passing near the passenger: his trip on top; below, who he is and when he passes. */
-export function PassingDriverRow({ driver, rank, selected, onSelect, onBook }: PassingDriverRowProps) {
+/**
+ * One driver for the passenger (home and search): his trip on top; below, who he is and
+ * when he passes; then the optional details, and the buttons once chosen.
+ */
+export function PassingDriverRow({ driver, rank, when, selected, onSelect, details = [], highlight, actions }: PassingDriverRowProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
-  const { chauffeur, vehicule, trajet, arriveeDansMinutes } = driver;
-  const minutes = formatDuration(arriveeDansMinutes * 60);
+  const { chauffeur, vehicule, trajet } = driver;
   const rating = ratingText(chauffeur.noteMoyenne, chauffeur.nombreNotes);
   const seats = seatsText(trajet.placesLibres);
   // Chosen card: nothing is cut any more (one line each otherwise, like the driver home).
@@ -44,7 +52,11 @@ export function PassingDriverRow({ driver, rank, selected, onSelect, onBook }: P
         onPress={onSelect}
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        accessibilityLabel={`${rank}. ${chauffeur.prenom}, de ${trajet.depart.libelle} vers ${trajet.arrivee.libelle}, passe dans ${minutes}, ${seats}, ${rating}, ${vehicleText(vehicule)}`}
+        accessibilityLabel={[
+          `${rank}. ${chauffeur.prenom}, de ${trajet.depart.libelle} vers ${trajet.arrivee.libelle}, ${when.label} ${when.value}, ${seats}, ${rating}, ${vehicleText(vehicule)}`,
+          ...details,
+          ...(highlight ? [highlight] : []),
+        ].join('. ')}
         accessibilityHint={selected ? undefined : 'Montre ce chauffeur sur la carte'}
       >
         {/* Top: the rank (same number as on the map) and the trip, one line, like the driver home. */}
@@ -80,13 +92,23 @@ export function PassingDriverRow({ driver, rank, selected, onSelect, onBook }: P
             </View>
           </View>
           <View style={s.when}>
-            <Text style={s.whenLabel}>passe dans</Text>
-            <Text style={s.minutes}>{minutes}</Text>
+            <Text style={s.whenLabel}>{when.label}</Text>
+            <Text style={s.minutes}>{when.value}</Text>
             <Text style={s.seats}>{seats}</Text>
           </View>
         </View>
+        {details.length > 0 || highlight ? (
+          <View style={s.details} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+            {details.map((line) => (
+              <Text key={line} style={s.meta} numberOfLines={lines}>
+                {line}
+              </Text>
+            ))}
+            {highlight ? <Text style={s.highlight}>{highlight}</Text> : null}
+          </View>
+        ) : null}
       </Pressable>
-      {selected ? <Button label="Réserver une place" onPress={onBook} /> : null}
+      {selected ? actions : null}
     </View>
   );
 }
@@ -126,4 +148,6 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
     whenLabel: { ...typography.caption, color: colors.textMuted },
     minutes: { ...typography.number, color: colors.accent },
     seats: { ...typography.caption, color: colors.text },
+    details: { gap: spacing[1], paddingTop: spacing[2], borderTopWidth: 1, borderColor: colors.surfaceBorder },
+    highlight: { ...typography.bodyStrong, color: colors.accent },
   });

@@ -192,8 +192,9 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
                         driver={driver}
                         rank={i + 1}
                         selected={driver.trajet.id === selectedId}
+                        when={{ label: 'passe dans', value: formatDuration(driver.arriveeDansMinutes * 60) }}
                         onSelect={() => select(driver.trajet.id)}
-                        onBook={() => book(driver)}
+                        actions={<Button label="Réserver une place" onPress={() => book(driver)} />}
                       />
                     </View>
                   ))}

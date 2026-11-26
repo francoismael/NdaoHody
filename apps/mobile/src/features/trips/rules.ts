@@ -32,6 +32,23 @@ export function nearName(area: string): string {
  */
 export const PICKUP_MAX_WALK_METRES = 800;
 
+/**
+ * Search time window, measured on WHEN THE DRIVER PASSES THE PASSENGER'S POINT
+ * (not when he leaves), on the demo clock. GAP #11 (to send to the backend):
+ * not in data-objets.ts yet.
+ * - "maintenant": he passes within the next SEARCH_NOW_MAX_MINUTES;
+ * - "plus tard" at H: he passes between H − SEARCH_LATER_BEFORE_MINUTES and H + SEARCH_LATER_AFTER_MINUTES.
+ */
+export const SEARCH_NOW_MAX_MINUTES = 60;
+export const SEARCH_LATER_BEFORE_MINUTES = 30;
+export const SEARCH_LATER_AFTER_MINUTES = 120;
+
+export const SEARCH_MESSAGES = {
+  noDestination: 'Choisis ta destination.',
+  samePlace: 'Ta destination est trop proche de ton départ.',
+  pastTime: 'Choisis une heure à venir.',
+} as const;
+
 /** Shorter than this is not a carpool trip (same place twice, a few streets). */
 export const MIN_TRIP_METRES = 500;
 

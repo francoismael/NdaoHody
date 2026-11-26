@@ -1,11 +1,11 @@
 import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet } from '@contract';
 
 import type { PassingDriver } from '@/features/trips/types';
-import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
+import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, nearName, publishBlocker } from '@/features/trips/rules';
 import { haversineMeters, type LngLat } from '@/shared/map';
 import { addMinutes, isRecord } from '@/shared/utils';
 
-import { arrivalAt, bySoonestArrival, isOfferedTo, pickupPoint } from '../matching';
+import { arrivalAt, byRank, inSearchWindow, isOfferedTo, passingAt, pathSpan, pickupPoint, type RankKey } from '../matching';
 import { quoteForTrip } from '../pricing';
 import {
   HttpError,
@@ -22,85 +22,55 @@ import {
   type RequestContext,
 } from '../server';
 import { iso } from '../time';
-import { segmentSeconds, toLieu, toLngLat } from '../tripGeo';
+import { toLieu, toLngLat } from '../tripGeo';
 import { nextId } from '../types';
 import { toPublicProfile, toVehicleSummary, userById } from '../views';
 
-/** A planned trip matches a search if it leaves in this window around the wanted time. */
-const WINDOW_BEFORE_MIN = 30;
-const WINDOW_AFTER_MIN = 120;
-
 function parseDemande(body: unknown): DemandeRecherche {
+  const quand = requireString(body, 'quand');
+  if (quand !== 'maintenant' && Number.isNaN(new Date(quand).getTime())) throw new HttpError(400, 'quand invalide.');
   return {
     depart: requireLieu(body, 'depart'),
     destination: requireLieu(body, 'destination'),
     places: Math.max(1, Math.round(requireNumber(body, 'places'))),
-    quand: requireString(body, 'quand'),
+    quand,
     femmesSeulement: optionalBoolean(body, 'femmesSeulement'),
   };
 }
 
-function inTimeWindow(trajet: Trajet, quand: string, now: Date): boolean {
-  if (quand === 'maintenant') {
-    return trajet.type === 'immediat' || new Date(trajet.dateDepart) <= addMinutes(now, 60);
-  }
-  const wanted = new Date(quand);
-  const departure = new Date(trajet.dateDepart);
-  return departure >= addMinutes(wanted, -WINDOW_BEFORE_MIN) && departure <= addMinutes(wanted, WINDOW_AFTER_MIN);
-}
-
-/** Order: rated drivers first (best rating, then most trips), then unrated ones (most trips). */
-function compareDrivers(ctx: RequestContext) {
-  return (a: ResultatRecherche, b: ResultatRecherche): number => {
-    const noteA = a.chauffeur.noteMoyenne;
-    const noteB = b.chauffeur.noteMoyenne;
-    if (noteA !== null && noteB === null) return -1;
-    if (noteA === null && noteB !== null) return 1;
-    if (noteA !== null && noteB !== null && noteA !== noteB) return noteB - noteA;
-    return userById(ctx, b.chauffeur.id).coursesChauffeur - userById(ctx, a.chauffeur.id).coursesChauffeur;
-  };
-}
-
+/**
+ * Drivers whose path holds the passenger's departure THEN his destination (`pathSpan`),
+ * with enough seats, passing his point in the wanted window; ordered by `byRank`.
+ */
 function search(ctx: RequestContext): ResultatRecherche[] {
   const user = requireUser(ctx);
   const demande = parseDemande(ctx.body);
-  const results: ResultatRecherche[] = [];
 
-  ctx.db.trajets.forEach((trajet) => {
-    if (trajet.statut !== 'publie' && trajet.statut !== 'en_route') return;
-    if (!isOfferedTo(trajet, user, demande.places)) return;
-    if (demande.femmesSeulement && !trajet.reserveFemmes) return;
-    if (!inTimeWindow(trajet, demande.quand, ctx.now)) return;
+  return ctx.db.trajets
+    .flatMap((trajet): (RankKey & { result: ResultatRecherche })[] => {
+      if (trajet.statut !== 'publie' && trajet.statut !== 'en_route') return [];
+      if (!isOfferedTo(trajet, user, demande.places)) return [];
+      if (demande.femmesSeulement && !trajet.reserveFemmes) return [];
+      const span = pathSpan(trajet, demande.depart, demande.destination);
+      const passing = span && passingAt(ctx.db, trajet, span.pickup, ctx.now);
+      if (!span || !passing || !inSearchWindow(passing.minutes, demande.quand, ctx.now)) return [];
 
-    const pickup = pickupPoint(trajet, demande.depart);
-    const drop = pickupPoint(trajet, demande.destination);
-    if (!pickup || !drop || drop.index <= pickup.index) return;
-
-    let arriveeDansMinutes: number | null = null;
-    let heurePassage: string | null = null;
-    const position = ctx.db.positions.find((p) => p.trajetId === trajet.id && p.enLigne);
-    if (trajet.statut === 'en_route' && position) {
-      const arrival = arrivalAt(ctx.db, trajet, pickup.index, ctx.now);
-      if (!arrival) return; // already passed the passenger
-      arriveeDansMinutes = arrival.minutes;
-    } else {
-      heurePassage = iso(new Date(new Date(trajet.dateDepart).getTime() + segmentSeconds(trajet, 0, pickup.index) * 1000));
-    }
-
-    const vehicule = findOr404(ctx.db.vehicules, (v) => v.id === trajet.vehiculeId, 'Véhicule');
-    results.push({
-      trajet,
-      chauffeur: toPublicProfile(userById(ctx, trajet.chauffeurId)),
-      vehicule: toVehicleSummary(vehicule),
-      priseEnCharge: toLieu(trajet.chemin[pickup.index], `Près de ${demande.depart.libelle}`),
-      depose: toLieu(trajet.chemin[drop.index], `Près de ${demande.destination.libelle}`),
-      arriveeDansMinutes,
-      heurePassage,
-      ...quoteForTrip(ctx.db, trajet, pickup.index, drop.index, demande.places),
-    });
-  });
-
-  return results.sort(compareDrivers(ctx));
+      const chauffeur = userById(ctx, trajet.chauffeurId);
+      const vehicule = findOr404(ctx.db.vehicules, (v) => v.id === trajet.vehiculeId, 'Véhicule');
+      const result: ResultatRecherche = {
+        trajet,
+        chauffeur: toPublicProfile(chauffeur),
+        vehicule: toVehicleSummary(vehicule),
+        priseEnCharge: toLieu(trajet.chemin[span.pickup], nearName(demande.depart.libelle)),
+        depose: toLieu(trajet.chemin[span.drop], nearName(demande.destination.libelle)),
+        arriveeDansMinutes: passing.arrival ? passing.minutes : null,
+        heurePassage: passing.arrival ? null : iso(addMinutes(ctx.now, passing.minutes)),
+        ...quoteForTrip(ctx.db, trajet, span.pickup, span.drop, demande.places),
+      };
+      return [{ minutes: passing.minutes, trajet, chauffeur, result }];
+    })
+    .sort(byRank)
+    .map(({ result }) => result);
 }
 
 const isLngLat = (value: unknown): value is LngLat =>
@@ -176,25 +146,26 @@ function around(ctx: RequestContext): PassingDriver[] {
   const point = { latitude: Number(ctx.query.latitude), longitude: Number(ctx.query.longitude) };
   if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) throw new HttpError(400, 'Position invalide.');
   return ctx.db.trajets
-    .flatMap((trajet): PassingDriver[] => {
+    .flatMap((trajet): (RankKey & { driver: PassingDriver })[] => {
       if (trajet.statut !== 'en_route' || !isOfferedTo(trajet, user, 1)) return [];
       const pickup = pickupPoint(trajet, point);
       const arrival = pickup && arrivalAt(ctx.db, trajet, pickup.index, ctx.now);
       if (!pickup || !arrival) return [];
+      const chauffeur = userById(ctx, trajet.chauffeurId);
       const vehicule = findOr404(ctx.db.vehicules, (v) => v.id === trajet.vehiculeId, 'Véhicule');
-      return [
-        {
-          trajet,
-          chauffeur: toPublicProfile(userById(ctx, trajet.chauffeurId)),
-          vehicule: toVehicleSummary(vehicule),
-          priseEnCharge: toLieu(trajet.chemin[pickup.index], 'Près de toi'),
-          arriveeDansMinutes: arrival.minutes,
-          positionChauffeur: arrival.positionChauffeur,
-          cheminVersPassager: arrival.cheminVersPassager,
-        },
-      ];
+      const driver: PassingDriver = {
+        trajet,
+        chauffeur: toPublicProfile(chauffeur),
+        vehicule: toVehicleSummary(vehicule),
+        priseEnCharge: toLieu(trajet.chemin[pickup.index], 'Près de toi'),
+        arriveeDansMinutes: arrival.minutes,
+        positionChauffeur: arrival.positionChauffeur,
+        cheminVersPassager: arrival.cheminVersPassager,
+      };
+      return [{ minutes: arrival.minutes, trajet, chauffeur, driver }];
     })
-    .sort(bySoonestArrival);
+    .sort(byRank)
+    .map(({ driver }) => driver);
 }
 
 export const tripsRoutes: MockRoute[] = [

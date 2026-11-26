@@ -71,7 +71,6 @@ export default function RootLayout() {
           {/* 3. Passager */}
           <Stack.Protected guard={isPassenger} redirectTo="/">
             <Stack.Screen name="(passenger)/search" options={{ title: 'Recherche' }} />
-            <Stack.Screen name="(passenger)/results" options={{ title: 'Résultats' }} />
             <Stack.Screen name="(passenger)/driver/[id]" options={{ title: 'Chauffeur' }} />
             <Stack.Screen name="(passenger)/book/[id]" options={{ title: 'Réservation' }} />
             <Stack.Screen name="(passenger)/booking-wait/[id]" options={{ title: 'En attente' }} />

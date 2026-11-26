@@ -49,12 +49,18 @@ export const toChosenPlace = (place: Place): ChosenPlace => ({
 /** Places and roads change only with the dataset: no refetch while the app runs. */
 const STATIC = { staleTime: Number.POSITIVE_INFINITY } as const;
 
-/** Runs only once the passenger has filled the search (`demande` not null). */
+/**
+ * Runs only once the passenger has filled the search (`demande` not null).
+ * A changed search keeps the previous results on screen until the new ones arrive
+ * (`isPlaceholderData` = "updating"); minutes stay live like the passenger home.
+ */
 export const useSearchTrips = (demande: DemandeRecherche | null) =>
   useQuery({
     queryKey: tripsKeys.search(demande),
     queryFn: () => (demande ? searchTrips(demande) : Promise.resolve([])),
     enabled: demande !== null,
+    placeholderData: keepPreviousData,
+    refetchInterval: LIVE_REFRESH_MS,
   });
 
 export const useTrip = (trajetId: number) =>
