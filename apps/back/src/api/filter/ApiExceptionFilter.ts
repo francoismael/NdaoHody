@@ -13,6 +13,7 @@ const DOMAIN_ERROR_STATUS: Record<DomainErrorReason, HttpStatus> = {
   not_found: HttpStatus.NOT_FOUND,
   conflict: HttpStatus.CONFLICT,
   too_many_requests: HttpStatus.TOO_MANY_REQUESTS,
+  unavailable: HttpStatus.SERVICE_UNAVAILABLE,
 };
 
 interface ErrorDescription {

@@ -8,8 +8,10 @@ import { FileStorage } from '../application/port/FileStorage';
 import { HealthChecker } from '../application/port/HealthChecker';
 import { ImageProcessor } from '../application/port/ImageProcessor';
 import { PasswordHasher } from '../application/port/PasswordHasher';
+import { PlaceSearch } from '../application/port/PlaceSearch';
 import { PrivateFileStorage } from '../application/port/PrivateFileStorage';
 import { RandomGenerator } from '../application/port/RandomGenerator';
+import { RouteProvider } from '../application/port/RouteProvider';
 import { SecretHasher } from '../application/port/SecretHasher';
 import { SmsSender } from '../application/port/SmsSender';
 import { UnitOfWork } from '../application/port/UnitOfWork';
@@ -30,6 +32,9 @@ import { JwtAccessTokenAdapter, JwtAdminTokenAdapter } from './adapter/JwtTokenA
 import { LocalFileStorageAdapter } from './adapter/LocalFileStorageAdapter';
 import { LocalPrivateFileStorageAdapter } from './adapter/LocalPrivateFileStorageAdapter';
 import { LogSmsSenderAdapter } from './adapter/LogSmsSenderAdapter';
+import { MapboxClient } from './adapter/MapboxClient';
+import { MapboxPlaceSearchAdapter } from './adapter/MapboxPlaceSearchAdapter';
+import { MapboxRouteProviderAdapter } from './adapter/MapboxRouteProviderAdapter';
 import { MongoDeviceRegistryAdapter } from './adapter/MongoDeviceRegistryAdapter';
 import { MongoUserNotifierAdapter } from './adapter/MongoUserNotifierAdapter';
 import { SharpImageProcessorAdapter } from './adapter/SharpImageProcessorAdapter';
@@ -63,6 +68,8 @@ const BINDINGS: ClassProvider[] = [
   { provide: ImageProcessor, useClass: SharpImageProcessorAdapter },
   { provide: DeviceRegistry, useClass: MongoDeviceRegistryAdapter },
   { provide: UserNotifier, useClass: MongoUserNotifierAdapter },
+  { provide: RouteProvider, useClass: MapboxRouteProviderAdapter },
+  { provide: PlaceSearch, useClass: MapboxPlaceSearchAdapter },
   { provide: HealthChecker, useClass: HealthCheckerAdapter },
   { provide: UserRepository, useClass: TypeOrmUserRepository },
   { provide: OtpCodeRepository, useClass: TypeOrmOtpCodeRepository },
@@ -86,7 +93,7 @@ const BINDINGS: ClassProvider[] = [
       { name: NotificationDocument.name, schema: NotificationSchema },
     ]),
   ],
-  providers: [TransactionContext, ...BINDINGS],
+  providers: [TransactionContext, MapboxClient, ...BINDINGS],
   exports: BINDINGS.map((binding) => binding.provide),
 })
 export class InfrastructureModule {}
