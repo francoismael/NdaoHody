@@ -5,7 +5,8 @@ export type DomainErrorReason =
   | 'forbidden' // 403
   | 'not_found' // 404
   | 'conflict' // 409
-  | 'too_many_requests'; // 429
+  | 'too_many_requests' // 429
+  | 'unavailable'; // 503: an outside service (maps, SMS...) does not answer
 
 /**
  * Error raised by a business rule. The message is shown to the user as is (in French).

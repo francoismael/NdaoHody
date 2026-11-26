@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AccountRecoveryService } from '../application/service/AccountRecoveryService';
+import { EtaService } from '../application/service/EtaService';
 import { SessionIssuerService } from '../application/service/SessionIssuerService';
 import { AuthenticateUserUseCase } from '../application/usecases/auth/AuthenticateUserUseCase';
 import { RefreshSessionUseCase } from '../application/usecases/auth/RefreshSessionUseCase';
@@ -10,6 +11,8 @@ import { AddVehicleUseCase } from '../application/usecases/driver/AddVehicleUseC
 import { GetDriverApplicationUseCase } from '../application/usecases/driver/GetDriverApplicationUseCase';
 import { ManageVehiclesUseCase } from '../application/usecases/driver/ManageVehiclesUseCase';
 import { SubmitDriverDocumentUseCase } from '../application/usecases/driver/SubmitDriverDocumentUseCase';
+import { PreviewRouteUseCase } from '../application/usecases/geo/PreviewRouteUseCase';
+import { SearchPlacesUseCase } from '../application/usecases/geo/SearchPlacesUseCase';
 import { DeleteAccountUseCase } from '../application/usecases/profile/DeleteAccountUseCase';
 import { RegisterDeviceUseCase } from '../application/usecases/profile/RegisterDeviceUseCase';
 import { SwitchModeUseCase } from '../application/usecases/profile/SwitchModeUseCase';
@@ -18,6 +21,7 @@ import { UpdateProfilePhotoUseCase } from '../application/usecases/profile/Updat
 import { UpdateProfileUseCase } from '../application/usecases/profile/UpdateProfileUseCase';
 import { AuthController } from './controller/AuthController';
 import { DriverController } from './controller/DriverController';
+import { GeoController } from './controller/GeoController';
 import { MeController } from './controller/MeController';
 import { AccessTokenGuard } from './guard/AccessTokenGuard';
 
@@ -26,7 +30,7 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
  * Add here the controllers used by passengers and drivers, and their use cases.
  */
 @Module({
-  controllers: [AuthController, MeController, DriverController],
+  controllers: [AuthController, MeController, DriverController, GeoController],
   providers: [
     AccessTokenGuard,
     SessionIssuerService,
@@ -46,6 +50,9 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
     SubmitDriverDocumentUseCase,
     AddVehicleUseCase,
     ManageVehiclesUseCase,
+    SearchPlacesUseCase,
+    PreviewRouteUseCase,
+    EtaService,
   ],
 })
 export class ClientApiModule {}

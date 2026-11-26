@@ -25,13 +25,17 @@ export interface Environment {
   PRIVATE_UPLOADS_DIR: string;
   /** Public address of the API, used to build the links of uploaded files. */
   PUBLIC_BASE_URL: string;
+  /** Mapbox token of the back (routes, place search). Never sent to the app. */
+  MAPBOX_ACCESS_TOKEN: string;
 }
 
 export type SmsProvider = 'log';
 
 const SMS_PROVIDERS: readonly SmsProvider[] = ['log'];
 const SECRET_VARIABLES = ['JWT_ACCESS_SECRET', 'JWT_ADMIN_SECRET', 'HASH_SECRET'] as const;
-const REQUIRED_VARIABLES = ['DATABASE_URL', 'MONGODB_URI', ...SECRET_VARIABLES] as const;
+const REQUIRED_VARIABLES = ['DATABASE_URL', 'MONGODB_URI', 'MAPBOX_ACCESS_TOKEN', ...SECRET_VARIABLES] as const;
+/** Mapbox tokens start with pk. (public) or sk. (secret). */
+const MAPBOX_TOKEN_FORMAT = /^(pk|sk)\.[\w.-]{20,}$/;
 const MIN_SECRET_LENGTH = 32;
 const DEFAULT_CORS_ORIGINS = 'http://localhost:4200';
 const DEFAULT_PORT = '3000';
@@ -52,6 +56,10 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
   if (new Set(SECRET_VARIABLES.map((key) => readString(config, key))).size < SECRET_VARIABLES.length) {
     // Same secret for the app and the back-office: an app token could open the back-office.
     throw new Error(`${SECRET_VARIABLES.join(', ')} must all be different.`);
+  }
+
+  if (!MAPBOX_TOKEN_FORMAT.test(readString(config, 'MAPBOX_ACCESS_TOKEN'))) {
+    throw new Error('MAPBOX_ACCESS_TOKEN does not look like a Mapbox token (it starts with pk. or sk.).');
   }
 
   const smsProvider = readString(config, 'SMS_PROVIDER', 'log');
@@ -81,6 +89,7 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     SMS_PROVIDER: smsProvider,
     UPLOADS_DIR: readString(config, 'UPLOADS_DIR', 'apps/back/uploads'),
     PRIVATE_UPLOADS_DIR: readString(config, 'PRIVATE_UPLOADS_DIR', 'apps/back/private-uploads'),
+    MAPBOX_ACCESS_TOKEN: readString(config, 'MAPBOX_ACCESS_TOKEN'),
     PUBLIC_BASE_URL: readString(config, 'PUBLIC_BASE_URL', `http://localhost:${port}`).replace(/\/$/, ''),
   };
 }

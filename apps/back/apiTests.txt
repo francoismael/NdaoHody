@@ -1,4 +1,4 @@
-NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 4)
+NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 5)
 Adresse de base : http://localhost:3000
 Swagger : http://localhost:3000/api/docs
 
@@ -263,6 +263,61 @@ POST http://localhost:3000/api/admin/vehicles/{id du véhicule}/reject
 3. POST /api/v1/me/vehicles avec immatriculation = 1357 TBD (plaque de l'ancien compte)
 -> la réponse contient "compteReactive" : l'ancien compte n°3 revient,
    avec de nouveaux jetons à utiliser à la place des anciens.
+
+
+==============================================================
+ ÉTAPE 5 — CARTES (MAPBOX)                        [TOKEN APP]
+==============================================================
+
+Le back appelle Mapbox avec sa propre clé (MAPBOX_ACCESS_TOKEN dans apps/back/.env) :
+l'app n'appelle plus Mapbox pour les itinéraires ni la recherche de lieux.
+Les routes /geo sont des GET : copier l'URL complète dans Postman, Body = none.
+
+GET http://localhost:3000/api/v1/geo/route?departLatitude=-18.9850&departLongitude=47.5330&arriveeLatitude=-18.9067&arriveeLongitude=47.5253
+-> Itinéraire par la route d'Andoharanofotsy à Analakely, avant de publier un trajet.
+   Renvoie le chemin, puis tout en bas : distanceMetres (environ 9000), dureeSecondes,
+   departSurRoute et arriveeSurRoute (les 2 points ramenés sur la rue la plus proche).
+(pas de body)
+
+GET http://localhost:3000/api/v1/geo/places?q=Analakely&session=test-recherche-001&latitude=-18.9067&longitude=47.5253
+-> Propose des lieux pendant que l'utilisateur tape (6 au plus, les plus proches d'abord).
+   q = ce que l'utilisateur a tapé (2 lettres au moins, sinon liste vide).
+   session = un identifiant créé au début de la recherche, le même jusqu'au lieu choisi
+   (Mapbox facture par recherche, pas par lettre tapée). latitude / longitude : facultatifs.
+   Renvoie [ { "id": "...", "nom": "...", "detail": "..." } ]. Copier un "id" pour la suite.
+(pas de body)
+
+GET http://localhost:3000/api/v1/geo/places/{id copié dans la réponse précédente}?session=test-recherche-001
+-> Coordonnées du lieu choisi : { "libelle": "...", "latitude": ..., "longitude": ... }.
+   Garder la même session que dans la requête précédente.
+(pas de body)
+
+GET http://localhost:3000/api/v1/geo/area?latitude=-18.9120&longitude=47.5140
+-> Nom du quartier à un point touché sur la carte (jamais un bâtiment) : { "libelle": "..." },
+   ou { "libelle": null } si Mapbox ne connaît rien à cet endroit.
+(pas de body)
+
+--- Cas d'erreur à vérifier ---
+
+GET http://localhost:3000/api/v1/geo/route?departLatitude=-18.9850&departLongitude=47.5330&arriveeLatitude=48.8566&arriveeLongitude=2.3522
+-> Arrivée à Paris : 400 "Ce point est en dehors de Madagascar."
+(pas de body)
+
+GET http://localhost:3000/api/v1/geo/route?departLatitude=-18.9067&departLongitude=47.5253&arriveeLatitude=-18.9067&arriveeLongitude=47.5253
+-> Départ = arrivée : 400 "Le départ et l'arrivée sont trop proches."
+(pas de body)
+
+GET http://localhost:3000/api/v1/geo/places?q=A&session=test-recherche-001
+-> Une seule lettre : 200 [] (liste vide, Mapbox n'est pas appelé).
+(pas de body)
+
+GET http://localhost:3000/api/v1/geo/route?departLatitude=-18.9850&departLongitude=47.5330&arriveeLatitude=-18.9067&arriveeLongitude=47.5253
+-> Sans TOKEN APP (Authorization = No Auth) : 401 "Ta session a expiré. Reconnecte-toi."
+(pas de body)
+
+Si une route /geo répond 503 "La carte est momentanément indisponible" : vérifier Internet,
+puis lire la ligne [Mapbox] dans le terminal du back (HTTP 401 = MAPBOX_ACCESS_TOKEN invalide,
+no answer = pas d'Internet, HTTP 429 = quota Mapbox dépassé).
 
 
 ==============================================================

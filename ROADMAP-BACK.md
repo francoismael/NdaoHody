@@ -169,11 +169,12 @@ Côté back, la table des permissions est dans `apps/back/src/domain/entity/admi
 
 ## Étape 5 — Cartes (Mapbox)
 
-- [ ] Port `RouteProvider` + adaptateur Mapbox Directions : chemin le plus court, distance, durée
-- [ ] Port `EtaProvider` : minutes entre le chauffeur et un point (cache 30 s, appel seulement si le chauffeur a bougé de plus de 100 m)
-- [ ] `RoadSnapper` : ramener un point choisi par le passager sur la route la plus proche
-- [ ] `GET /geo/recherche`, `GET /geo/adresse` : noms des lieux (clé Mapbox jamais envoyée au téléphone)
-- [ ] Erreur propre (503) si Mapbox ne répond pas ; suivi du quota
+- [x] Port `RouteProvider` + adaptateur Mapbox Directions : chemin le plus court, distance, durée (cache 10 min des itinéraires déjà demandés)
+- [x] `EtaService` : minutes entre le chauffeur et un point (réponse gardée 30 s ; ensuite nouvel appel seulement si le chauffeur a bougé de 100 m ou plus, ou toutes les 5 min)
+- [x] Points ramenés sur la route la plus proche : chaque itinéraire renvoie ses points sur la route (`pointsSurRoute`, les « waypoints » de Mapbox)
+- [x] `GET /geo/places`, `GET /geo/places/:id` (recherche de lieux), `GET /geo/area` (nom du quartier d'un point), `GET /geo/route` (aperçu d'itinéraire) ; clé Mapbox jamais envoyée au téléphone ; points hors de Madagascar refusés
+- [x] Erreur propre (503) si Mapbox ne répond pas (délai 8 s, quota, token refusé) ; nombre d'appels du jour par service dans les logs
+- [ ] App mobile : remplacer les appels directs à Mapbox (`placesService.ts`) par `/api/v1/geo/...` ; son token ne sert plus qu'à afficher la carte
 
 **Fini quand** : Andoharanofotsy → Analakely renvoie un chemin, une distance et une durée réalistes.
 
@@ -357,6 +358,7 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] Reprise des anciens comptes de la PWA (numéros `+261…`, anciens chauffeurs à revérifier), testée sur une copie
 - [ ] Serveur (Docker) : API, PostgreSQL + PostGIS, MongoDB, HTTPS, WebSocket, sauvegardes quotidiennes
 - [ ] Surveillance : erreurs, consommation Mapbox / SMS / FCM
+- [ ] Mapbox : compte au nom du projet, token séparé pour le back (`MAPBOX_ACCESS_TOKEN`, jamais dans l'app), token du mobile limité à l'affichage de la carte ; alerte de dépassement de quota activée
 
 ---
 

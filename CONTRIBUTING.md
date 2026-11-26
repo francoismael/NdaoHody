@@ -35,9 +35,11 @@ Prérequis : PostgreSQL (avec PostGIS) et MongoDB installés et démarrés sur t
    - chaque développeur génère **ses propres clés** : ne les partage pas, ne les envoie à personne ;
    - en production, on génère d'autres clés **une seule fois**, à la mise en place du serveur, et on ne les change plus (sinon tout le monde est déconnecté).
 
-3. **Le reste** (`SMS_PROVIDER=log`, dossiers d'upload, etc.) peut garder les valeurs de `.env.example`. Avec `SMS_PROVIDER=log`, le code SMS de connexion s'affiche dans la console du back.
+3. **Mapbox** : `MAPBOX_ACCESS_TOKEN` = un token du compte Mapbox du projet (il commence par `pk.`). Demande-le au responsable du projet, par message privé. Sans lui, le back refuse de démarrer.
 
-4. **Données de démonstration** (facultatif) :
+4. **Le reste** (`SMS_PROVIDER=log`, dossiers d'upload, etc.) peut garder les valeurs de `.env.example`. Avec `SMS_PROVIDER=log`, le code SMS de connexion s'affiche dans la console du back.
+
+5. **Données de démonstration** (facultatif) :
 
    ```bash
    npm run db:migrate   # crée les tables (inutile si DB_MIGRATIONS_RUN=true)
