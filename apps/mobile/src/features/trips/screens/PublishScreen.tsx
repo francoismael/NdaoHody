@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppMap, PlaceLabel, RouteLine, type LngLat, type MapFit } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
-import { Button, FieldMessage, Flash, Icon } from '@/shared/ui';
+import { Button, FieldMessage, Flash } from '@/shared/ui';
 import { formatDistance, formatDuration } from '@/shared/utils';
 
+import { PlaceField } from '../components/PlaceField';
 import { PlacePicker } from '../components/PlacePicker';
 import { PublishBlockedCard } from '../components/PublishBlockedCard';
 import { usePublishAccess } from '../hooks/usePublishAccess';
@@ -67,14 +68,13 @@ export function PublishScreen() {
 
     return (
       <>
-        <FieldRow
-          s={s}
+        <PlaceField
           label="Départ"
           value={depart ? (fromCurrent ? `Ma position · ${depart.libelle}` : depart.libelle) : fromCurrent ? 'Ma position…' : 'Choisir'}
           onPress={() => setPicking('depart')}
         />
         {currentProblem ? <FieldMessage tone="danger" message={currentProblem} /> : null}
-        <FieldRow s={s} label="Destination" value={arrivee?.libelle ?? 'Choisir'} onPress={() => setPicking('arrivee')} />
+        <PlaceField label="Destination" value={arrivee?.libelle ?? 'Choisir'} onPress={() => setPicking('arrivee')} />
 
         {route.isError ? <FieldMessage tone="danger" message={route.error.message} /> : null}
         {tooShort ? <FieldMessage tone="danger" message={M.tooShort} /> : null}
@@ -155,32 +155,7 @@ export function PublishScreen() {
   );
 }
 
-type FieldRowProps = { s: ReturnType<typeof createStyles>; label: string; value: string; onPress: () => void; disabled?: boolean };
-
-/** A field that opens a list (looks like a TextField, behaves like a button). */
-function FieldRow({ s, label, value, onPress, disabled = false }: FieldRowProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={`${label} : ${value}`}
-      accessibilityHint="Ouvre la liste des lieux"
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => [s.row, pressed && s.rowPressed, disabled && s.rowDisabled]}
-    >
-      <View style={s.rowText}>
-        <Text style={s.rowLabel}>{label}</Text>
-        <Text style={s.rowValue} numberOfLines={1}>
-          {value}
-        </Text>
-      </View>
-      <Icon name="chevron-right" tone="muted" />
-    </Pressable>
-  );
-}
-
-const createStyles = ({ colors, typography, shadows, spacing, gutter, radii, controlHeight }: Theme) =>
+const createStyles = ({ colors, typography, shadows, spacing, gutter, radii }: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     titleBox: {
@@ -210,23 +185,6 @@ const createStyles = ({ colors, typography, shadows, spacing, gutter, radii, con
       backgroundColor: colors.surface,
       boxShadow: shadows.card,
     },
-    row: {
-      minHeight: controlHeight,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing[3],
-      paddingHorizontal: spacing[4],
-      paddingVertical: spacing[2],
-      borderRadius: radii.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    rowPressed: { borderColor: colors.borderStrong },
-    rowDisabled: { opacity: 0.5 },
-    rowText: { flex: 1 },
-    rowLabel: { ...typography.caption, color: colors.textMuted },
-    rowValue: { ...typography.bodyStrong, color: colors.text },
     summary: { gap: spacing[1] },
     summaryMain: { ...typography.subheading, color: colors.text },
     summaryNote: { ...typography.small, color: colors.textMuted },

@@ -1,9 +1,14 @@
 import type { Chemin, Position, Trajet, Utilisateur } from '@contract';
 
-import { PICKUP_MAX_WALK_METRES } from '@/features/trips/rules';
+import {
+  PICKUP_MAX_WALK_METRES,
+  SEARCH_LATER_AFTER_MINUTES,
+  SEARCH_LATER_BEFORE_MINUTES,
+  SEARCH_NOW_MAX_MINUTES,
+} from '@/features/trips/rules';
 
 import { approach } from './drive';
-import { nearestIndex } from './tripGeo';
+import { nearestIndex, segmentSeconds } from './tripGeo';
 import type { MockDb } from './types';
 
 /**
@@ -17,14 +22,28 @@ export function isOfferedTo(trajet: Trajet, user: Utilisateur, places: number): 
   return trajet.chauffeurId !== user.id && trajet.placesLibres >= places && (!trajet.reserveFemmes || user.sexe === 'femme');
 }
 
-/** The path point the passenger walks to, or null when the path is farther than the threshold. */
+/**
+ * The path point the passenger walks to (pickup), or from (drop: same threshold),
+ * or null when the path is farther than the threshold.
+ */
 export function pickupPoint(trajet: Trajet, point: Position): { index: number; walkMetres: number } | null {
   const nearest = nearestIndex(trajet, point);
   if (nearest.distanceMeters > PICKUP_MAX_WALK_METRES) return null;
   return { index: nearest.index, walkMetres: Math.round(nearest.distanceMeters) };
 }
 
-export type Arrival = { minutes: number; positionChauffeur: Position; cheminVersPassager: Chemin };
+/**
+ * The search rule: the path passes near the passenger's departure, THEN, farther along
+ * the same path, near his destination. A driver going the other way gets null.
+ */
+export function pathSpan(trajet: Trajet, depart: Position, destination: Position): { pickup: number; drop: number } | null {
+  const pickup = pickupPoint(trajet, depart);
+  const drop = pickupPoint(trajet, destination);
+  if (!pickup || !drop || drop.index <= pickup.index) return null;
+  return { pickup: pickup.index, drop: drop.index };
+}
+
+export type Arrival ={ minutes: number; positionChauffeur: Position; cheminVersPassager: Chemin };
 
 /**
  * When a driver on the road reaches a point of his path: road distance left, from the
@@ -42,6 +61,46 @@ export function arrivalAt(db: MockDb, trajet: Trajet, index: number, now: Date):
   };
 }
 
-/** Soonest first; same minute → lower trip id, so the order does not jump every second. */
-export const bySoonestArrival = (a: { arriveeDansMinutes: number; trajet: Trajet }, b: { arriveeDansMinutes: number; trajet: Trajet }): number =>
-  a.arriveeDansMinutes - b.arriveeDansMinutes || a.trajet.id - b.trajet.id;
+export type Passing = { minutes: number; arrival: Arrival | null };
+
+/**
+ * In how many minutes the driver passes the point at path `index`, on the demo clock.
+ * On the road: the R3 engine (`arrivalAt`). Planned: departure + road time to the point.
+ * Null once passed (or a planned departure already late: it comes back once on the road).
+ */
+export function passingAt(db: MockDb, trajet: Trajet, index: number, now: Date): Passing | null {
+  if (trajet.statut === 'en_route') {
+    const arrival = arrivalAt(db, trajet, index, now);
+    return arrival && { minutes: arrival.minutes, arrival };
+  }
+  const passesMs = new Date(trajet.dateDepart).getTime() + segmentSeconds(trajet, 0, index) * 1000;
+  if (passesMs < now.getTime()) return null;
+  return { minutes: Math.max(1, Math.ceil((passesMs - now.getTime()) / 60_000)), arrival: null };
+}
+
+/** The search time window (GAP #11), on the minutes until the driver passes. */
+export function inSearchWindow(minutes: number, quand: string, now: Date): boolean {
+  if (quand === 'maintenant') return minutes <= SEARCH_NOW_MAX_MINUTES;
+  const wantedIn = (new Date(quand).getTime() - now.getTime()) / 60_000;
+  return minutes >= wantedIn - SEARCH_LATER_BEFORE_MINUTES && minutes <= wantedIn + SEARCH_LATER_AFTER_MINUTES;
+}
+
+/** What the order of the passenger home AND the search reads. */
+export type RankKey = { minutes: number; trajet: Trajet; chauffeur: Utilisateur };
+
+/**
+ * THE order of drivers for a passenger (GAP #12: the contract only says "rated first,
+ * best rating first"): passes soonest first, then rated before unrated, best rating,
+ * most trips driven, and lower trip id so the order never jumps between two refreshes.
+ */
+export function byRank(a: RankKey, b: RankKey): number {
+  const noteA = a.chauffeur.noteMoyenne;
+  const noteB = b.chauffeur.noteMoyenne;
+  return (
+    a.minutes - b.minutes ||
+    Number(noteA === null) - Number(noteB === null) ||
+    (noteB ?? 0) - (noteA ?? 0) ||
+    b.chauffeur.coursesChauffeur - a.chauffeur.coursesChauffeur ||
+    a.trajet.id - b.trajet.id
+  );
+}

@@ -4,7 +4,6 @@ export { PublishRouteScreen } from './screens/PublishRouteScreen';
 export { PublishSeatsScreen } from './screens/PublishSeatsScreen';
 export { MyTripsScreen } from './screens/MyTripsScreen';
 export { SearchScreen } from './screens/SearchScreen';
-export { ResultsScreen } from './screens/ResultsScreen';
 export { RideScreen } from './screens/RideScreen';
 export { DrivingScreen } from './screens/DrivingScreen';
 export {
@@ -25,4 +24,4 @@ export {
 } from './hooks/useTrips';
 export { usePublishAccess } from './hooks/usePublishAccess';
 export type { PublishAccess } from './hooks/usePublishAccess';
-export type { ChosenPlace, PassingDriver, Place, PlaceSuggestionItem, PublishTripInput, RoutePreview } from './types';
+export type { ChosenPlace, DriverCardData, PassingDriver, Place, PlaceSuggestionItem, PublishTripInput, RoutePreview, SearchCriteria } from './types';

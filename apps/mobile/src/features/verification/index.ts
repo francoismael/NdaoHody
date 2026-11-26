@@ -13,5 +13,5 @@ export {
   verificationKeys,
 } from './hooks/useVerification';
 export type { SendDocumentInput } from './hooks/useVerification';
-export { driverStep, type DriverStep } from './rules';
+export { MAX_CAR_SEATS, driverStep, type DriverStep } from './rules';
 export type { CreateVehicleInput, DriverApplication, UploadDocumentInput } from './types';
