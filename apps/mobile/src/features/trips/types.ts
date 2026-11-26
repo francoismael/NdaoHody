@@ -56,4 +56,6 @@ export type PassingDriver = Pick<ResultatRecherche, 'trajet' | 'chauffeur' | 've
   positionChauffeur: Position;
   /** The driver's road to the pickup point. */
   cheminVersPassager: Chemin;
+  /** The rest of his path, from the pickup point to his destination. */
+  cheminApresPassager: Chemin;
 };

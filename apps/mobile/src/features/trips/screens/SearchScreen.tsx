@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { usePreventRemove, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { DemandeRecherche, ResultatRecherche } from '@contract';
@@ -65,21 +65,23 @@ export function SearchScreen() {
   const results = search.data ?? [];
   const updating = search.isPlaceholderData;
 
-  // Editing over existing results: Android back closes the form, not the screen.
-  const canCancel = editing && criteria !== null;
-  useEffect(() => {
-    if (!canCancel) return undefined;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setEditing(false);
-      return true;
-    });
-    return () => sub.remove();
-  }, [canCancel]);
-
   const edit = (start: SearchCriteria | null = criteria) => {
     setFormStart(start);
     setEditing(true);
   };
+
+  // Back from the results (Android back or the header arrow): to the form, prefilled, not home.
+  // Back from the form leaves the screen. Any other removal (e.g. a later "back to home")
+  // is let through: preventing stops, then the blocked action is replayed.
+  const showingResults = !editing && criteria !== null;
+  const [leave, setLeave] = useState<(() => void) | null>(null);
+  usePreventRemove(showingResults && leave === null, ({ data, repeat }) => {
+    if (data.action.type === 'GO_BACK' || data.action.type === 'POP') edit();
+    else setLeave(() => repeat);
+  });
+  useEffect(() => {
+    leave?.();
+  }, [leave]);
   const apply = (next: SearchCriteria) => {
     setCriteria(next);
     setSelectedId(null);

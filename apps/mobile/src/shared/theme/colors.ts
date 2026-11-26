@@ -143,6 +143,9 @@ export const lightColors = {
   skeleton: palette.skelA,
   skeletonHighlight: palette.skelB,
   mapPlaceholder: palette.mapLight,
+  // Ajout (bloc 5) : la suite d'un trajet sur la carte, après le passager. Même ambre vif
+  // en clair et en sombre : un trait sur la carte, jamais du texte (pas de contraste texte à tenir).
+  mapRouteOnward: palette.amberBright,
 
   // Information (ex. élément non lu)
   infoSurface: palette.blue50,
@@ -205,6 +208,7 @@ export const darkColors: ThemeColors = {
   skeleton: palette.dark750,
   skeletonHighlight: palette.dark700,
   mapPlaceholder: palette.dark750,
+  mapRouteOnward: palette.amberBright,
 
   infoSurface: palette.blueDark,
 

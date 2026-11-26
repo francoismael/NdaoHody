@@ -49,6 +49,7 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
   const [panelHeight, setPanelHeight] = useState(0);
   // A driver who has passed the passenger leaves the list: the selection then disappears too.
   const selected = drivers.find((d) => d.trajet.id === selectedId) ?? null;
+  const selectedRank = selected ? drivers.indexOf(selected) + 1 : 0;
 
   // Camera: frames again only when the list, the selection or the panel changes,
   // never at each 5 s position push (React "adjust state when a prop changes" pattern).
@@ -56,7 +57,7 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
   const [frame, setFrame] = useState<{ key: string; fit: MapFit | null }>({ key: '', fit: null });
   if (panelHeight > 0 && frame.key !== frameKey) {
     const points: LngLat[] = selected
-      ? [toLngLat(here), ...selected.cheminVersPassager]
+      ? [toLngLat(here), ...selected.cheminVersPassager, ...selected.cheminApresPassager]
       : drivers.length > 0
         ? [toLngLat(here), ...drivers.map((d) => toLngLat(d.positionChauffeur))]
         : [];
@@ -108,19 +109,40 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
   return (
     <View style={s.container}>
       <AppMap showUserLocation={located} fit={frame.fit} focus={focus}>
-        {/* Under the passenger's dot (drawn first, so the lowest point): every point stays on top. */}
-        {selected ? <RouteLine id="to-passenger" coordinates={selected.cheminVersPassager} belowLayerID="passenger-circle" /> : null}
         <PlaceLabel id="passenger" coordinate={toLngLat(here)} label="Toi" />
-        {drivers.map((driver, i) => (
+        {/* A chosen driver alone on the map: the others are hidden until the choice is undone. */}
+        {selected
+          ? null
+          : drivers.map((driver, i) => (
+              <MovingMarker
+                key={driver.trajet.id}
+                id={`driver-${driver.trajet.id}`}
+                coordinate={toLngLat(driver.positionChauffeur)}
+                glideMs={5000}
+                label={String(i + 1)}
+              />
+            ))}
+        {/*
+          Chosen driver, alone and on top. On Mapbox the last layer added is drawn
+          on top, and a layer keeps its place once added: so what must be in front is mounted
+          when chosen, after the rest, in this order. His road on to his destination (onward),
+          his road to the passenger (green), the arrival, then his point and the
+          passenger's dot again (ids per driver: choosing another one mounts new layers on top).
+        */}
+        {selected ? <RouteLine id="after-passenger" coordinates={selected.cheminApresPassager} tone="onward" /> : null}
+        {selected ? <RouteLine id="to-passenger" coordinates={selected.cheminVersPassager} /> : null}
+        {selected ? <PlaceLabel id="driver-arrival" coordinate={toLngLat(selected.trajet.arrivee)} label="Arrivée" tone="onward" /> : null}
+        {selected ? (
           <MovingMarker
-            key={driver.trajet.id}
-            id={`driver-${driver.trajet.id}`}
-            coordinate={toLngLat(driver.positionChauffeur)}
+            key={`chosen-${selected.trajet.id}`}
+            id={`chosen-driver-${selected.trajet.id}`}
+            coordinate={toLngLat(selected.positionChauffeur)}
             glideMs={5000}
-            label={String(i + 1)}
-            highlighted={driver.trajet.id === selectedId}
+            label={String(selectedRank)}
+            highlighted
           />
-        ))}
+        ) : null}
+        {selected ? <MovingMarker key={`chosen-here-${selected.trajet.id}`} id={`chosen-here-${selected.trajet.id}`} coordinate={toLngLat(here)} kind="place" /> : null}
       </AppMap>
 
       {issue ? (

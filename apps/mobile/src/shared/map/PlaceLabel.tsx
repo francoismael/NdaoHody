@@ -13,18 +13,20 @@ type PlaceLabelProps = {
   coordinate: LngLat;
   /** What the place is: "Départ", "Arrivée", "Toi"… */
   label: string;
+  /** Ring of the dot: accent (default) or onward (the end of a route after the user). */
+  tone?: 'accent' | 'onward';
 };
 
 /**
  * A fixed place on AppMap: a small dot on the exact point, and a bubble above it
  * saying what it is. Knows nothing about carpooling.
  */
-export function PlaceLabel({ id, coordinate, label }: PlaceLabelProps) {
+export function PlaceLabel({ id, coordinate, label, tone = 'accent' }: PlaceLabelProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
   return (
     <>
-      <MovingMarker id={id} coordinate={coordinate} kind="place" />
+      <MovingMarker id={id} coordinate={coordinate} kind="place" tone={tone} />
       {/* Anchored by its bottom (the tail's tip) just above the dot. */}
       <MarkerView coordinate={coordinate} anchor={{ x: 0.5, y: 1 }} allowOverlap allowOverlapWithPuck>
         <View style={s.wrapper} pointerEvents="none" accessible accessibilityLabel={label}>
@@ -42,8 +44,8 @@ export function PlaceLabel({ id, coordinate, label }: PlaceLabelProps) {
 
 const createStyles = ({ colors, typography, fontFamilies, spacing, radii, shadows }: Theme) =>
   StyleSheet.create({
-    // The bottom space keeps the dot (radius 7 + ring 3) visible under the tail.
-    wrapper: { alignItems: 'center', paddingBottom: spacing[3] },
+    // The bottom space keeps the dot (radius 5 + ring 2) visible under the tail.
+    wrapper: { alignItems: 'center', paddingBottom: spacing[2] },
     bubble: {
       paddingHorizontal: spacing[3],
       paddingVertical: spacing[1],

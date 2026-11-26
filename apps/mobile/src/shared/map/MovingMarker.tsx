@@ -19,8 +19,10 @@ type MovingMarkerProps = {
   kind?: 'vehicle' | 'place';
   /** A short text drawn inside the point (a rank: "1", "2"…). */
   label?: string;
-  /** Drawn bigger, with an accent ring (the item chosen in a list). */
+  /** Same size, with an accent ring (the item chosen in a list). */
   highlighted?: boolean;
+  /** Ring of a place: accent (default) or onward (the end of a route after the user). */
+  tone?: 'accent' | 'onward';
 };
 
 /** About 15 redraws per second: smooth enough, light on a mid-range phone. */
@@ -31,7 +33,7 @@ const FRAME_MS = 66;
  * MarkerView). Moving = updating the source's GeoJSON, as Mapbox does.
  * Knows nothing about carpooling.
  */
-export function MovingMarker({ id, coordinate, glideMs = 0, kind = 'vehicle', label, highlighted = false }: MovingMarkerProps) {
+export function MovingMarker({ id, coordinate, glideMs = 0, kind = 'vehicle', label, highlighted = false, tone = 'accent' }: MovingMarkerProps) {
   const { colors } = useTheme();
   const [shown, setShown] = useState<LngLat>(coordinate);
   const shownRef = useRef<LngLat>(coordinate);
@@ -63,10 +65,11 @@ export function MovingMarker({ id, coordinate, glideMs = 0, kind = 'vehicle', la
       key="circle"
       id={`${id}-circle`}
       style={{
-        circleRadius: (vehicle ? 9 : 7) + (label ? 3 : 0) + (highlighted ? 3 : 0),
+        // About the size of the blue GPS dot: places 5 + ring 2, vehicles 7 (+2 with a rank). Chosen: same size.
+        circleRadius: (vehicle ? 7 : 5) + (label ? 2 : 0),
         circleColor: vehicle ? colors.primary : colors.surface,
-        circleStrokeColor: highlighted ? colors.accent : vehicle ? colors.surface : colors.accent,
-        circleStrokeWidth: highlighted ? 4 : 3,
+        circleStrokeColor: highlighted ? colors.accent : vehicle ? colors.surface : tone === 'onward' ? colors.mapRouteOnward : colors.accent,
+        circleStrokeWidth: 2,
       }}
     />
   );
@@ -81,7 +84,7 @@ export function MovingMarker({ id, coordinate, glideMs = 0, kind = 'vehicle', la
               id={`${id}-label`}
               style={{
                 textField: label,
-                textSize: highlighted ? 13 : 11,
+                textSize: 10,
                 textColor: vehicle ? colors.onPrimary : colors.text,
                 textAllowOverlap: true,
                 textIgnorePlacement: true,
