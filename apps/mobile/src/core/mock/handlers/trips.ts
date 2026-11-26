@@ -161,6 +161,7 @@ function around(ctx: RequestContext): PassingDriver[] {
         arriveeDansMinutes: arrival.minutes,
         positionChauffeur: arrival.positionChauffeur,
         cheminVersPassager: arrival.cheminVersPassager,
+        cheminApresPassager: trajet.chemin.slice(pickup.index),
       };
       return [{ minutes: arrival.minutes, trajet, chauffeur, driver }];
     })
