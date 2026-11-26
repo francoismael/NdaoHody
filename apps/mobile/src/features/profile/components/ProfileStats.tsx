@@ -2,10 +2,18 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme, type Theme } from '@/shared/theme';
+import { Icon, type IconName } from '@/shared/ui';
 
 import { formatRating } from '../services/profileService';
 
-export type ProfileStat = { key: string; value: string; label: string; accessibilityLabel: string };
+export type ProfileStat = {
+  key: string;
+  value: string;
+  /** Icon right after the value (the rating's star). */
+  icon?: IconName;
+  label: string;
+  accessibilityLabel: string;
+};
 
 /**
  * THE rating tile: decimal average and number of reviews together.
@@ -16,7 +24,7 @@ export function ratingStat(noteMoyenne: number | null, nombreNotes: number): Pro
     return { key: 'rating', value: '—', label: 'Pas encore d’avis', accessibilityLabel: 'Pas encore d’avis' };
   }
   const note = formatRating(noteMoyenne);
-  return { key: 'rating', value: note, label: `Note · ${nombreNotes} avis`, accessibilityLabel: `Note ${note} sur 5, ${nombreNotes} avis` };
+  return { key: 'rating', value: note, icon: 'star', label: `Note · ${nombreNotes} avis`, accessibilityLabel: `Note ${note} sur 5, ${nombreNotes} avis` };
 }
 
 /** Rides tile: the count comes from the server, the screen never recounts. */
@@ -33,7 +41,10 @@ export function ProfileStats({ items }: { items: readonly ProfileStat[] }) {
     <View style={s.stats}>
       {items.map((item) => (
         <View key={item.key} style={s.stat} accessible accessibilityLabel={item.accessibilityLabel}>
-          <Text style={s.statValue}>{item.value}</Text>
+          <View style={s.valueRow}>
+            <Text style={s.statValue}>{item.value}</Text>
+            {item.icon ? <Icon name={item.icon} /> : null}
+          </View>
           <Text style={s.statLabel}>{item.label}</Text>
         </View>
       ))}
@@ -54,5 +65,6 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
       gap: spacing[1],
     },
     statValue: { ...typography.number, color: colors.text },
+    valueRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
     statLabel: { ...typography.small, color: colors.textMuted },
   });

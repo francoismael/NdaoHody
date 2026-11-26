@@ -1,33 +1,38 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { Avis } from '@contract';
-
 import { useTheme, type Theme } from '@/shared/theme';
-import { Icon } from '@/shared/ui';
-import { currentTime, formatDay } from '@/shared/utils';
+import { Avatar, RatingStars } from '@/shared/ui';
+import { formatShortDate } from '@/shared/utils';
 
-type ReviewItemProps = { review: Pick<Avis, 'note' | 'commentaire' | 'dateAvis'> };
+import type { ReviewWithAuthor } from '../types';
 
-/**
- * One passenger's review: his stars, the day, his words. No author name:
- * the contract `Avis` only carries `auteurId` (only passengers rate).
- */
+type ReviewItemProps = { review: Pick<ReviewWithAuthor, 'note' | 'commentaire' | 'dateAvis' | 'auteur'> };
+
+/** One passenger's review: his photo; his first name; his words; his stars and the date, small. */
 export function ReviewItem({ review }: ReviewItemProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
-  const day = formatDay(new Date(review.dateAvis), currentTime());
+  const name = review.auteur.prenom || 'Passager';
+  const date = formatShortDate(new Date(review.dateAvis));
 
   return (
-    <View style={s.card} accessible accessibilityLabel={[`${review.note} sur 5, ${day}`, review.commentaire].filter(Boolean).join('. ')}>
-      <View style={s.top}>
-        <View style={s.note}>
-          <Icon name="star" size="sm" tone="accent" />
-          <Text style={s.noteText}>{review.note}</Text>
+    <View
+      style={s.card}
+      accessible
+      accessibilityLabel={[`${name}, ${review.note} sur 5`, review.commentaire, date].filter(Boolean).join('. ')}
+    >
+      <Avatar name={name} photoUrl={review.auteur.photoUrl} />
+      <View style={s.body}>
+        <Text style={s.name} numberOfLines={1}>
+          {name}
+        </Text>
+        {review.commentaire ? <Text style={s.comment}>{review.commentaire}</Text> : null}
+        <View style={s.bottom}>
+          <RatingStars value={review.note} />
+          <Text style={s.date}>{date}</Text>
         </View>
-        <Text style={s.day}>{day}</Text>
       </View>
-      {review.commentaire ? <Text style={s.comment}>{`« ${review.commentaire} »`}</Text> : null}
     </View>
   );
 }
@@ -35,16 +40,18 @@ export function ReviewItem({ review }: ReviewItemProps) {
 const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
   StyleSheet.create({
     card: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing[3],
       padding: spacing[4],
       borderRadius: radii.md,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      gap: spacing[2],
     },
-    top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[3] },
-    note: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
-    noteText: { ...typography.bodyStrong, color: colors.text },
-    day: { ...typography.small, color: colors.textMuted },
+    body: { flex: 1, gap: spacing[1] },
+    bottom: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+    name: { ...typography.bodyStrong, color: colors.text },
     comment: { ...typography.body, color: colors.text },
+    date: { ...typography.small, color: colors.textMuted },
   });

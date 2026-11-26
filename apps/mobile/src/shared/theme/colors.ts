@@ -83,6 +83,8 @@ const palette = {
   amber50: '#FBF1DE',
   amberBright: '#F2BE6B',
   amberDark50: '#33280F',
+  gold: '#E0A526', // ajout (bloc 6) : étoiles du PWA (.stars), thème clair
+  goldBright: '#F2C14E', // étoiles du PWA, thème sombre
 } as const;
 
 export const lightColors = {
@@ -146,6 +148,8 @@ export const lightColors = {
   // Ajout (bloc 5) : la suite d'un trajet sur la carte, après le passager. Même ambre vif
   // en clair et en sombre : un trait sur la carte, jamais du texte (pas de contraste texte à tenir).
   mapRouteOnward: palette.amberBright,
+  // Ajout (bloc 6) : étoile pleine d'une note (PWA .stars). Une étoile vide prend borderStrong.
+  ratingStar: palette.gold,
 
   // Information (ex. élément non lu)
   infoSurface: palette.blue50,
@@ -209,6 +213,7 @@ export const darkColors: ThemeColors = {
   skeletonHighlight: palette.dark700,
   mapPlaceholder: palette.dark750,
   mapRouteOnward: palette.amberBright,
+  ratingStar: palette.goldBright,
 
   infoSurface: palette.blueDark,
 

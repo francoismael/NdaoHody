@@ -21,6 +21,7 @@ export {
   formatDayTime,
   formatDistance,
   formatDuration,
+  formatShortDate,
   formatTime,
 } from './format';
 export { isRecord } from './guards';

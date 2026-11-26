@@ -33,6 +33,10 @@ export function formatDay(date: Date, now: Date): string {
   return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+/** "jeu. 26 nov. 2026": a past date shown small (reviews). */
+export const formatShortDate = (date: Date): string =>
+  date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
 /** "demain à 07:30". */
 export const formatDayTime = (date: Date, now: Date): string => `${formatDay(date, now)} à ${formatTime(date)}`;
 

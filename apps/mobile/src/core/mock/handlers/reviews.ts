@@ -1,9 +1,11 @@
 import type { Avis } from '@contract';
 
+import type { ReviewWithAuthor } from '@/features/reviews/types';
+
 import { HttpError, idParam, optionalString, requireNumber, type MockRoute } from '../server';
 import { iso } from '../time';
 import { nextId } from '../types';
-import { reservationParties } from '../views';
+import { reservationParties, userById } from '../views';
 
 export const reviewsRoutes: MockRoute[] = [
   {
@@ -33,7 +35,14 @@ export const reviewsRoutes: MockRoute[] = [
   {
     method: 'GET',
     pattern: '/users/:id/reviews',
-    handler: (ctx): Avis[] =>
-      ctx.db.avis.filter((a) => a.cibleId === idParam(ctx)).sort((a, b) => b.dateAvis.localeCompare(a.dateAvis)),
+    // GAP #14: each review comes with its author's first name and photo.
+    handler: (ctx): ReviewWithAuthor[] =>
+      ctx.db.avis
+        .filter((a) => a.cibleId === idParam(ctx))
+        .sort((a, b) => b.dateAvis.localeCompare(a.dateAvis))
+        .map((a) => {
+          const author = userById(ctx, a.auteurId);
+          return { ...a, auteur: { prenom: author.prenom ?? '', photoUrl: author.photoUrl } };
+        }),
   },
 ];

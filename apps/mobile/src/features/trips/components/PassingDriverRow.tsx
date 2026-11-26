@@ -76,10 +76,21 @@ export function PassingDriverRow({ driver, rank, when, selected, onSelect, detai
             <Text style={s.name} numberOfLines={lines}>
               {chauffeur.prenom}
             </Text>
-            <Text style={s.meta} numberOfLines={lines}>
-              {rating}
-            </Text>
-            <View style={s.vehicleLine}>
+            {chauffeur.noteMoyenne === null ? (
+              <Text style={s.meta} numberOfLines={lines}>
+                {rating}
+              </Text>
+            ) : (
+              // Like the driver's profile: the number, then the star, then the reviews count.
+              <View style={s.iconLine}>
+                <Text style={s.meta}>{formatRating(chauffeur.noteMoyenne)}</Text>
+                <Icon name="star" size="sm" tone="muted" />
+                <Text style={s.meta} numberOfLines={lines}>
+                  {`· ${chauffeur.nombreNotes} avis`}
+                </Text>
+              </View>
+            )}
+            <View style={s.iconLine}>
               <Icon name={vehicule.type === 'moto' ? 'motorbike' : 'car'} size="sm" tone="muted" />
               <Text style={s.meta} numberOfLines={lines}>
                 {vehicleText(vehicule)}
@@ -137,7 +148,7 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
     top: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
     // Same look as the driver home (DriverHomePanel tripRoute): "A → B", cut with "…".
     route: { ...typography.bodyStrong, color: colors.text, flex: 1 },
-    vehicleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
+    iconLine: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
     meta: { ...typography.small, color: colors.textMuted, flexShrink: 1 },
     when: { alignItems: 'flex-end' },
     whenLabel: { ...typography.caption, color: colors.textMuted },

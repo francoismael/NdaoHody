@@ -18,6 +18,8 @@ export { smoothScrollTo, stopSmoothScroll } from './smoothScroll';
 export type { ErrorAnchorProps } from './ErrorAnchor';
 export { Avatar } from './Avatar';
 export type { AvatarProps, AvatarSize } from './Avatar';
+export { RatingStars } from './RatingStars';
+export type { RatingStarsProps } from './RatingStars';
 export { Tag } from './Tag';
 export type { TagProps, TagTone } from './Tag';
 export { ChoiceGroup } from './ChoiceGroup';
