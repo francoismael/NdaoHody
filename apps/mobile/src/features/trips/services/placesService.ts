@@ -3,7 +3,7 @@ import type { Lieu, Position } from '@contract';
 import { MIN_POINT_STEP_M } from '@/core/mock';
 import { areaNameAt, fetchDrivingRoute, haversineMeters, retrievePlace, suggestPlaces, thinPath, type LngLat } from '@/shared/map';
 
-import { PUBLISH_MESSAGES as M, nearName } from '../rules';
+import { PUBLISH_MESSAGES as M } from '../rules';
 import type { ChosenPlace, RoutePreview } from '../types';
 import { getPlaces, getRoutePreview } from './tripsService';
 
@@ -22,7 +22,7 @@ export async function resolvePlace(mapboxId: string, sessionToken: string, name:
   return { libelle: found.name || name, longitude: found.coordinate[0], latitude: found.coordinate[1], placeId: null };
 }
 
-/** "Près d’Ivato": the closest known place, by its area (the part before the comma). Works offline. */
+/** "Ivato": the closest known place, by its area (the part before the comma). Works offline. */
 async function approximateName(coordinate: LngLat): Promise<string> {
   try {
     const places = await getPlaces();
@@ -30,7 +30,7 @@ async function approximateName(coordinate: LngLat): Promise<string> {
     const closest = places.reduce((a, b) =>
       haversineMeters([b.longitude, b.latitude], coordinate) < haversineMeters([a.longitude, a.latitude], coordinate) ? b : a,
     );
-    return nearName(closest.nom.split(',')[0].trim());
+    return closest.nom.split(',')[0].trim();
   } catch {
     return M.unnamedPoint;
   }
@@ -38,7 +38,7 @@ async function approximateName(coordinate: LngLat): Promise<string> {
 
 /**
  * A point touched on the map, always named after an AREA: the neighbourhood (or locality,
- * or town) Mapbox knows there; otherwise, and offline, "Près de …" the closest known place.
+ * or town) Mapbox knows there; otherwise, and offline, the closest known place.
  */
 export async function placeAt(coordinate: LngLat): Promise<ChosenPlace> {
   const [longitude, latitude] = coordinate;

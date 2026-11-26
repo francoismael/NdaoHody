@@ -19,6 +19,9 @@ export function formatDuration(seconds: number): string {
 /** Minutes after midnight -> "07:30". */
 export const formatClockMinutes = (minutes: number): string => `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 
+/** A countdown: 179 -> "2:59" · 0 -> "0:00". */
+export const formatCountdown = (seconds: number): string => `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`;
+
 /** "07:30" for a date. */
 export const formatTime = (date: Date): string => formatClockMinutes(date.getHours() * 60 + date.getMinutes());
 

@@ -1,11 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { UserBadge, formatRating, toDisplayBadge, vehicleText } from '@/features/profile';
 import { useTheme, type Theme } from '@/shared/theme';
-import { Avatar, Icon } from '@/shared/ui';
-
 import type { DriverCardData } from '../types';
+import { DriverSummary, driverSummaryLabel } from './DriverSummary';
 
 type PassingDriverRowProps = {
   driver: DriverCardData;
@@ -23,11 +21,6 @@ type PassingDriverRowProps = {
   actions: ReactNode;
 };
 
-const seatsText = (n: number): string => (n > 1 ? `${n} places libres` : '1 place libre');
-
-const ratingText = (note: number | null, count: number): string =>
-  note === null ? 'Pas encore noté' : `${formatRating(note)} · ${count} avis`;
-
 /**
  * One driver for the passenger (home and search): his trip on top; below, who he is and
  * when he passes; then the optional details, and the buttons once chosen.
@@ -35,9 +28,7 @@ const ratingText = (note: number | null, count: number): string =>
 export function PassingDriverRow({ driver, rank, when, selected, onSelect, details = [], highlight, actions }: PassingDriverRowProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
-  const { chauffeur, vehicule, trajet } = driver;
-  const rating = ratingText(chauffeur.noteMoyenne, chauffeur.nombreNotes);
-  const seats = seatsText(trajet.placesLibres);
+  const { trajet } = driver;
   // Chosen card: nothing is cut any more (one line each otherwise, like the driver home).
   const lines = selected ? undefined : 1;
   return (
@@ -48,7 +39,7 @@ export function PassingDriverRow({ driver, rank, when, selected, onSelect, detai
         accessibilityRole="button"
         accessibilityState={{ selected }}
         accessibilityLabel={[
-          `${rank}. ${chauffeur.prenom}, de ${trajet.depart.libelle} vers ${trajet.arrivee.libelle}, ${when.label} ${when.value}, ${seats}, ${rating}, ${vehicleText(vehicule)}`,
+          `${rank}. ${driverSummaryLabel(driver, when)}, de ${trajet.depart.libelle} vers ${trajet.arrivee.libelle}`,
           ...details,
           ...(highlight ? [highlight] : []),
         ].join('. ')}
@@ -64,45 +55,7 @@ export function PassingDriverRow({ driver, rank, when, selected, onSelect, detai
           </Text>
         </View>
         {/* Bottom: photo + badge, the driver (name, rating, vehicle), then the minutes and seats. */}
-        <View style={s.row} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-          <View style={s.face}>
-            <Avatar name={chauffeur.prenom} photoUrl={chauffeur.photoUrl} />
-            {/* Tag hugs its text (alignSelf flex-start): this centered box puts it under the photo. */}
-            <View style={s.badge}>
-              <UserBadge badge={toDisplayBadge(chauffeur.badge)} />
-            </View>
-          </View>
-          <View style={s.who}>
-            <Text style={s.name} numberOfLines={lines}>
-              {chauffeur.prenom}
-            </Text>
-            {chauffeur.noteMoyenne === null ? (
-              <Text style={s.meta} numberOfLines={lines}>
-                {rating}
-              </Text>
-            ) : (
-              // Like the driver's profile: the number, then the star, then the reviews count.
-              <View style={s.iconLine}>
-                <Text style={s.meta}>{formatRating(chauffeur.noteMoyenne)}</Text>
-                <Icon name="star" size="sm" tone="muted" />
-                <Text style={s.meta} numberOfLines={lines}>
-                  {`· ${chauffeur.nombreNotes} avis`}
-                </Text>
-              </View>
-            )}
-            <View style={s.iconLine}>
-              <Icon name={vehicule.type === 'moto' ? 'motorbike' : 'car'} size="sm" tone="muted" />
-              <Text style={s.meta} numberOfLines={lines}>
-                {vehicleText(vehicule)}
-              </Text>
-            </View>
-          </View>
-          <View style={s.when}>
-            <Text style={s.whenLabel}>{when.label}</Text>
-            <Text style={s.minutes}>{when.value}</Text>
-            <Text style={s.seats}>{seats}</Text>
-          </View>
-        </View>
+        <DriverSummary driver={driver} when={when} lines={lines} />
         {details.length > 0 || highlight ? (
           <View style={s.details} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
             {details.map((line) => (
@@ -131,7 +84,6 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
     },
     cardSelected: { borderColor: colors.accent, backgroundColor: colors.accentSurface },
     pressable: { gap: spacing[2] },
-    row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
     rank: {
       width: spacing[6],
       height: spacing[6],
@@ -141,19 +93,10 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
       backgroundColor: colors.primary,
     },
     rankText: { ...typography.caption, fontFamily: typography.bodyStrong.fontFamily, color: colors.onPrimary },
-    who: { flex: 1, gap: spacing[1] },
-    face: { alignItems: 'center', gap: spacing[1] },
-    badge: { alignItems: 'center' },
-    name: { ...typography.bodyStrong, color: colors.text },
     top: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
     // Same look as the driver home (DriverHomePanel tripRoute): "A → B", cut with "…".
     route: { ...typography.bodyStrong, color: colors.text, flex: 1 },
-    iconLine: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
     meta: { ...typography.small, color: colors.textMuted, flexShrink: 1 },
-    when: { alignItems: 'flex-end' },
-    whenLabel: { ...typography.caption, color: colors.textMuted },
-    minutes: { ...typography.number, color: colors.accent },
-    seats: { ...typography.caption, color: colors.text },
     details: { gap: spacing[1], paddingTop: spacing[2], borderTopWidth: 1, borderColor: colors.surfaceBorder },
     highlight: { ...typography.bodyStrong, color: colors.accent },
   });

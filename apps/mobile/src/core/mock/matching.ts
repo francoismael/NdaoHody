@@ -6,9 +6,10 @@ import {
   SEARCH_LATER_BEFORE_MINUTES,
   SEARCH_NOW_MAX_MINUTES,
 } from '@/features/trips/rules';
+import { spanOnPath, type PathSpanProblem } from '@/shared/map';
 
 import { approach } from './drive';
-import { nearestIndex, segmentSeconds } from './tripGeo';
+import { nearestIndex, segmentSeconds, toLngLat } from './tripGeo';
 import type { MockDb } from './types';
 
 /**
@@ -37,10 +38,14 @@ export function pickupPoint(trajet: Trajet, point: Position): { index: number; w
  * the same path, near his destination. A driver going the other way gets null.
  */
 export function pathSpan(trajet: Trajet, depart: Position, destination: Position): { pickup: number; drop: number } | null {
-  const pickup = pickupPoint(trajet, depart);
-  const drop = pickupPoint(trajet, destination);
-  if (!pickup || !drop || drop.index <= pickup.index) return null;
-  return { pickup: pickup.index, drop: drop.index };
+  const span = pathSpanOrProblem(trajet, depart, destination);
+  return typeof span === 'string' ? null : span;
+}
+
+/** Same rule, saying why it fails (booking: the passenger is told which point to move). */
+export function pathSpanOrProblem(trajet: Trajet, depart: Position, destination: Position): { pickup: number; drop: number } | PathSpanProblem {
+  const span = spanOnPath(trajet.chemin, toLngLat(depart), toLngLat(destination), PICKUP_MAX_WALK_METRES);
+  return typeof span === 'string' ? span : { pickup: span.from, drop: span.to };
 }
 
 export type Arrival ={ minutes: number; positionChauffeur: Position; cheminVersPassager: Chemin };

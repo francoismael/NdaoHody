@@ -17,6 +17,7 @@ export { addMinutes, delay, toIsoWithOffset } from './date';
 export {
   formatAriary,
   formatClockMinutes,
+  formatCountdown,
   formatDay,
   formatDayTime,
   formatDistance,

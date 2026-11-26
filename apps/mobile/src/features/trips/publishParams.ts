@@ -1,12 +1,14 @@
 import { isRecord } from '@/shared/utils';
 
+import type { Lieu } from '@contract';
+
 import type { ChosenPlace } from './types';
 
 /**
  * The places chosen at step 1 travel to steps 2 and 3 as route params (text).
  * The road itself is not sent: steps 2 and 3 read it back from the query cache.
  */
-export const encodePlace = (place: ChosenPlace): string => JSON.stringify(place);
+export const encodePlace = (place: Lieu | ChosenPlace): string => JSON.stringify(place);
 
 export function decodePlace(raw: string | string[] | undefined): ChosenPlace | null {
   if (typeof raw !== 'string') return null;
