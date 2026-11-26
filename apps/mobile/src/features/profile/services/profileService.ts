@@ -1,6 +1,8 @@
-import type { Badge, ProfilPublic, Utilisateur } from '@contract';
+import type { Badge, ProfilPublic, Utilisateur, Vehicule } from '@contract';
 
 import { request } from '@/core/mock';
+
+import type { DriverPublicProfile } from '../types';
 
 export type UpdateMeInput = Partial<Pick<Utilisateur, 'prenom' | 'nom' | 'sexe'>>;
 
@@ -12,6 +14,17 @@ export const getMe = () => request<Utilisateur>('GET', '/me');
 export const updateMe = (input: UpdateMeInput) => request<Utilisateur>('PATCH', '/me', input);
 
 export const getPublicProfile = (userId: number) => request<ProfilPublic>('GET', `/users/${userId}/public`);
+
+export const getDriverProfile = (driverId: number) => request<DriverPublicProfile>('GET', `/drivers/${driverId}/public`);
+
+/** "Toyota Corolla · Grise"; "Moto · Rouge" without brand nor model. Driver cards and public profile. */
+export function vehicleText({ type, marque, modele, couleur }: Pick<Vehicule, 'type' | 'marque' | 'modele' | 'couleur'>): string {
+  const name = [marque, modele].filter(Boolean).join(' ') || (type === 'moto' ? 'Moto' : 'Voiture');
+  return `${name} · ${couleur}`;
+}
+
+/** 4.8 -> "4,8": the average rating as the server rounds it (one decimal). */
+export const formatRating = (note: number): string => note.toFixed(1).replace('.', ',');
 
 /** GAP #2 (provisional decision): 'top' is not displayed; if the API sends it, show 'verifie'. */
 export const toDisplayBadge = (badge: Badge): DisplayBadge => (badge === 'top' ? 'verifie' : badge);

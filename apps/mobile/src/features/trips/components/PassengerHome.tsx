@@ -103,6 +103,8 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
   };
 
   const book = (driver: PassingDriver) => router.push({ pathname: '/book/[id]', params: { id: String(driver.trajet.id) } });
+  const driverProfile = (driver: PassingDriver) =>
+    router.push({ pathname: '/driver/[id]', params: { id: String(driver.chauffeur.id), tripId: String(driver.trajet.id) } });
   const search = () => router.push('/search');
   const { title, detail } = summary(drivers);
 
@@ -216,7 +218,12 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
                         selected={driver.trajet.id === selectedId}
                         when={{ label: 'passe dans', value: formatDuration(driver.arriveeDansMinutes * 60) }}
                         onSelect={() => select(driver.trajet.id)}
-                        actions={<Button label="Réserver une place" onPress={() => book(driver)} />}
+                        actions={
+                          <View style={s.actions}>
+                            <Button label="Réserver une place" onPress={() => book(driver)} />
+                            <Button label="Voir le chauffeur" icon="user" variant="secondary" onPress={() => driverProfile(driver)} />
+                          </View>
+                        }
                       />
                     </View>
                   ))}
@@ -252,11 +259,12 @@ const createStyles = ({ colors, typography, spacing, gutter, radii, shadows }: T
     },
     promptArea: { ...StyleSheet.absoluteFill, justifyContent: 'center', paddingHorizontal: gutter },
     block: { gap: spacing[3] },
+    actions: { gap: spacing[2] },
     loading: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
     head: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
     headText: { flex: 1, gap: spacing[1] },
-    title: { ...typography.heading, color: colors.text },
-    detail: { ...typography.bodyStrong, color: colors.accent },
+    title: { ...typography.bodyStrong, color: colors.text },
+    detail: { ...typography.heading, color: colors.accent },
     chevronOpen: { transform: [{ rotate: '90deg' }] },
     chevronClosed: { transform: [{ rotate: '-90deg' }] },
     list: { gap: spacing[2] },

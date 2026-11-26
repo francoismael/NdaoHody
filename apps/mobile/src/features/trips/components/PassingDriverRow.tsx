@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { UserBadge, toDisplayBadge } from '@/features/profile';
+import { UserBadge, formatRating, toDisplayBadge, vehicleText } from '@/features/profile';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Avatar, Icon } from '@/shared/ui';
 
@@ -26,12 +26,7 @@ type PassingDriverRowProps = {
 const seatsText = (n: number): string => (n > 1 ? `${n} places libres` : '1 place libre');
 
 const ratingText = (note: number | null, count: number): string =>
-  note === null ? 'Pas encore noté' : `${note.toFixed(1).replace('.', ',')} · ${count} avis`;
-
-function vehicleText({ type, marque, modele, couleur }: DriverCardData['vehicule']): string {
-  const name = [marque, modele].filter(Boolean).join(' ') || (type === 'moto' ? 'Moto' : 'Voiture');
-  return `${name} · ${couleur}`;
-}
+  note === null ? 'Pas encore noté' : `${formatRating(note)} · ${count} avis`;
 
 /**
  * One driver for the passenger (home and search): his trip on top; below, who he is and
@@ -81,10 +76,21 @@ export function PassingDriverRow({ driver, rank, when, selected, onSelect, detai
             <Text style={s.name} numberOfLines={lines}>
               {chauffeur.prenom}
             </Text>
-            <Text style={s.meta} numberOfLines={lines}>
-              {rating}
-            </Text>
-            <View style={s.vehicleLine}>
+            {chauffeur.noteMoyenne === null ? (
+              <Text style={s.meta} numberOfLines={lines}>
+                {rating}
+              </Text>
+            ) : (
+              // Like the driver's profile: the number, then the star, then the reviews count.
+              <View style={s.iconLine}>
+                <Text style={s.meta}>{formatRating(chauffeur.noteMoyenne)}</Text>
+                <Icon name="star" size="sm" tone="muted" />
+                <Text style={s.meta} numberOfLines={lines}>
+                  {`· ${chauffeur.nombreNotes} avis`}
+                </Text>
+              </View>
+            )}
+            <View style={s.iconLine}>
               <Icon name={vehicule.type === 'moto' ? 'motorbike' : 'car'} size="sm" tone="muted" />
               <Text style={s.meta} numberOfLines={lines}>
                 {vehicleText(vehicule)}
@@ -142,7 +148,7 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
     top: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
     // Same look as the driver home (DriverHomePanel tripRoute): "A → B", cut with "…".
     route: { ...typography.bodyStrong, color: colors.text, flex: 1 },
-    vehicleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
+    iconLine: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
     meta: { ...typography.small, color: colors.textMuted, flexShrink: 1 },
     when: { alignItems: 'flex-end' },
     whenLabel: { ...typography.caption, color: colors.textMuted },

@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getMe, getPublicProfile, updateMe, type UpdateMeInput } from '../services/profileService';
+import { getDriverProfile, getMe, getPublicProfile, updateMe, type UpdateMeInput } from '../services/profileService';
 
 export const profileKeys = {
   all: ['profile'] as const,
   me: () => [...profileKeys.all, 'me'] as const,
   public: (userId: number) => [...profileKeys.all, 'public', userId] as const,
+  driver: (driverId: number) => [...profileKeys.all, 'driver', driverId] as const,
 };
 
 export const useMe = () => useQuery({ queryKey: profileKeys.me(), queryFn: getMe });
 
 export const usePublicProfile = (userId: number) =>
   useQuery({ queryKey: profileKeys.public(userId), queryFn: () => getPublicProfile(userId) });
+
+export const useDriverProfile = (driverId: number) =>
+  useQuery({ queryKey: profileKeys.driver(driverId), queryFn: () => getDriverProfile(driverId) });
 
 export function useUpdateMe() {
   const queryClient = useQueryClient();

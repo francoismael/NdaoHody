@@ -1,3 +1,3 @@
-import { DriverProfileScreen } from '@/features/profile';
+import { DriverProfileScreen } from '@/features/reviews';
 
 export default DriverProfileScreen;
