@@ -119,6 +119,19 @@ export interface Vehicule {
   motifRefus: string | null;
 }
 
+/** POST /me/vehicles (multipart/form-data, la photo dans le champ "photo").
+    Un chauffeur peut avoir PLUSIEURS véhicules (ex. 2 voitures et 1 moto) : il en ajoute
+    autant qu'il veut, à l'inscription (bouton « Ajouter un autre véhicule ») ou plus tard
+    depuis son profil. Chaque véhicule est validé par un admin. Le premier devient le véhicule par défaut. */
+export interface DemandeAjoutVehicule {
+  type: TypeVehicule;
+  marque?: string;
+  modele?: string;
+  couleur: string;
+  immatriculation: string;        // "1234 TBA"
+  places: number;                 // moto = 1, voiture de 1 à 8
+}
+
 
 /* ---------------------------------------------------------------------------
    Lieux et prix
@@ -164,6 +177,21 @@ export interface Trajet {
       Une femme, passagère ou conductrice, garde accès à tous les trajets normaux
       avec des hommes : c'est son choix, jamais une obligation. */
   reserveFemmes: boolean;
+}
+
+/** POST /trips : publier un trajet.
+    L'app n'envoie QUE ces champs : le chemin, la distance et la durée sont calculés par le serveur
+    (Mapbox), pour que personne ne puisse envoyer un faux chemin. Un champ en plus est refusé (400).
+    Véhicule : si le chauffeur a UN seul véhicule validé, il est pris tout seul (pas de choix à proposer) ;
+    s'il en a PLUSIEURS, l'app lui fait choisir et envoie vehiculeId (sinon 400). */
+export interface DemandePublicationTrajet {
+  type: TypeTrajet;
+  depart: Lieu;                   // position actuelle ou point choisi
+  arrivee: Lieu;
+  placesTotal: number;            // au plus les places du véhicule choisi
+  dateDepart?: string;            // obligatoire pour "a_l_avance" : de 15 min à 15 jours à l'avance
+  reserveFemmes?: boolean;        // conductrice seulement
+  vehiculeId?: number;            // obligatoire si le chauffeur a plusieurs véhicules validés
 }
 
 /** Dernière position du chauffeur (envoyée en direct toutes les 5 s). */
@@ -226,6 +254,17 @@ export interface Reservation {
   dateDebutCourse: string | null;
   dateFinCourse: string | null;
   dateAnnulation: string | null;
+}
+
+/** POST /reservations : demander des places. Le prix est calculé par le serveur, jamais envoyé par l'app.
+    Annulation (POST /reservations/:id/cancel) :
+    - le passager annule seulement AVANT la réponse du chauffeur (statut "en_attente") ;
+    - le chauffeur peut annuler un passager jusqu'à sa montée (les places reviennent au trajet). */
+export interface DemandeReservation {
+  trajetId: number;
+  places: number;                 // de 1 à toutes les places libres du trajet
+  priseEnCharge: Lieu;            // "priseEnCharge" d'un ResultatRecherche
+  depose: Lieu;                   // "depose" d'un ResultatRecherche
 }
 
 /** Écran de suivi pendant l'approche (passager et chauffeur). */

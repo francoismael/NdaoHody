@@ -3,26 +3,23 @@ import type { Mode, Sexe } from '@contract';
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { DEVICE_PLATFORMS, type DevicePlatform } from '../port/DeviceRegistry';
+import { trimString } from '../helper/trimString';
 
 const SEXES: readonly Sexe[] = ['homme', 'femme'];
 const MODES: readonly Mode[] = ['passager', 'chauffeur'];
-
-function trim({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
 
 /** PATCH /me. Last name, first name and sex become required once together (see UpdateProfileUseCase). */
 export class UpdateProfileRequest {
   @ApiPropertyOptional({ example: 'Rakoto' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 100)
   nom?: string;
 
   @ApiPropertyOptional({ example: 'Hery' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 100)
   prenom?: string;

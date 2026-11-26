@@ -1,10 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsLatitude, IsLongitude, IsOptional, IsString, Length } from 'class-validator';
-
-function trim({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
+import { trimString } from '../helper/trimString';
 
 /** GET /geo/area */
 export class PositionQuery {
@@ -33,7 +30,7 @@ export class SearchSessionQuery {
 /** GET /geo/places */
 export class SuggestPlacesQuery extends SearchSessionQuery {
   @ApiProperty({ example: 'Analakely', description: 'What the user typed (2 characters at least).' })
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 100)
   q!: string;

@@ -18,9 +18,15 @@ import { UnitOfWork } from '../application/port/UnitOfWork';
 import { UserNotifier } from '../application/port/UserNotifier';
 import { AdminAccountRepository } from '../domain/repository/AdminAccountRepository';
 import { AdminJournalRepository } from '../domain/repository/AdminJournalRepository';
+import { BlockRepository } from '../domain/repository/BlockRepository';
+import { BookingRepository } from '../domain/repository/BookingRepository';
+import { ConversationRepository } from '../domain/repository/ConversationRepository';
+import { DriverPositionRepository } from '../domain/repository/DriverPositionRepository';
 import { DriverDocumentRepository } from '../domain/repository/DriverDocumentRepository';
 import { OtpCodeRepository } from '../domain/repository/OtpCodeRepository';
 import { SettingRepository } from '../domain/repository/SettingRepository';
+import { TariffRepository } from '../domain/repository/TariffRepository';
+import { TripRepository } from '../domain/repository/TripRepository';
 import { UserSessionRepository } from '../domain/repository/UserSessionRepository';
 import { UserRepository } from '../domain/repository/UserRepository';
 import { VehicleRepository } from '../domain/repository/VehicleRepository';
@@ -45,9 +51,15 @@ import { NotificationDocument, NotificationSchema } from './persistence/mongo/No
 import { POSTGRES_ENTITIES } from './persistence/postgres/entities';
 import { TypeOrmAdminAccountRepository } from './persistence/postgres/repositories/TypeOrmAdminAccountRepository';
 import { TypeOrmAdminJournalRepository } from './persistence/postgres/repositories/TypeOrmAdminJournalRepository';
+import { TypeOrmBlockRepository } from './persistence/postgres/repositories/TypeOrmBlockRepository';
+import { TypeOrmBookingRepository } from './persistence/postgres/repositories/TypeOrmBookingRepository';
+import { TypeOrmConversationRepository } from './persistence/postgres/repositories/TypeOrmConversationRepository';
+import { TypeOrmDriverPositionRepository } from './persistence/postgres/repositories/TypeOrmDriverPositionRepository';
 import { TypeOrmDriverDocumentRepository } from './persistence/postgres/repositories/TypeOrmDriverDocumentRepository';
 import { TypeOrmOtpCodeRepository } from './persistence/postgres/repositories/TypeOrmOtpCodeRepository';
 import { TypeOrmSettingRepository } from './persistence/postgres/repositories/TypeOrmSettingRepository';
+import { TypeOrmTariffRepository } from './persistence/postgres/repositories/TypeOrmTariffRepository';
+import { TypeOrmTripRepository } from './persistence/postgres/repositories/TypeOrmTripRepository';
 import { TypeOrmUserSessionRepository } from './persistence/postgres/repositories/TypeOrmUserSessionRepository';
 import { TypeOrmUserRepository } from './persistence/postgres/repositories/TypeOrmUserRepository';
 import { TypeOrmVehicleRepository } from './persistence/postgres/repositories/TypeOrmVehicleRepository';
@@ -79,6 +91,12 @@ const BINDINGS: ClassProvider[] = [
   { provide: VehicleRepository, useClass: TypeOrmVehicleRepository },
   { provide: AdminAccountRepository, useClass: TypeOrmAdminAccountRepository },
   { provide: AdminJournalRepository, useClass: TypeOrmAdminJournalRepository },
+  { provide: TripRepository, useClass: TypeOrmTripRepository },
+  { provide: BookingRepository, useClass: TypeOrmBookingRepository },
+  { provide: TariffRepository, useClass: TypeOrmTariffRepository },
+  { provide: DriverPositionRepository, useClass: TypeOrmDriverPositionRepository },
+  { provide: BlockRepository, useClass: TypeOrmBlockRepository },
+  { provide: ConversationRepository, useClass: TypeOrmConversationRepository },
 ];
 
 /**
