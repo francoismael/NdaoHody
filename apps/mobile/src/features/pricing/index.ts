@@ -1,2 +1,3 @@
 export { usePriceEstimate } from './hooks/usePriceEstimate';
-export type { PriceEstimate } from './types';
+export { useReservationQuote } from './hooks/useReservationQuote';
+export type { PriceEstimate, PriceQuote } from './types';

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProfileHeader, ProfileStats, ratingStat, ridesStat, toDisplayBadge, useDriverProfile, vehicleText } from '@/features/profile';
+import { bookingHref, readBookingLink, type BookingParams } from '@/features/trips';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, Flash } from '@/shared/ui';
 
@@ -17,15 +18,16 @@ const ridesText = (count: number): string => (count > 1 ? 'Courses' : 'Course');
 
 /**
  * The driver's public profile (block 6): who he is, his figures, what passengers wrote.
- * `id` = the driver; `tripId` = the trip the passenger came from (home or search), to book it.
+ * `id` = the driver; the other params = the booking link from the home or the search (bookingLink.ts), to book that trip.
  */
 export function DriverProfileScreen() {
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => createStyles(theme), [theme]);
-  const { id, tripId } = useLocalSearchParams<{ id: string; tripId?: string }>();
-  const driverId = Number(id);
+  const params = useLocalSearchParams<BookingParams & { id: string }>();
+  const driverId = Number(params.id);
+  const link = useMemo(() => readBookingLink(params), [params]);
   const profile = useDriverProfile(driverId);
   const reviews = useUserReviews(driverId);
   const [shown, setShown] = useState(REVIEWS_PAGE);
@@ -100,9 +102,9 @@ export function DriverProfileScreen() {
         </View>
       </ScrollView>
 
-      {tripId ? (
+      {link ? (
         <View style={[s.footer, { paddingBottom: insets.bottom + theme.spacing[4] }]}>
-          <Button label="Réserver une place" onPress={() => router.push({ pathname: '/book/[id]', params: { id: tripId } })} />
+          <Button label={link.places > 1 ? `Réserver ${link.places} places` : 'Réserver une place'} onPress={() => router.push(bookingHref(link))} />
         </View>
       ) : null}
     </View>

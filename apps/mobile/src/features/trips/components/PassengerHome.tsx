@@ -8,6 +8,7 @@ import { useTheme, type Theme } from '@/shared/theme';
 import { Button, Flash, Icon, smoothScrollTo, stopSmoothScroll } from '@/shared/ui';
 import { formatDuration } from '@/shared/utils';
 
+import { bookingHref, driverProfileHref, type BookingLink } from '../bookingLink';
 import type { LocationState } from '../hooks/useLocationIssue';
 import { useDemoPosition, useTripsAround } from '../hooks/useTrips';
 import type { PassingDriver } from '../types';
@@ -102,9 +103,10 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
     setSelectedId(next);
   };
 
-  const book = (driver: PassingDriver) => router.push({ pathname: '/book/[id]', params: { id: String(driver.trajet.id) } });
-  const driverProfile = (driver: PassingDriver) =>
-    router.push({ pathname: '/driver/[id]', params: { id: String(driver.chauffeur.id), tripId: String(driver.trajet.id) } });
+  /** From the home: "my position", and no destination yet (the booking window starts on the trip's arrival). */
+  const linkOf = (driver: PassingDriver): BookingLink => ({ tripId: driver.trajet.id, places: 1, priseEnCharge: null, depose: null });
+  const book = (driver: PassingDriver) => router.push(bookingHref(linkOf(driver)));
+  const driverProfile = (driver: PassingDriver) => router.push(driverProfileHref(driver.chauffeur.id, linkOf(driver)));
   const search = () => router.push('/search');
   const { title, detail } = summary(drivers);
 
@@ -133,7 +135,7 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
         */}
         {selected ? <RouteLine id="after-passenger" coordinates={selected.cheminApresPassager} tone="onward" /> : null}
         {selected ? <RouteLine id="to-passenger" coordinates={selected.cheminVersPassager} /> : null}
-        {selected ? <PlaceLabel id="driver-arrival" coordinate={toLngLat(selected.trajet.arrivee)} label="Arrivée" tone="onward" /> : null}
+        {selected ? <PlaceLabel id="driver-arrival" coordinate={toLngLat(selected.trajet.arrivee)} label="Destination du chauffeur" tone="onward" /> : null}
         {selected ? (
           <MovingMarker
             key={`chosen-${selected.trajet.id}`}

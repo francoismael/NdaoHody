@@ -1,46 +1,88 @@
-import type { Conversation, Reservation, Trajet } from '@contract';
+import type { Conversation, DemandeReservation, Reservation, Trajet } from '@contract';
 
+import { ACTIVE_BOOKING_STATUSES, ANSWER_DELAY_MINUTES, pathSpanMessage } from '@/features/bookings/rules';
+import type { PriceQuote } from '@/features/pricing/types';
+import { PICKUP_MAX_WALK_METRES } from '@/features/trips/rules';
 import { addMinutes } from '@/shared/utils';
 
-import { SEAT_HOLDING, refreshDerived } from '../derived';
+import { refreshDerived } from '../derived';
 import { notify } from '../notify';
-import { quoteForTrip } from '../pricing';
+import { passingAt, pathSpanOrProblem } from '../matching';
 import { HttpError, findOr404, idParam, requireLieu, requireNumber, requireString, requireUser, type MockRoute, type RequestContext } from '../server';
 import { iso } from '../time';
-import { nearestIndex } from '../tripGeo';
 import { nextId } from '../types';
 import { transition } from '../reservationFlow';
-import { driverParties, reservationParties, userById } from '../views';
+import { driverParties, reservationParties, toSearchResult, userById } from '../views';
 
-/** The driver has 3 minutes to answer (validated rule). */
-const ANSWER_DELAY_MIN = 3;
+/** Back setting `relances_max`: a passenger re-sends an expired request 2 times at most. */
+const MAX_RETRIES = 2;
 
-function createReservation(ctx: RequestContext, trajet: Trajet, input: Pick<Reservation, 'places' | 'priseEnCharge' | 'depose'>, relanceDe: number | null): Reservation {
+/** Back BOOKABLE_STATUSES: trips a passenger can still book. */
+const BOOKABLE: readonly Trajet['statut'][] = ['publie', 'en_route', 'en_cours'];
+
+
+type BookingWish = Pick<DemandeReservation, 'places' | 'priseEnCharge' | 'depose'>;
+
+const readWish = (body: unknown): BookingWish => ({
+  places: Math.max(1, Math.round(requireNumber(body, 'places'))),
+  priseEnCharge: requireLieu(body, 'priseEnCharge'),
+  depose: requireLieu(body, 'depose'),
+});
+
+/**
+ * Same checks as the back (RequestBookingUseCase), then the frozen price of the passenger's part.
+ * The pickup and drop the passenger chose are moved onto the driver's path (same 800 m rule as
+ * the home and the search: core/mock/matching.ts), seen as a search result for this trip.
+ * Shared by the quote (GAP #15) and the request.
+ */
+function priceWish(ctx: RequestContext, trajet: Trajet, wish: BookingWish): PriceQuote {
   const passager = requireUser(ctx);
+  if (trajet.reserveFemmes && passager.sexe !== 'femme') throw new HttpError(403, 'Ce trajet est réservé aux femmes.');
   if (trajet.chauffeurId === passager.id) throw new HttpError(400, 'Tu ne peux pas réserver ton propre trajet.');
-  if (trajet.statut !== 'publie' && trajet.statut !== 'en_route') throw new HttpError(409, 'Ce trajet n’est plus disponible.');
-  if (trajet.placesLibres < input.places) throw new HttpError(409, 'Plus assez de places libres.');
-  const active = ctx.db.reservations.some(
-    (r) => r.trajetId === trajet.id && r.passagerId === passager.id && (r.statut === 'en_attente' || SEAT_HOLDING.includes(r.statut)),
-  );
-  if (active) throw new HttpError(409, 'Tu as déjà une réservation sur ce trajet.');
+  if (!BOOKABLE.includes(trajet.statut)) throw new HttpError(409, 'Ce trajet est terminé ou annulé.');
+  if (wish.places > trajet.placesLibres) throw new HttpError(409, `Il ne reste que ${trajet.placesLibres} place(s) sur ce trajet.`);
 
-  const pickup = nearestIndex(trajet, input.priseEnCharge).index;
-  const drop = nearestIndex(trajet, input.depose).index;
-  if (drop <= pickup) throw new HttpError(400, 'La dépose doit être après la prise en charge.');
+  const span = pathSpanOrProblem(trajet, wish.priseEnCharge, wish.depose);
+  if (typeof span === 'string') throw new HttpError(400, pathSpanMessage(span, PICKUP_MAX_WALK_METRES));
+  const passing = passingAt(ctx.db, trajet, span.pickup, ctx.now);
+  if (!passing) throw new HttpError(409, 'Le chauffeur est déjà passé à ton point de prise en charge.');
+  const result = toSearchResult(ctx, trajet, span, passing, { depart: wish.priseEnCharge, destination: wish.depose }, wish.places);
+  return { ...result, positionChauffeur: passing.arrival?.positionChauffeur ?? null };
+}
+
+/** Retries already made in the chain ending with `reservation` (back: countRetries). */
+function retriesOf(ctx: RequestContext, reservation: Reservation): number {
+  let count = 0;
+  let previous = reservation.relanceDe;
+  while (previous !== null) {
+    count += 1;
+    const id = previous;
+    previous = ctx.db.reservations.find((r) => r.id === id)?.relanceDe ?? null;
+  }
+  return count;
+}
+
+function createReservation(ctx: RequestContext, trajet: Trajet, wish: BookingWish, relanceDe: number | null): Reservation {
+  const passager = requireUser(ctx);
+  const { distanceMetres, prixParPlace, prixTotal, priseEnCharge, depose } = priceWish(ctx, trajet, wish);
+  // Never two requests at once: a double tap (or a replayed call) gets a 409, not a second booking.
+  const active = ctx.db.reservations.some((r) => r.trajetId === trajet.id && r.passagerId === passager.id && ACTIVE_BOOKING_STATUSES.includes(r.statut));
+  if (active) throw new HttpError(409, 'Tu as déjà une demande en cours sur ce trajet.');
 
   const reservation: Reservation = {
     id: nextId(ctx.db, 'reservation'),
     trajetId: trajet.id,
     passagerId: passager.id,
-    places: input.places,
-    ...quoteForTrip(ctx.db, trajet, pickup, drop, input.places),
-    priseEnCharge: input.priseEnCharge,
-    depose: input.depose,
+    places: wish.places,
+    distanceMetres,
+    prixParPlace,
+    prixTotal,
+    priseEnCharge, // on the path
+    depose,
     statut: 'en_attente',
     relanceDe,
     dateDemande: iso(ctx.now),
-    dateExpiration: iso(addMinutes(ctx.now, ANSWER_DELAY_MIN)),
+    dateExpiration: iso(addMinutes(ctx.now, ANSWER_DELAY_MINUTES)),
     dateReponse: null,
     dateSurPlace: null,
     finAttente: null,
@@ -50,12 +92,14 @@ function createReservation(ctx: RequestContext, trajet: Trajet, input: Pick<Rese
     dateAnnulation: null,
   };
   ctx.db.reservations.push(reservation);
-  notify(ctx.db, ctx.now, trajet.chauffeurId, 'nouvelle_demande', 'Nouvelle demande', `${passager.prenom ?? 'Un passager'} demande ${input.places} place(s). Réponds dans les 3 minutes.`, {
+  notify(ctx.db, ctx.now, trajet.chauffeurId, 'nouvelle_demande', 'Nouvelle demande', `${passager.prenom ?? 'Un passager'} demande ${wish.places} place(s). Réponds dans les ${ANSWER_DELAY_MINUTES} minutes.`, {
     reservationId: reservation.id,
     trajetId: trajet.id,
   });
   return reservation;
 }
+
+const tripOf = (ctx: RequestContext): Trajet => findOr404(ctx.db.trajets, (t) => t.id === requireNumber(ctx.body, 'trajetId'), 'Trajet');
 
 /** Only the trip's driver answers, and only a request still waiting. */
 function pendingForDriver(ctx: RequestContext) {
@@ -69,19 +113,12 @@ export const bookingsRoutes: MockRoute[] = [
   {
     method: 'POST',
     pattern: '/reservations',
-    handler: (ctx): Reservation => {
-      const trajet = findOr404(ctx.db.trajets, (t) => t.id === requireNumber(ctx.body, 'trajetId'), 'Trajet');
-      return createReservation(
-        ctx,
-        trajet,
-        {
-          places: Math.max(1, Math.round(requireNumber(ctx.body, 'places'))),
-          priseEnCharge: requireLieu(ctx.body, 'priseEnCharge'),
-          depose: requireLieu(ctx.body, 'depose'),
-        },
-        null,
-      );
-    },
+    handler: (ctx): Reservation => createReservation(ctx, tripOf(ctx), readWish(ctx.body), null),
+  },
+  {
+    method: 'POST',
+    pattern: '/reservations/quote',
+    handler: (ctx): PriceQuote => priceWish(ctx, tripOf(ctx), readWish(ctx.body)),
   },
   {
     method: 'GET',
@@ -119,6 +156,9 @@ export const bookingsRoutes: MockRoute[] = [
     handler: (ctx): Reservation => {
       const { reservation, trajet } = reservationParties(ctx, idParam(ctx));
       if (reservation.statut !== 'expiree') throw new HttpError(409, 'Seule une demande expirée peut être relancée.');
+      if (retriesOf(ctx, reservation) >= MAX_RETRIES) {
+        throw new HttpError(429, `Tu as déjà relancé ce chauffeur ${MAX_RETRIES} fois. Cherche un autre chauffeur.`);
+      }
       return createReservation(ctx, trajet, reservation, reservation.id);
     },
   },

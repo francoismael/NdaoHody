@@ -20,11 +20,6 @@ export const PLAN_STEP_MINUTES = 15;
 /** Hours offered as shortcuts (PWA EtapeQuand: HEURES_PROPOSEES), in minutes after midnight. */
 export const PLAN_SUGGESTED_MINUTES = [6 * 60, 7 * 60, 12 * 60, 17 * 60, 18 * 60] as const;
 
-/** "Près d’Ivato", "Près de Tanjombato": the approximate name of a touched point. */
-export function nearName(area: string): string {
-  return /^[aeiouyhàâéèêëîïôûù]/i.test(area) ? `Près d’${area}` : `Près de ${area}`;
-}
-
 /**
  * A driver "passes near" a passenger when his path comes this close (a ~10 min walk
  * to the road). The ONE threshold of the matching, read by the simulated server for

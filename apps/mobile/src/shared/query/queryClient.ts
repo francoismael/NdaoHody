@@ -9,7 +9,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const CACHE_MAX_AGE_MS = 7 * DAY_MS;
 
 /** Change this string to invalidate every saved cache (new data shape, new demo dataset). */
-export const CACHE_BUSTER = 'b6-1';
+export const CACHE_BUSTER = 'b7-1';
 
 export const queryClient = new QueryClient({
   defaultOptions: {

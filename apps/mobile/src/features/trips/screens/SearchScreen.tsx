@@ -11,16 +11,15 @@ import {
   currentTime,
   currentTimeMs,
   formatAriary,
-  formatDay,
   formatDayTime,
   formatDistance,
-  formatDuration,
-  formatTime,
   toIsoWithOffset,
 } from '@/shared/utils';
 
+import { bookingHref, driverProfileHref, type BookingLink } from '../bookingLink';
 import { nextQuarter } from '../components/DepartureTimePicker';
 import { PassingDriverRow } from '../components/PassingDriverRow';
+import { passingWhen } from '../passingWhen';
 import { SearchForm } from '../components/SearchForm';
 import { useSearchTrips } from '../hooks/useTrips';
 import type { SearchCriteria } from '../types';
@@ -35,12 +34,6 @@ function toDemande({ depart, destination, places, later }: SearchCriteria): Dema
 }
 
 /** Same words as the passenger home for a driver on the road; day + hour for a planned trip. */
-function passingText(result: ResultatRecherche): { label: string; value: string } {
-  if (result.arriveeDansMinutes !== null) return { label: 'passe dans', value: formatDuration(result.arriveeDansMinutes * 60) };
-  const at = new Date(result.heurePassage ?? result.trajet.dateDepart);
-  return { label: `passe ${formatDay(at, currentTime())}`, value: formatTime(at) };
-}
-
 const whenText = (later: number | null): string => (later === null ? 'Maintenant' : formatDayTime(new Date(later), currentTime()));
 
 /**
@@ -92,8 +85,15 @@ export function SearchScreen() {
     return <SearchForm initial={formStart ?? criteria} onSubmit={apply} onCancel={criteria ? () => setEditing(false) : undefined} />;
   }
 
-  const book = (result: ResultatRecherche) => router.push({ pathname: '/book/[id]', params: { id: String(result.trajet.id) } });
-  const driverProfile = (result: ResultatRecherche) => router.push({ pathname: '/driver/[id]', params: { id: String(result.chauffeur.id), tripId: String(result.trajet.id) } });
+  const linkOf = (result: ResultatRecherche): BookingLink => ({
+    tripId: result.trajet.id,
+    places: criteria.places,
+    // The passenger's own places, as he chose them; the server puts them on the path.
+    priseEnCharge: criteria.fromCurrent ? null : criteria.depart,
+    depose: criteria.destination,
+  });
+  const book = (result: ResultatRecherche) => router.push(bookingHref(linkOf(result)));
+  const driverProfile = (result: ResultatRecherche) => router.push(driverProfileHref(result.chauffeur.id, linkOf(result)));
   const title = results.length > 1 ? `${results.length} chauffeurs sur ton trajet` : results.length === 1 ? '1 chauffeur sur ton trajet' : 'Aucun chauffeur sur ton trajet';
 
   const body = (() => {
@@ -121,7 +121,7 @@ export function SearchScreen() {
         key={result.trajet.id}
         driver={result}
         rank={i + 1}
-        when={passingText(result)}
+        when={passingWhen(result)}
         selected={result.trajet.id === selectedId}
         onSelect={() => setSelectedId((id) => (id === result.trajet.id ? null : result.trajet.id))}
         details={[`Toi : ${result.priseEnCharge.libelle} → ${result.depose.libelle} · ${formatDistance(result.distanceMetres)}`]}

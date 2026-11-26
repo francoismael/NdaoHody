@@ -9,7 +9,8 @@ import { smoothScrollTo, stopSmoothScroll } from './smoothScroll';
 
 export type FormScreenProps = {
   title: string;
-  subtitle?: string;
+  /** A line under the title; a node for a styled one (e.g. a trip with an icon), kept close to the title. */
+  subtitle?: ReactNode;
   /** The fields. */
   children: ReactNode;
   /** The main button: always visible, above the keyboard. */
@@ -128,7 +129,7 @@ export function FormScreen({ title, subtitle, children, footer, safeTop = false,
           <Text style={s.title} accessibilityRole="header">
             {title}
           </Text>
-          {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+          {typeof subtitle === 'string' ? <Text style={s.subtitle}>{subtitle}</Text> : (subtitle ?? null)}
         </View>
         <FormErrorContext value={registry}>{children}</FormErrorContext>
       </ScrollView>

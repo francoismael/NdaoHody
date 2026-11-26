@@ -1,12 +1,11 @@
 import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet } from '@contract';
 
 import type { PassingDriver } from '@/features/trips/types';
-import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, nearName, publishBlocker } from '@/features/trips/rules';
+import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
 import { haversineMeters, type LngLat } from '@/shared/map';
-import { addMinutes, isRecord } from '@/shared/utils';
+import { isRecord } from '@/shared/utils';
 
 import { arrivalAt, byRank, inSearchWindow, isOfferedTo, passingAt, pathSpan, pickupPoint, type RankKey } from '../matching';
-import { quoteForTrip } from '../pricing';
 import {
   HttpError,
   findOr404,
@@ -24,7 +23,7 @@ import {
 import { iso } from '../time';
 import { toLieu, toLngLat } from '../tripGeo';
 import { nextId } from '../types';
-import { toPublicProfile, toVehicleSummary, userById } from '../views';
+import { toPublicProfile, toSearchResult, toVehicleSummary, userById } from '../views';
 
 function parseDemande(body: unknown): DemandeRecherche {
   const quand = requireString(body, 'quand');
@@ -56,17 +55,7 @@ function search(ctx: RequestContext): ResultatRecherche[] {
       if (!span || !passing || !inSearchWindow(passing.minutes, demande.quand, ctx.now)) return [];
 
       const chauffeur = userById(ctx, trajet.chauffeurId);
-      const vehicule = findOr404(ctx.db.vehicules, (v) => v.id === trajet.vehiculeId, 'Véhicule');
-      const result: ResultatRecherche = {
-        trajet,
-        chauffeur: toPublicProfile(chauffeur),
-        vehicule: toVehicleSummary(vehicule),
-        priseEnCharge: toLieu(trajet.chemin[span.pickup], nearName(demande.depart.libelle)),
-        depose: toLieu(trajet.chemin[span.drop], nearName(demande.destination.libelle)),
-        arriveeDansMinutes: passing.arrival ? passing.minutes : null,
-        heurePassage: passing.arrival ? null : iso(addMinutes(ctx.now, passing.minutes)),
-        ...quoteForTrip(ctx.db, trajet, span.pickup, span.drop, demande.places),
-      };
+      const result = toSearchResult(ctx, trajet, span, passing, demande, demande.places);
       return [{ minutes: passing.minutes, trajet, chauffeur, result }];
     })
     .sort(byRank)
@@ -157,7 +146,7 @@ function around(ctx: RequestContext): PassingDriver[] {
         trajet,
         chauffeur: toPublicProfile(chauffeur),
         vehicule: toVehicleSummary(vehicule),
-        priseEnCharge: toLieu(trajet.chemin[pickup.index], 'Près de toi'),
+        priseEnCharge: toLieu(trajet.chemin[pickup.index], 'Ta position'),
         arriveeDansMinutes: arrival.minutes,
         positionChauffeur: arrival.positionChauffeur,
         cheminVersPassager: arrival.cheminVersPassager,

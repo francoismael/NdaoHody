@@ -35,6 +35,22 @@ export function nearestPointIndex(path: LngLat[], point: LngLat): { index: numbe
   return { index, distanceMeters };
 }
 
+/** Why two points do not make a span of a path. */
+export type PathSpanProblem = 'from_far' | 'to_far' | 'wrong_way';
+
+/**
+ * `from` then, farther along `path`, `to`: each at most `maxMeters` from the path.
+ * Returns their path indexes, or why not (checked in this order).
+ */
+export function spanOnPath(path: LngLat[], from: LngLat, to: LngLat, maxMeters: number): { from: number; to: number } | PathSpanProblem {
+  const a = nearestPointIndex(path, from);
+  if (a.distanceMeters > maxMeters) return 'from_far';
+  const b = nearestPointIndex(path, to);
+  if (b.distanceMeters > maxMeters) return 'to_far';
+  if (b.index <= a.index) return 'wrong_way';
+  return { from: a.index, to: b.index };
+}
+
 /** Index of the point reached after `fraction` (0 to 1) of the path length. */
 export function indexAtFraction(path: LngLat[], fraction: number): number {
   const target = pathLengthMeters(path) * Math.min(Math.max(fraction, 0), 1);

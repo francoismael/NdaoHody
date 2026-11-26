@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Position } from '@contract';
 
-import { AppMap, MovingMarker, newSearchSession, type LngLat, type MapFocus } from '@/shared/map';
+import { AppMap, MovingMarker, PlaceLabel, RouteLine, newSearchSession, type LngLat, type MapFocus } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, FieldMessage, Icon, TextField } from '@/shared/ui';
 import { useDebouncedValue } from '@/shared/utils';
@@ -83,6 +83,10 @@ export type PlacePickerProps = {
   onClose: () => void;
   /** Departure only: "my position" as a shortcut (null place = no known place nearby). */
   current?: { place: ChosenPlace | null; problem: string | null; onSelect: () => void };
+  /** Booking: the driver's road under the point (amber, as at home), his car, "Toi" and his destination. */
+  route?: { path: LngLat[]; car: LngLat | null; you: LngLat | null; end: LngLat };
+  /** Booking: why a touched or found point cannot be chosen (said at once; "Choisir ce lieu" stays off). */
+  check?: (point: LngLat) => string | null;
 };
 
 /**
@@ -122,7 +126,7 @@ export function PlacePicker({ visible, onClose, ...content }: PlacePickerProps) 
 
 type PickerContentProps = Omit<PlacePickerProps, 'visible'>;
 
-function PickerContent({ title, near, selected, onSelect, onClose, current }: PickerContentProps) {
+function PickerContent({ title, near, selected, onSelect, onClose, current, route, check }: PickerContentProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
 
@@ -145,6 +149,7 @@ function PickerContent({ title, near, selected, onSelect, onClose, current }: Pi
         : { coordinate: [near.longitude, near.latitude], zoom: CITY_ZOOM },
     [shown, near],
   );
+  const problem = pointed && check ? check([pointed.longitude, pointed.latitude]) : null;
   const typed = debounced.trim().length >= PLACE_SEARCH_MIN_CHARS;
   const showList = listOpen && typed;
 
@@ -206,6 +211,11 @@ function PickerContent({ title, near, selected, onSelect, onClose, current }: Pi
         <View style={s.body}>
           {/* Moves and fades with the sheet (TextureView on Android). */}
           <AppMap focus={focus} onPress={drop} insideAnimation>
+            {/* Mounted first: the car and the chosen point are drawn above the road. */}
+            {route ? <RouteLine id="place-picker-route" coordinates={route.path} tone="onward" /> : null}
+            {route ? <PlaceLabel id="place-picker-end" coordinate={route.end} label="Destination du chauffeur" tone="onward" /> : null}
+            {route?.you ? <PlaceLabel id="place-picker-you" coordinate={route.you} label="Toi" /> : null}
+            {route?.car ? <MovingMarker id="place-picker-car" coordinate={route.car} /> : null}
             {shown ? <MovingMarker id="place-picker-point" kind="place" coordinate={[shown.longitude, shown.latitude]} /> : null}
           </AppMap>
 
@@ -253,7 +263,8 @@ function PickerContent({ title, near, selected, onSelect, onClose, current }: Pi
               </Text>
             </View>
           )}
-          <Button label="Choisir ce lieu" disabled={!pointed || busy} onPress={() => pointed && choose(pointed)} />
+          {problem ? <FieldMessage tone="danger" message={problem} /> : null}
+          <Button label="Choisir ce lieu" disabled={!pointed || busy || problem !== null} onPress={() => pointed && choose(pointed)} />
           {current?.place ? (
             <Button
               label={`Ma position · ${current.place.libelle}`}

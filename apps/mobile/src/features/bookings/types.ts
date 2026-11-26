@@ -1,4 +1,4 @@
-import type { Reservation } from '@contract';
+import type { DemandeReservation } from '@contract';
 
-/** POST /reservations: what the passenger chose from a search result. */
-export type CreateReservationInput = Pick<Reservation, 'trajetId' | 'places' | 'priseEnCharge' | 'depose'>;
+/** POST /reservations: the contract's DemandeReservation (the price is never sent). */
+export type CreateReservationInput = DemandeReservation;
