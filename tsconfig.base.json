@@ -23,6 +23,9 @@
       ],
       "@contract": [
         "./data-objets.ts"
+      ],
+      "@contract/back-office": [
+        "./data-objets-back-office.ts"
       ]
     }
   },

@@ -1,11 +1,10 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiConflictResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { RejectRequest } from '../../../application/dto/AdminRequests';
-import type { VehicleView } from '../../../application/dto/AdminResponses';
+import type { VehiculeEnAttente } from '@contract/back-office';
 import { ApiErrorResponse } from '../../../application/dto/ApiErrorResponse';
 import { ReviewVehiclesUseCase } from '../../../application/usecases/admin/ReviewVehiclesUseCase';
-import type { AdminAccount } from '../../../domain/entity/AdminAccount';
-import { AdminAuthenticated, AdminRoles, Audit, CurrentAdmin } from '../../decorator/AdminDecorators';
+import { AdminAction, AdminAuthenticated, Audit } from '../../decorator/AdminDecorators';
 
 /** Vehicles waiting for validation: /api/admin/vehicles/... */
 @ApiTags('admin · vehicles')
@@ -17,30 +16,27 @@ export class AdminVehiclesController {
   constructor(private readonly vehicles: ReviewVehiclesUseCase) {}
 
   @Get('pending')
-  @ApiOkResponse({ description: 'Vehicles waiting for a decision (no plate nor photo for an investisseur).' })
-  listPending(@CurrentAdmin() admin: AdminAccount): Promise<VehicleView[]> {
-    return this.vehicles.listPending(admin);
+  @AdminAction('vehicules.voir')
+  @ApiOkResponse({ description: 'Vehicles waiting for a decision.' })
+  listPending(): Promise<VehiculeEnAttente[]> {
+    return this.vehicles.listPending();
   }
 
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
-  @AdminRoles('super_admin', 'admin')
+  @AdminAction('vehicules.decider')
   @Audit('vehicule.valider', 'vehicule')
   @ApiOkResponse({ description: 'Vehicle validated.' })
-  approve(@CurrentAdmin() admin: AdminAccount, @Param('id', ParseIntPipe) id: number): Promise<VehicleView> {
-    return this.vehicles.approve(admin, id);
+  approve(@Param('id', ParseIntPipe) id: number): Promise<VehiculeEnAttente> {
+    return this.vehicles.approve(id);
   }
 
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
-  @AdminRoles('super_admin', 'admin')
+  @AdminAction('vehicules.decider')
   @Audit('vehicule.refuser', 'vehicule')
   @ApiOkResponse({ description: 'Vehicle refused with a reason shown to the driver.' })
-  reject(
-    @CurrentAdmin() admin: AdminAccount,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: RejectRequest,
-  ): Promise<VehicleView> {
-    return this.vehicles.reject(admin, id, body.motif);
+  reject(@Param('id', ParseIntPipe) id: number, @Body() body: RejectRequest): Promise<VehiculeEnAttente> {
+    return this.vehicles.reject(id, body.motif);
   }
 }

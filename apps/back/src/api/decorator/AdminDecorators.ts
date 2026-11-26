@@ -1,12 +1,12 @@
 import { applyDecorators, createParamDecorator, ExecutionContext, SetMetadata, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
-import type { RoleAdmin } from '@contract';
+import type { ActionAdmin } from '@contract/back-office';
 import { ApiErrorResponse } from '../../application/dto/ApiErrorResponse';
 import type { AdminAccount } from '../../domain/entity/AdminAccount';
-import { ADMIN_ROLES_KEY, AdminAccessGuard, type AdminRequest } from '../guard/AdminAccessGuard';
+import { ADMIN_ACTION_KEY, AdminAccessGuard, type AdminRequest } from '../guard/AdminAccessGuard';
 import { AdminJournalInterceptor, AUDIT_KEY, type AuditMetadata } from '../interceptor/AdminJournalInterceptor';
 
-/** Put on every back-office controller: token check, roles, read-only investisseur, journal of writes. */
+/** Put on every back-office controller: token check, permissions, read-only investisseur, journal of writes. */
 export function AdminAuthenticated(): ClassDecorator & MethodDecorator {
   return applyDecorators(
     UseGuards(AdminAccessGuard),
@@ -17,9 +17,9 @@ export function AdminAuthenticated(): ClassDecorator & MethodDecorator {
   );
 }
 
-/** Roles allowed on a route or a controller (default: every role, the investisseur read only). */
-export function AdminRoles(...roles: RoleAdmin[]): ClassDecorator & MethodDecorator {
-  return SetMetadata(ADMIN_ROLES_KEY, roles);
+/** Action needed to call a route (see ADMIN_PERMISSIONS); the roles that have it get through. */
+export function AdminAction(action: ActionAdmin): ClassDecorator & MethodDecorator {
+  return SetMetadata(ADMIN_ACTION_KEY, action);
 }
 
 /** Name of the action written in journal_admin, e.g. @Audit('chauffeur.valider', 'utilisateur'). */

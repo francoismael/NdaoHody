@@ -98,19 +98,58 @@ Routes sous `/api/admin`.
 
 - [x] Commande `npm run admin:create-super -- --email ... --name "..."` (le premier super admin ne passe pas par l'API ; mot de passe temporaire affiché une fois)
 - [x] `POST /admin/auth/login` : e-mail + mot de passe (bcrypt), JWT séparé de celui de l'app (`JWT_ADMIN_SECRET`, 8 h), blocage 15 min après 5 échecs ; `GET /admin/auth/me`
-- [x] Garde de rôles `@AdminRoles(...)` ; garde « lecture seule » : un investisseur ne peut appeler que des `GET`
+- [x] Garde par action `@AdminAction(...)` (table des permissions par rôle) ; garde « lecture seule » : un investisseur ne peut appeler que des `GET`
 - [x] super_admin seulement (`/admin/accounts`) : créer / désactiver un admin ou un investisseur, réinitialiser un mot de passe (mot de passe temporaire)
 - [x] Journal automatique de toute action d'écriture (`journal_admin`, intercepteur + `@Audit(...)`)
-- [x] Réponses pour investisseur sans données personnelles (téléphones, documents, permis, plaques)
-
-| Droit | super_admin | admin | investisseur |
-|---|:-:|:-:|:-:|
-| Voir tableaux de bord et listes | ✔ | ✔ | ✔ (anonymisé) |
-| Valider chauffeurs, modérer, annuler | ✔ | ✔ | ✘ |
-| Modifier les réglages | ✔ | ✘ | ✘ |
-| Créer des comptes admin / investisseur | ✔ | ✘ | ✘ |
+- [x] Investisseur sans aucune donnée personnelle : il n'a accès qu'aux chiffres agrégés (tableau de bord, statistiques) et aux réglages
 
 **Fini quand** : un investisseur reçoit 403 sur toute écriture.
+
+### Actions du back-office par rôle (pour le front)
+
+Le front affiche les menus et les boutons selon cette liste. ✅ = route déjà en place ; ⏳ = prévue (étape indiquée).
+L'investisseur ne voit **que des chiffres agrégés** : jamais de liste de personnes, de téléphone, de plaque ni de document.
+
+| Action | Route | super_admin | admin | investisseur | État |
+|---|---|:-:|:-:|:-:|:-:|
+| **Compte** | | | | | |
+| Se connecter | `POST /admin/auth/login` | ✔ | ✔ | ✔ | ✅ |
+| Voir son compte | `GET /admin/auth/me` | ✔ | ✔ | ✔ | ✅ |
+| Changer son mot de passe | `PATCH /admin/auth/password` | ✔ | ✔ | ✔ | ⏳ 14 |
+| **Comptes du back-office** | | | | | |
+| Lister les comptes | `GET /admin/accounts` | ✔ | ✘ | ✘ | ✅ |
+| Créer un admin / investisseur | `POST /admin/accounts` | ✔ | ✘ | ✘ | ✅ |
+| Désactiver / réactiver un compte | `PATCH /admin/accounts/:id/active` | ✔ | ✘ | ✘ | ✅ |
+| Réinitialiser un mot de passe | `POST /admin/accounts/:id/reset-password` | ✔ | ✘ | ✘ | ✅ |
+| Voir le journal des actions | `GET /admin/journal` | ✔ | ✘ | ✘ | ⏳ 14 |
+| **Chauffeurs et véhicules** | | | | | |
+| Voir les dossiers en attente | `GET /admin/drivers/applications` | ✔ | ✔ | ✘ | ✅ |
+| Valider / refuser un dossier | `POST /admin/drivers/:id/approve` · `/reject` | ✔ | ✔ | ✘ | ✅ |
+| Voir les véhicules en attente | `GET /admin/vehicles/pending` | ✔ | ✔ | ✘ | ✅ |
+| Valider / refuser un véhicule | `POST /admin/vehicles/:id/approve` · `/reject` | ✔ | ✔ | ✘ | ✅ |
+| Liste et fiche des chauffeurs | `GET /admin/drivers` · `/:id` | ✔ | ✔ | ✘ | ⏳ 14 |
+| Retirer la vérification, suspendre / réactiver comme chauffeur | `POST /admin/drivers/:id/...` | ✔ | ✔ | ✘ | ⏳ 14 |
+| **Utilisateurs et activité** | | | | | |
+| Liste et fiche des passagers | `GET /admin/users` · `/:id` | ✔ | ✔ | ✘ | ⏳ 14 |
+| Suspendre / réactiver un compte | `POST /admin/users/:id/suspend` · `/reactivate` | ✔ | ✔ | ✘ | ⏳ 14 |
+| Recherche globale | `GET /admin/search` | ✔ | ✔ | ✘ | ⏳ 14 |
+| Trajets et réservations : listes, détail | `GET /admin/trips` · `/bookings` | ✔ | ✔ | ✘ | ⏳ 14 |
+| Annuler un trajet ou une réservation | `POST /admin/trips/:id/cancel` · ... | ✔ | ✔ | ✘ | ⏳ 14 |
+| Signalements et SOS : voir, traiter | `GET/POST /admin/reports` · `/sos` | ✔ | ✔ | ✘ | ⏳ 14 |
+| **Suivi et statistiques** | | | | | |
+| Tableau de bord (chiffres du jour) | `GET /admin/dashboard` | ✔ | ✔ | ✔ | ⏳ 14 |
+| Statistiques sur une période | `GET /admin/stats/overview` | ✔ | ✔ | ✔ | ⏳ 14 |
+| Courbes (par jour / semaine / mois) | `GET /admin/stats/timeseries` | ✔ | ✔ | ✔ | ⏳ 14 |
+| Top des trajets quartier → quartier | `GET /admin/stats/top-routes` | ✔ | ✔ | ✔ | ⏳ 14 |
+| Export CSV des statistiques | `GET /admin/stats/export.csv` | ✔ | ✔ | ✔ | ⏳ 14 |
+| **Réglages** | | | | | |
+| Voir les réglages et les tarifs | `GET /admin/settings` · `/tariffs` | ✔ | ✔ | ✔ | ⏳ 14 |
+| Modifier les réglages et les tarifs | `PATCH /admin/settings` · `/tariffs` | ✔ | ✘ | ✘ | ⏳ 14 |
+
+Le back renvoie la liste des actions permises au compte connecté (`permissions` dans `login` et `auth/me`, ✅) :
+le front s'en sert pour afficher ou masquer, sans recopier ce tableau dans son code.
+Types des objets échangés avec le back-office : [data-objets-back-office.ts](data-objets-back-office.ts) (`ActionAdmin`, `ConnexionAdmin`, `DossierChauffeur`…).
+Côté back, la table des permissions est dans `apps/back/src/domain/entity/adminPermissions.ts` et chaque route déclare son action avec `@AdminAction(...)`.
 
 ---
 
@@ -295,6 +334,20 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 - [ ] Admins prévenus d'un nouveau dossier chauffeur, d'un signalement et d'un SOS
 - [ ] Réglages (`parametre`) et tarifs (`tarif` : prix minimum et prix au km de la voiture et de la moto) : lecture pour tous, modification super_admin ; un nouveau tarif ne change pas le prix des réservations déjà faites
 - [ ] Export CSV des statistiques pour l'investisseur (sans données personnelles)
+- [ ] **Espace investisseur : statistiques agrégées, en lecture seule** (`/admin/stats/...`, ouvert aussi au super_admin et à l'admin)
+  - [ ] Croissance : inscrits (total, nouveaux par jour / semaine / mois), chauffeurs validés, dossiers en attente, utilisateurs actifs (jour, semaine, mois)
+  - [ ] Activité : courses terminées par jour (courbe 30 / 90 jours), places réservées, taux de remplissage, trajets à l'avance / immédiats, voiture / moto
+  - [ ] Argent : montant total payé aux chauffeurs (Ar), prix moyen d'une course, distance moyenne ; plus tard, revenus de la commission
+  - [ ] Qualité : taux d'acceptation, temps moyen de réponse du chauffeur, taux d'annulation et d'absence, notes moyennes
+  - [ ] Sécurité : nombre de signalements et de SOS, délai moyen de traitement
+  - [ ] Géographie : top 10 des trajets quartier → quartier, carte de chaleur par quartier
+  - [ ] Filtre par période et comparaison avec la période précédente (ex. « +12 % »)
+  - [ ] Jamais de donnée personnelle ; un groupe de moins de 5 personnes est masqué ou regroupé dans « Autres »
+  - [x] L'investisseur n'a plus accès aux listes opérationnelles (dossiers, véhicules ; trajets et signalements le seront de même)
+  - [ ] Chiffres précalculés chaque nuit (table de statistiques quotidiennes) pour rester rapides
+- [ ] Consulter le journal des actions (`GET /admin/journal`, super_admin)
+- [ ] Changer son mot de passe (`PATCH /admin/auth/password`, tous les rôles) ; obliger à changer le mot de passe temporaire à la 1re connexion
+- [x] `permissions` (liste des actions permises) renvoyée par `login` et `auth/me`, pour que le front affiche ou masque menus et boutons
 
 ---
 

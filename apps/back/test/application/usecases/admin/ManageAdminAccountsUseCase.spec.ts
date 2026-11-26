@@ -1,3 +1,4 @@
+import type { CreateAdminAccountRequest } from '../../../../src/application/dto/AdminRequests';
 import { FixedClock, PredictableRandom } from '../../../support/inMemory';
 import { InMemoryAdminAccounts, makeAdmin, PlainPasswordHasher } from '../../../support/inMemoryDriver';
 import { ManageAdminAccountsUseCase } from '../../../../src/application/usecases/admin/ManageAdminAccountsUseCase';
@@ -21,12 +22,12 @@ describe('ManageAdminAccountsUseCase', () => {
     expect(accounts.rows[1]?.motDePasse).toBe('hashed:temporary-password');
   });
 
-  it('never creates a super admin from the back-office', async () => {
+  it('never creates a super admin from the back-office, even if the request gets past validation', async () => {
     const { useCase } = setup();
+    // The type forbids it; the use case checks it again at runtime.
+    const request = { nomComplet: 'Other', email: 'other@ndaohody.mg', role: 'super_admin' } as unknown as CreateAdminAccountRequest;
 
-    await expect(
-      useCase.create(SUPER_ADMIN, { nomComplet: 'Other', email: 'other@ndaohody.mg', role: 'super_admin' }),
-    ).rejects.toMatchObject({ reason: 'forbidden' });
+    await expect(useCase.create(SUPER_ADMIN, request)).rejects.toMatchObject({ reason: 'forbidden' });
   });
 
   it('refuses an e-mail already used', async () => {

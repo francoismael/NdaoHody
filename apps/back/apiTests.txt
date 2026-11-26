@@ -125,7 +125,8 @@ DELETE http://localhost:3000/api/v1/me
 ==============================================================
 
 POST http://localhost:3000/api/admin/auth/login
--> Connexion au back-office. Renvoie un accessToken valable 8 h.
+-> Connexion au back-office. Renvoie un accessToken valable 8 h et "permissions"
+   (la liste des actions permises à ce compte : le back-office affiche ses menus avec).
    Compte bloqué 15 min après 5 mauvais mots de passe.
 {
   "email": "superadmin@ndaohody.test",
@@ -135,7 +136,7 @@ POST http://localhost:3000/api/admin/auth/login
  — même mot de passe Ndaohody2026!)
 
 GET http://localhost:3000/api/admin/auth/me                [TOKEN ADMIN]
--> Renvoie le compte du back-office connecté (nom, e-mail, rôle).
+-> Renvoie le compte du back-office connecté (nom, e-mail, rôle) et ses "permissions".
 (pas de body)
 
 --- super_admin seulement ---
@@ -222,6 +223,7 @@ DELETE http://localhost:3000/api/v1/me/vehicles/{id du véhicule}
 (pas de body)
 
 --- Côté back-office (validation)                 [TOKEN ADMIN] ---
+(super_admin et admin seulement ; un investisseur reçoit 403)
 
 GET http://localhost:3000/api/admin/drivers/applications
 -> Liste les dossiers chauffeurs en attente, avec les photos et le numéro de permis.

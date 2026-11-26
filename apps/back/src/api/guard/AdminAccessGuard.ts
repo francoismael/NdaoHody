@@ -1,14 +1,14 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { RoleAdmin } from '@contract';
+import type { ActionAdmin } from '@contract/back-office';
 import type { Request } from 'express';
 import { AuthenticateAdminUseCase } from '../../application/usecases/admin/AuthenticateAdminUseCase';
 import type { AdminAccount } from '../../domain/entity/AdminAccount';
+import { canDo } from '../../domain/entity/adminPermissions';
 import { DomainException } from '../../domain/exception/DomainException';
 import { readBearerToken } from './bearerToken';
 
-export const ADMIN_ROLES_KEY = 'adminRoles';
-export const ALL_ADMIN_ROLES: readonly RoleAdmin[] = ['super_admin', 'admin', 'investisseur'];
+export const ADMIN_ACTION_KEY = 'adminAction';
 
 /** Request of a back-office route once AdminAccessGuard has let it through. */
 export interface AdminRequest extends Request {
@@ -18,8 +18,9 @@ export interface AdminRequest extends Request {
 /**
  * Back-office routes:
  * - a valid back-office token and an active account;
- * - a role listed by @AdminRoles() (every role when the route lists none);
- * - investisseur: read only, any other method than GET gets 403.
+ * - the action set by @AdminAction() must be allowed to the role (ADMIN_PERMISSIONS);
+ *   a route without action only needs a signed-in account (e.g. /auth/me);
+ * - safety net: an investisseur never gets through with another method than GET.
  */
 @Injectable()
 export class AdminAccessGuard implements CanActivate {
@@ -36,12 +37,11 @@ export class AdminAccessGuard implements CanActivate {
     }
     const admin = await this.authenticate.execute(token);
 
-    const roles =
-      this.reflector.getAllAndOverride<readonly RoleAdmin[] | undefined>(ADMIN_ROLES_KEY, [
-        context.getHandler(),
-        context.getClass(),
-      ]) ?? ALL_ADMIN_ROLES;
-    if (!roles.includes(admin.role)) {
+    const action = this.reflector.getAllAndOverride<ActionAdmin | undefined>(ADMIN_ACTION_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (action && !canDo(admin.role, action)) {
       throw new DomainException('forbidden', 'Ton rôle ne permet pas cette action.');
     }
     if (admin.role === 'investisseur' && request.method !== 'GET') {

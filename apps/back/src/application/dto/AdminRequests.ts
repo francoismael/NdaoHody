@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { RoleAdmin, TypeDocument } from '@contract';
+import type { TypeDocument } from '@contract';
+import type {
+  DemandeActivationCompte,
+  DemandeConnexionAdmin,
+  DemandeCreationCompte,
+  DemandeRefus,
+  DemandeRefusDossier,
+} from '@contract/back-office';
 import { Transform } from 'class-transformer';
 import { ArrayUnique, IsArray, IsBoolean, IsEmail, IsIn, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { CREATABLE_ROLES } from '../../domain/entity/AdminAccount';
@@ -9,7 +16,7 @@ function trim({ value }: { value: unknown }): unknown {
   return typeof value === 'string' ? value.trim() : value;
 }
 
-export class AdminSignInRequest {
+export class AdminSignInRequest implements DemandeConnexionAdmin {
   @ApiProperty({ example: 'admin@ndaohody.test' })
   @IsEmail()
   @MaxLength(150)
@@ -21,7 +28,7 @@ export class AdminSignInRequest {
   motDePasse!: string;
 }
 
-export class CreateAdminAccountRequest {
+export class CreateAdminAccountRequest implements DemandeCreationCompte {
   @ApiProperty({ example: 'Hery Rakoto' })
   @Transform(trim)
   @IsString()
@@ -35,16 +42,16 @@ export class CreateAdminAccountRequest {
 
   @ApiProperty({ enum: CREATABLE_ROLES })
   @IsIn(CREATABLE_ROLES)
-  role!: RoleAdmin;
+  role!: DemandeCreationCompte['role'];
 }
 
-export class SetAdminAccountActiveRequest {
+export class SetAdminAccountActiveRequest implements DemandeActivationCompte {
   @ApiProperty()
   @IsBoolean()
   actif!: boolean;
 }
 
-export class RejectRequest {
+export class RejectRequest implements DemandeRefus {
   @ApiProperty({ example: 'Permis illisible', description: 'Shown to the driver.' })
   @Transform(trim)
   @IsString()
@@ -52,7 +59,7 @@ export class RejectRequest {
   motif!: string;
 }
 
-export class RejectDriverRequest extends RejectRequest {
+export class RejectDriverRequest extends RejectRequest implements DemandeRefusDossier {
   @ApiPropertyOptional({ enum: DRIVER_DOCUMENT_TYPES, isArray: true, description: 'Refused documents (default: all).' })
   @IsOptional()
   @IsArray()

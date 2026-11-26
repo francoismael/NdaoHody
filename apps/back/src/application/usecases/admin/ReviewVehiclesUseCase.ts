@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { AdminAccount } from '../../../domain/entity/AdminAccount';
 import type { Vehicle } from '../../../domain/entity/Vehicle';
 import { DomainException } from '../../../domain/exception/DomainException';
 import { UserRepository } from '../../../domain/repository/UserRepository';
 import { VehicleRepository } from '../../../domain/repository/VehicleRepository';
-import type { VehicleView } from '../../dto/AdminResponses';
+import type { VehiculeEnAttente } from '@contract/back-office';
 import { UserNotifier } from '../../port/UserNotifier';
 import { notifyBestEffort } from '../../helper/bestEffort';
 
@@ -19,23 +18,23 @@ export class ReviewVehiclesUseCase {
     private readonly notifier: UserNotifier,
   ) {}
 
-  async listPending(viewer: AdminAccount): Promise<VehicleView[]> {
+  async listPending(): Promise<VehiculeEnAttente[]> {
     const pending = await this.vehicles.listByStatus('en_attente');
-    return Promise.all(pending.map((vehicle) => this.toView(vehicle, viewer)));
+    return Promise.all(pending.map((vehicle) => this.toView(vehicle)));
   }
 
-  async approve(admin: AdminAccount, vehicleId: number): Promise<VehicleView> {
+  async approve(vehicleId: number): Promise<VehiculeEnAttente> {
     const vehicle = await this.findPending(vehicleId);
     const approved = await this.vehicles.update(vehicle.id, { statut: 'valide', motifRefus: null });
     await this.notify(approved, 'kyc_valide', 'Véhicule validé', `Ton véhicule ${approved.immatriculation} est validé.`);
-    return this.toView(approved, admin);
+    return this.toView(approved);
   }
 
-  async reject(admin: AdminAccount, vehicleId: number, motif: string): Promise<VehicleView> {
+  async reject(vehicleId: number, motif: string): Promise<VehiculeEnAttente> {
     const vehicle = await this.findPending(vehicleId);
     const rejected = await this.vehicles.update(vehicle.id, { statut: 'refuse', motifRefus: motif });
     await this.notify(rejected, 'kyc_refuse', 'Véhicule refusé', `${rejected.immatriculation} : ${motif}.`);
-    return this.toView(rejected, admin);
+    return this.toView(rejected);
   }
 
   private async findPending(vehicleId: number): Promise<Vehicle> {
@@ -49,13 +48,7 @@ export class ReviewVehiclesUseCase {
     return vehicle;
   }
 
-  private async toView(vehicle: Vehicle, viewer: AdminAccount): Promise<VehicleView> {
-    if (viewer.role === 'investisseur') {
-      return {
-        vehicule: { ...vehicle, immatriculation: null, photoUrl: null },
-        proprietaire: { utilisateurId: vehicle.utilisateurId, nom: null, prenom: null },
-      };
-    }
+  private async toView(vehicle: Vehicle): Promise<VehiculeEnAttente> {
     const owner = await this.users.findById(vehicle.utilisateurId);
     return {
       vehicule: vehicle,

@@ -7,7 +7,7 @@ Les règles propres à l'app mobile sont en plus dans `apps/mobile/CLAUDE.md`.
 
 - Noms de fichiers, dossiers, classes, fonctions, méthodes, variables et types : **toujours en anglais**.
 - Documentation du code (commentaires, JSDoc) : **toujours en anglais**.
-- Exception : la base de données (`donnees.sql` : tables et colonnes) et les data objects (`data-objets.ts` : objets et champs) **restent en français**. Le code qui les utilise garde ces noms tels quels.
+- Exception : la base de données (`donnees.sql` : tables et colonnes) et les data objects (`data-objets.ts` pour l'app, `data-objets-back-office.ts` pour le back-office : objets et champs) **restent en français**. Le code qui les utilise garde ces noms tels quels.
 
 ## Nommage des fichiers du back (`apps/back`)
 

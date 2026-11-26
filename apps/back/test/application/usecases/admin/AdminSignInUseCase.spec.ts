@@ -17,6 +17,7 @@ describe('AdminSignInUseCase', () => {
 
     expect(result.accessToken).toBe('access-1');
     expect(result.administrateur).not.toHaveProperty('motDePasse');
+    expect(result.permissions).toContain('comptes.creer');
   });
 
   it('gives the same answer for an unknown e-mail and a wrong password', async () => {
