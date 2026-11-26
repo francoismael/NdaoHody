@@ -158,6 +158,7 @@ Côté back, la table des permissions est dans `apps/back/src/domain/entity/admi
 - [x] Stockage privé des fichiers (`PRIVATE_UPLOADS_DIR`), liens signés valables 10 min (`GET /api/files`)
 - [x] `GET/POST /me/documents` : permis recto (avec son numéro, envoyé en premier), verso, selfie → `statut_chauffeur = en_attente`
 - [x] `GET/POST/PATCH/DELETE /me/vehicles` : plusieurs véhicules, plaque unique, moto = 1 place, photo, véhicule par défaut ; supprimer = archiver (la plaque reste liée au compte)
+- [x] **Plusieurs véhicules par chauffeur** (ex. 2 voitures et 1 moto) : il en ajoute autant qu'il veut, à l'inscription (bouton « Ajouter un autre véhicule ») ou plus tard depuis son profil ; chacun est validé par un admin (`DemandeAjoutVehicule` dans `data-objets.ts`)
 - [x] **Anti-fraude** : numéro de permis et plaque uniques sur **tous** les comptes, supprimés compris. Un chauffeur qui supprime son compte puis se réinscrit (même avec une nouvelle puce) avec le même permis ou la même plaque retrouve **son ancien compte** (historique, avis, et plus tard ce qu'il doit), à revérifier par un admin ; le compte tout juste créé est fermé. Permis ou plaque d'un autre compte encore utilisé → refusé
 - [x] Back-office : file des dossiers, valider / refuser avec motif (`/admin/drivers`, `/admin/vehicles`)
 - [x] Notification au chauffeur (validé / refusé) : historique MongoDB (`notifications`) ; le push FCM vient à l'étape 12
@@ -182,13 +183,17 @@ Côté back, la table des permissions est dans `apps/back/src/domain/entity/admi
 
 ## Étape 6 — Publier un trajet
 
-- [ ] `POST /trajets` : départ (position actuelle ou point choisi), destination, véhicule, places, **maintenant** ou **date + heure** (pas de prix : il est calculé pour chaque passager, voir étape 8)
-- [ ] Le serveur demande le chemin à Mapbox et l'enregistre
-- [ ] Règles : chauffeur et véhicule validés, places ≤ places du véhicule, un seul trajet parti à la fois, pas de doublon, 60 jours max à l'avance
-- [ ] Option **« Réservé aux femmes »** (`reserve_femmes`) : possible seulement pour une conductrice (sexe `femme`) ; refusée pour un homme
-- [ ] Cette option est **un choix, jamais une obligation** : une conductrice publie des trajets normaux quand elle veut, et y accepte hommes et femmes
-- [ ] Trajet à l'avance : `POST /trajets/:id/partir` (« Je pars »), rappels 1 h et 10 min avant, annulation automatique s'il ne part pas
-- [ ] `PATCH /trajets/:id` (avant le départ, passagers prévenus), `POST /trajets/:id/annuler`, `GET /trajets/actif`
+Routes en anglais, comme celles que l'app mobile appelle déjà (`/api/v1/trips`, `/api/v1/me/trips`).
+
+- [x] `POST /trips` : départ (position actuelle ou point choisi), destination, véhicule, places, **maintenant** (`immediat`) ou **date + heure** (`a_l_avance`) ; pas de prix : il est calculé pour chaque passager, voir étape 8
+- [x] Le serveur demande le chemin à Mapbox et l'enregistre (l'app n'envoie jamais le chemin ni la distance) ; départ et arrivée ramenés sur la route ; l'app envoie `DemandePublicationTrajet` (`data-objets.ts`)
+- [x] **Choix du véhicule** : un seul véhicule validé → il est pris tout seul, aucun choix proposé ; plusieurs → l'app fait choisir et envoie `vehiculeId` (sans lui : 400 avec la liste des véhicules dans `details.vehicules`) ; aucun → 403
+- [x] Règles : chauffeur et véhicule validés, places ≤ places du véhicule, un seul trajet en route à la fois, pas deux trajets prévus qui se chevauchent (pas de doublon), départ entre 15 min et **15 jours** à l'avance (réglage `trajet_max_jours_avance`)
+- [x] Option **« Réservé aux femmes »** (`reserveFemmes`) : possible seulement pour une conductrice (sexe `femme`) ; refusée pour un homme
+- [x] Cette option est **un choix, jamais une obligation** : une conductrice publie des trajets normaux quand elle veut, et y accepte hommes et femmes
+- [x] Trajet à l'avance : `POST /trips/:id/start` (« Je pars », dès 30 min avant l'heure), rappels 1 h et 10 min avant (chauffeur et passagers acceptés), annulation automatique 30 min après l'heure s'il n'est pas parti (passagers prévenus)
+- [x] `PATCH /trips/:id` (heure ou places, avant le départ, passagers prévenus), `POST /trips/:id/cancel` (refusé si des passagers sont à bord), `GET /trips/:id`, `GET /me/trips`, `GET /me/trips/active`
+- [ ] App mobile : ne plus envoyer `chemin`, `distanceMetres` ni `dureeSecondes` à `POST /trips` (le back les calcule et refuse les champs inconnus)
 
 **Fini quand** : un trajet immédiat et un trajet à l'avance s'affichent avec leur chemin.
 
@@ -202,18 +207,18 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
             du passager   du passager
 ```
 
-- [ ] `POST /recherche` : départ, destination, places, maintenant ou plus tard
-- [ ] Points du passager ramenés sur la route ; marge GPS de 30 m seulement
-- [ ] Départ **et** destination du passager sur le chemin du chauffeur, départ **avant** destination
-- [ ] Trajet parti : chauffeur en ligne et pas encore passé au point du passager
-- [ ] Trajet à l'avance : heure de passage estimée dans la plage demandée
-- [ ] Places libres ≥ places demandées ; ni le passager lui-même, ni un utilisateur bloqué
-- [ ] Trajets **réservés aux femmes** : visibles seulement par les femmes
-- [ ] **Une femme a accès à tout**, passagère comme conductrice : elle voit et rejoint tous les trajets normaux (homme ou femme au volant, avec des passagers hommes), elle publie des trajets normaux, et elle peut en plus utiliser les trajets réservés aux femmes. C'est son choix, aucune restriction pour elle
-- [ ] Filtre facultatif `femmesSeulement` : une passagère qui le souhaite n'affiche que les trajets réservés aux femmes (désactivé par défaut)
-- [ ] Réserver un trajet réservé aux femmes quand on est un homme → refusé (même en appelant l'API directement)
-- [ ] Tri : chauffeurs notés (meilleure note d'abord), puis non notés ; à égalité, le plus proche
-- [ ] Réponse = `ResultatRecherche` (sans téléphone), avec la distance du passager, le prix d'une place et le prix total pour les places demandées
+- [x] `POST /trips/search` (`DemandeRecherche`) : départ, destination, places, `"maintenant"` ou une date
+- [x] Points du passager ramenés sur la route du chauffeur ; marge GPS de 30 m seulement (réglage `marge_route_metres`), calculée par PostGIS
+- [x] Départ **et** destination du passager sur le chemin du chauffeur, départ **avant** destination
+- [x] Trajet parti : chauffeur en ligne et pas encore passé au point du passager
+- [x] Trajet à l'avance : heure de passage estimée au point du passager entre 15 min avant et 60 min après l'heure demandée
+- [x] Places libres ≥ places demandées ; ni le passager lui-même, ni un utilisateur bloqué (dans les deux sens), ni un trajet où il a déjà une demande en cours
+- [x] Trajets **réservés aux femmes** : visibles seulement par les femmes
+- [x] **Une femme a accès à tout**, passagère comme conductrice : elle voit et rejoint tous les trajets normaux (homme ou femme au volant, avec des passagers hommes), elle publie des trajets normaux, et elle peut en plus utiliser les trajets réservés aux femmes. C'est son choix, aucune restriction pour elle
+- [x] Filtre facultatif `femmesSeulement` : une passagère qui le souhaite n'affiche que les trajets réservés aux femmes (désactivé par défaut ; ignoré pour un homme)
+- [x] Réserver un trajet réservé aux femmes quand on est un homme → refusé (même en appelant l'API directement)
+- [x] Tri : chauffeurs notés (meilleure note d'abord), puis non notés ; à égalité, le plus proche dans le temps
+- [x] Réponse = `ResultatRecherche` (sans téléphone), avec la distance du passager, le prix d'une place et le prix total pour les places demandées (20 résultats au plus)
 
 **Fini quand** : avec les données de démo, Tanjombato → Analakely trouve le trajet 1 et pas le trajet 5 (sens inverse).
 
@@ -221,9 +226,10 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 
 ## Étape 8 — Réserver
 
-- [ ] `POST /trajets/:id/reserver` : places, prise en charge, dépose ; statut `en_attente`, expiration = maintenant + 3 min
-- [ ] **Places** : de 1 à toutes les places libres du trajet (ex. 3 places libres → le passager peut réserver les 3 pour lui et ses proches) ; refusé au-delà
-- [ ] **Prix calculé par le serveur** (jamais par l'app), puis figé sur la réservation :
+- [x] `POST /reservations` : trajet, places, prise en charge, dépose ; statut `en_attente`, expiration = maintenant + 3 min (réglage `delai_reponse_secondes`)
+- [x] **Places** : de 1 à toutes les places libres du trajet (ex. 3 places libres → le passager peut réserver les 3 pour lui et ses proches) ; refusé au-delà
+- [x] **Profil complet** (nom, prénom, sexe) obligatoire pour réserver (reste de l'étape 2)
+- [x] **Prix calculé par le serveur** (jamais par l'app), puis figé sur la réservation :
   - distance du passager = longueur de la route du chauffeur entre la prise en charge et la dépose (PostGIS)
   - prix d'une place = max(prix minimum, km × prix au km), arrondi à la centaine supérieure, selon le type de véhicule (table `tarif`)
 
@@ -233,14 +239,16 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
     | Moto | 500 Ar | 5 000 Ar | 13 km → 6 500 Ar |
 
   - prix total = prix d'une place × places (ex. 3 places en voiture sur 12 km → 10 800 Ar)
-- [ ] Chauffeur prévenu (push + WebSocket)
-- [ ] `POST /reservations/:id/accepter` : places retirées en une seule opération (jamais deux fois la même place)
-- [ ] `POST /reservations/:id/refuser` : notification au passager
-- [ ] Tâche toutes les 15 s : sans réponse en 3 min → `expiree`, passager prévenu, demande retirée de l'écran du chauffeur
-- [ ] Accepter une demande expirée → refusé
-- [ ] `POST /reservations/:id/relancer` : nouvelle demande au même chauffeur (2 fois max)
-- [ ] « Chercher un autre chauffeur » : relancer la recherche avec les mêmes critères
-- [ ] `POST /reservations/:id/annuler` (passager ou chauffeur, avant la montée) : places rendues
+- [x] Chauffeur prévenu (historique des notifications MongoDB)
+- [ ] Chauffeur prévenu en direct : push FCM (étape 12) et WebSocket (étape 9)
+- [x] `POST /reservations/:id/accept` : places retirées en une seule opération (jamais deux fois la même place) ; la discussion s'ouvre
+- [x] `POST /reservations/:id/refuse` avec un motif ; notification au passager ; `GET /reservations/:id/refusal-reason`
+- [x] Tâche toutes les 15 s : sans réponse en 3 min → `expiree`, passager prévenu, demande retirée de l'écran du chauffeur (`GET /me/requests`)
+- [x] Accepter une demande expirée → refusé
+- [x] `POST /reservations/:id/retry` : nouvelle demande au même chauffeur (2 fois max, réglage `relances_max`)
+- [x] « Chercher un autre chauffeur » : l'app relance `POST /trips/search` avec les mêmes critères
+- [x] `POST /reservations/:id/cancel` : le **passager** annule seulement **avant la réponse** du chauffeur (règle de l'app) ; le **chauffeur** peut annuler un passager jusqu'à sa montée (places rendues) ; l'autre est prévenu
+- [x] `GET /reservations/:id` (passager ou chauffeur du trajet), `GET /me/reservations`, `GET /me/requests`
 
 **Fini quand** : deux acceptations sur la dernière place → une seule réussit ; une demande ignorée expire à 3 min.
 

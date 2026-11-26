@@ -11,10 +11,7 @@ import { Transform } from 'class-transformer';
 import { ArrayUnique, IsArray, IsBoolean, IsEmail, IsIn, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { CREATABLE_ROLES } from '../../domain/entity/AdminAccount';
 import { DRIVER_DOCUMENT_TYPES } from '../../domain/entity/DriverDocument';
-
-function trim({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
+import { trimString } from '../helper/trimString';
 
 export class AdminSignInRequest implements DemandeConnexionAdmin {
   @ApiProperty({ example: 'admin@ndaohody.test' })
@@ -30,7 +27,7 @@ export class AdminSignInRequest implements DemandeConnexionAdmin {
 
 export class CreateAdminAccountRequest implements DemandeCreationCompte {
   @ApiProperty({ example: 'Hery Rakoto' })
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(2, 150)
   nomComplet!: string;
@@ -53,7 +50,7 @@ export class SetAdminAccountActiveRequest implements DemandeActivationCompte {
 
 export class RejectRequest implements DemandeRefus {
   @ApiProperty({ example: 'Permis illisible', description: 'Shown to the driver.' })
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(3, 255)
   motif!: string;

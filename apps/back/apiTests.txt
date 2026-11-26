@@ -1,4 +1,4 @@
-NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 5)
+NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 8)
 Adresse de base : http://localhost:3000
 Swagger : http://localhost:3000/api/docs
 
@@ -200,6 +200,8 @@ GET http://localhost:3000/api/v1/me/vehicles
 
 POST http://localhost:3000/api/v1/me/vehicles              [FORM-DATA]
 -> Ajoute un véhicule, en attente de validation par un admin.
+   Un chauffeur peut en ajouter PLUSIEURS (ex. 2 voitures et 1 moto) : refaire cette requête pour
+   chaque véhicule, à l'inscription ou plus tard depuis le profil. Le premier devient le véhicule par défaut.
    Si la plaque appartient à un ancien compte supprimé, cet ancien compte est réactivé.
   type            = voiture ou moto
   marque          = marque du véhicule      (facultatif)
@@ -318,6 +320,141 @@ GET http://localhost:3000/api/v1/geo/route?departLatitude=-18.9850&departLongitu
 Si une route /geo répond 503 "La carte est momentanément indisponible" : vérifier Internet,
 puis lire la ligne [Mapbox] dans le terminal du back (HTTP 401 = MAPBOX_ACCESS_TOKEN invalide,
 no answer = pas d'Internet, HTTP 429 = quota Mapbox dépassé).
+
+
+==============================================================
+ ÉTAPE 6 — PUBLIER UN TRAJET                      [TOKEN APP du chauffeur]
+==============================================================
+
+Chauffeur de démo : se connecter avec 034 00 000 03 (Rabe Andry, chauffeur validé, voiture 3 places, aucun trajet en route).
+Remarque : au démarrage, le back annule les trajets de démo prévus dans le passé (ils ne sont jamais partis).
+
+POST http://localhost:3000/api/v1/trips
+-> Publie un trajet qui part MAINTENANT. Le back calcule le chemin avec Mapbox (l'app ne l'envoie pas).
+   Le trajet est tout de suite "en_route". Garder son "id" pour la suite.
+{
+  "type": "immediat",
+  "depart": { "libelle": "Andoharanofotsy, rond-point", "latitude": -18.9850, "longitude": 47.5330 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 3
+}
+
+POST http://localhost:3000/api/v1/trips
+-> Publie un trajet PRÉVU à l'avance (entre 15 minutes et 15 jours). Statut "publie".
+   Un chauffeur n'a qu'un trajet en route à la fois : pour tester celui-ci, annuler d'abord le précédent.
+{
+  "type": "a_l_avance",
+  "depart": { "libelle": "Ivato, aéroport", "latitude": -18.7969, "longitude": 47.4788 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 3,
+  "dateDepart": "date et heure de départ, ex. 2026-11-28T07:30:00+03:00",
+  "reserveFemmes": false
+}
+(reserveFemmes = true seulement pour une conductrice.
+ Véhicule : avec UN seul véhicule validé, il est pris tout seul. Avec PLUSIEURS, ajouter
+ "vehiculeId": id du véhicule choisi — sans lui, réponse 400 avec la liste dans details.vehicules.)
+
+GET http://localhost:3000/api/v1/me/trips
+-> Les trajets du chauffeur connecté, le plus récent d'abord.
+(pas de body)
+
+GET http://localhost:3000/api/v1/me/trips/active
+-> Le trajet en route du chauffeur, ou null.
+(pas de body)
+
+GET http://localhost:3000/api/v1/trips/{id du trajet}
+-> Le détail d'un trajet, avec son chemin.
+(pas de body)
+
+PATCH http://localhost:3000/api/v1/trips/{id d'un trajet prévu}
+-> Change l'heure ou le nombre de places AVANT le départ. Les passagers sont prévenus.
+{
+  "dateDepart": "nouvelle date et heure, ex. 2026-11-28T08:00:00+03:00",
+  "placesTotal": 2
+}
+
+POST http://localhost:3000/api/v1/trips/{id d'un trajet prévu}/start
+-> « Je pars » : le trajet prévu passe "en_route" (possible dès 30 min avant l'heure prévue).
+(pas de body)
+
+POST http://localhost:3000/api/v1/trips/{id du trajet}/cancel
+-> Annule le trajet. Les demandes et places réservées sont annulées, les passagers prévenus.
+   Refusé si un passager est déjà à bord.
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 7 — RECHERCHER UN TRAJET                   [TOKEN APP du passager]
+==============================================================
+
+Passager de démo : se connecter avec 034 00 000 11 (Ranaivo Zo, profil complet, aucune réservation).
+
+POST http://localhost:3000/api/v1/trips/search
+-> Cherche les chauffeurs qui PASSENT SUR LE CHEMIN du passager (départ et destination sur leur route,
+   dans le bon sens). Ici Tanjombato -> Analakely : trouve le trajet n°1 de la démo (Rakoto, en route),
+   pas le trajet n°5 (sens inverse). Chaque résultat donne le prix d'une place et le prix total.
+{
+  "depart": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "destination": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "places": 1,
+  "quand": "maintenant"
+}
+("quand" : "maintenant", ou une date ISO pour plus tard ;
+ "femmesSeulement": true possible pour une passagère : seulement les trajets réservés aux femmes)
+
+
+==============================================================
+ ÉTAPE 8 — RÉSERVER                               [TOKEN APP]
+==============================================================
+
+POST http://localhost:3000/api/v1/reservations                         [passager]
+-> Demande des places au chauffeur. Le prix est calculé par le back et figé.
+   Le chauffeur a 3 minutes pour répondre, sinon la demande expire.
+   Mettre les points "priseEnCharge" et "depose" d'un résultat de /trips/search.
+{
+  "trajetId": 1,
+  "places": 1,
+  "priseEnCharge": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "depose": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 }
+}
+
+GET http://localhost:3000/api/v1/me/reservations                       [passager]
+-> Les réservations du passager, la plus récente d'abord.
+(pas de body)
+
+GET http://localhost:3000/api/v1/me/requests                           [chauffeur]
+-> Les demandes qui attendent la réponse du chauffeur (pas encore expirées).
+   Pour le trajet n°1 de la démo : se connecter avec 034 00 000 01 (Rakoto).
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la demande}/accept   [chauffeur]
+-> Accepte : les places sont retirées du trajet, la discussion s'ouvre, le passager est prévenu.
+   Deux acceptations sur la dernière place : une seule réussit.
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la demande}/refuse   [chauffeur]
+-> Refuse avec un motif montré au passager.
+{
+  "motif": "raison du refus, ex. Je ne passe plus par là"
+}
+
+GET http://localhost:3000/api/v1/reservations/{id de la demande}/refusal-reason
+-> Le motif du refus donné par le chauffeur.
+(pas de body)
+
+GET http://localhost:3000/api/v1/reservations/{id de la demande}
+-> Le détail d'une réservation (seulement pour le passager et le chauffeur du trajet).
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id d'une demande expirée}/retry   [passager]
+-> Renvoie la même demande au même chauffeur après une expiration (2 fois au plus).
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la réservation}/cancel   [passager ou chauffeur]
+-> Passager : annule seulement AVANT la réponse du chauffeur (après acceptation : 409).
+   Chauffeur : peut annuler un passager jusqu'à sa montée ; les places reviennent au trajet.
+   L'autre est prévenu.
+(pas de body)
 
 
 ==============================================================

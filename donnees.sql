@@ -315,6 +315,7 @@ CREATE TABLE reservation (
     depose_longitude DECIMAL(10,7) NOT NULL,
     statut VARCHAR(30) NOT NULL DEFAULT 'en_attente',
     relance_de BIGINT,
+    motif_refus VARCHAR(255),   -- raison du refus donnée par le chauffeur, montrée au passager
     date_demande TIMESTAMPTZ NOT NULL DEFAULT now(),
     date_expiration TIMESTAMPTZ NOT NULL,
     date_reponse TIMESTAMPTZ,
@@ -551,7 +552,8 @@ INSERT INTO parametre (cle, valeur, description) VALUES
 ('attente_minutes',        '15',    'Compte à rebours quand le chauffeur est sur place'),
 ('marge_route_metres',     '30',    'Marge GPS pour savoir si un point est sur la route du chauffeur'),
 ('frequence_position_secondes', '5', 'Envoi de la position du chauffeur'),
-('otp_duree_minutes',      '5',     'Durée de validité du code SMS');
+('otp_duree_minutes',      '5',     'Durée de validité du code SMS'),
+('trajet_max_jours_avance', '15',   'Un trajet se publie au plus 15 jours à l''avance');
 
 
 INSERT INTO administrateur (nom_complet, email, mot_de_passe, role, actif, cree_par, derniere_connexion, date_creation) VALUES

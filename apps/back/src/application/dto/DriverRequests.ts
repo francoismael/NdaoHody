@@ -1,14 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { TypeDocument, TypeVehicule } from '@contract';
+import type { DemandeAjoutVehicule, TypeDocument, TypeVehicule } from '@contract';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { DRIVER_DOCUMENT_TYPES } from '../../domain/entity/DriverDocument';
+import { trimString } from '../helper/trimString';
 
 const VEHICLE_TYPES: readonly TypeVehicule[] = ['moto', 'voiture'];
-
-function trim({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
 
 /** POST /me/documents (multipart/form-data, with the picture in "fichier"). */
 export class SubmitDocumentRequest {
@@ -18,34 +15,34 @@ export class SubmitDocumentRequest {
 
   @ApiPropertyOptional({ example: 'AB123456', description: 'Required with permis_recto: number printed on the licence.' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @MaxLength(40)
   numeroPermis?: string;
 }
 
 /** POST /me/vehicles (multipart/form-data, with the picture in "photo"). */
-export class AddVehicleRequest {
+export class AddVehicleRequest implements DemandeAjoutVehicule {
   @ApiProperty({ enum: VEHICLE_TYPES })
   @IsIn(VEHICLE_TYPES)
   type!: TypeVehicule;
 
   @ApiPropertyOptional({ example: 'Toyota' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 50)
   marque?: string;
 
   @ApiPropertyOptional({ example: 'Corolla' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 50)
   modele?: string;
 
   @ApiProperty({ example: 'Gris' })
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 30)
   couleur!: string;
@@ -65,21 +62,21 @@ export class AddVehicleRequest {
 export class UpdateVehicleRequest {
   @ApiPropertyOptional({ example: 'Toyota' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 50)
   marque?: string;
 
   @ApiPropertyOptional({ example: 'Corolla' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 50)
   modele?: string;
 
   @ApiPropertyOptional({ example: 'Gris' })
   @IsOptional()
-  @Transform(trim)
+  @Transform(trimString)
   @IsString()
   @Length(1, 30)
   couleur?: string;

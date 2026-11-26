@@ -2,6 +2,15 @@ import { Module } from '@nestjs/common';
 import { AccountRecoveryService } from '../application/service/AccountRecoveryService';
 import { EtaService } from '../application/service/EtaService';
 import { SessionIssuerService } from '../application/service/SessionIssuerService';
+import { TripCancellationService } from '../application/service/TripCancellationService';
+import { AnswerBookingUseCase } from '../application/usecases/bookings/AnswerBookingUseCase';
+import { ManageBookingsUseCase } from '../application/usecases/bookings/ManageBookingsUseCase';
+import { RequestBookingUseCase } from '../application/usecases/bookings/RequestBookingUseCase';
+import { RunRideJobsUseCase } from '../application/usecases/jobs/RunRideJobsUseCase';
+import { ManageTripsUseCase } from '../application/usecases/trips/ManageTripsUseCase';
+import { PublishTripUseCase } from '../application/usecases/trips/PublishTripUseCase';
+import { SearchTripsUseCase } from '../application/usecases/trips/SearchTripsUseCase';
+import { RideJobsScheduler } from '../infrastructure/scheduler/RideJobsScheduler';
 import { AuthenticateUserUseCase } from '../application/usecases/auth/AuthenticateUserUseCase';
 import { RefreshSessionUseCase } from '../application/usecases/auth/RefreshSessionUseCase';
 import { RequestOtpUseCase } from '../application/usecases/auth/RequestOtpUseCase';
@@ -20,9 +29,12 @@ import { UnregisterDeviceUseCase } from '../application/usecases/profile/Unregis
 import { UpdateProfilePhotoUseCase } from '../application/usecases/profile/UpdateProfilePhotoUseCase';
 import { UpdateProfileUseCase } from '../application/usecases/profile/UpdateProfileUseCase';
 import { AuthController } from './controller/AuthController';
+import { BookingsController } from './controller/BookingsController';
 import { DriverController } from './controller/DriverController';
 import { GeoController } from './controller/GeoController';
 import { MeController } from './controller/MeController';
+import { MyRidesController } from './controller/MyRidesController';
+import { TripsController } from './controller/TripsController';
 import { AccessTokenGuard } from './guard/AccessTokenGuard';
 
 /**
@@ -30,7 +42,7 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
  * Add here the controllers used by passengers and drivers, and their use cases.
  */
 @Module({
-  controllers: [AuthController, MeController, DriverController, GeoController],
+  controllers: [AuthController, MeController, MyRidesController, DriverController, GeoController, TripsController, BookingsController],
   providers: [
     AccessTokenGuard,
     SessionIssuerService,
@@ -53,6 +65,15 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
     SearchPlacesUseCase,
     PreviewRouteUseCase,
     EtaService,
+    TripCancellationService,
+    PublishTripUseCase,
+    ManageTripsUseCase,
+    SearchTripsUseCase,
+    RequestBookingUseCase,
+    AnswerBookingUseCase,
+    ManageBookingsUseCase,
+    RunRideJobsUseCase,
+    RideJobsScheduler,
   ],
 })
 export class ClientApiModule {}
