@@ -1,10 +1,11 @@
 import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet } from '@contract';
 
+import type { PassingDriver } from '@/features/trips/types';
 import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
 import { haversineMeters, type LngLat } from '@/shared/map';
 import { addMinutes, isRecord } from '@/shared/utils';
 
-import { approach } from '../drive';
+import { arrivalAt, bySoonestArrival, isOfferedTo, pickupPoint } from '../matching';
 import { quoteForTrip } from '../pricing';
 import {
   HttpError,
@@ -21,12 +22,10 @@ import {
   type RequestContext,
 } from '../server';
 import { iso } from '../time';
-import { nearestIndex, segmentSeconds, toLieu, toLngLat } from '../tripGeo';
+import { segmentSeconds, toLieu, toLngLat } from '../tripGeo';
 import { nextId } from '../types';
 import { toPublicProfile, toVehicleSummary, userById } from '../views';
 
-/** How far a passenger walks to or from the driver's road. */
-const MAX_WALK_METRES = 800;
 /** A planned trip matches a search if it leaves in this window around the wanted time. */
 const WINDOW_BEFORE_MIN = 30;
 const WINDOW_AFTER_MIN = 120;
@@ -69,23 +68,21 @@ function search(ctx: RequestContext): ResultatRecherche[] {
 
   ctx.db.trajets.forEach((trajet) => {
     if (trajet.statut !== 'publie' && trajet.statut !== 'en_route') return;
-    if (trajet.chauffeurId === user.id || trajet.placesLibres < demande.places) return;
-    if (trajet.reserveFemmes && user.sexe !== 'femme') return;
+    if (!isOfferedTo(trajet, user, demande.places)) return;
     if (demande.femmesSeulement && !trajet.reserveFemmes) return;
     if (!inTimeWindow(trajet, demande.quand, ctx.now)) return;
 
-    const pickup = nearestIndex(trajet, demande.depart);
-    const drop = nearestIndex(trajet, demande.destination);
-    if (pickup.distanceMeters > MAX_WALK_METRES || drop.distanceMeters > MAX_WALK_METRES || drop.index <= pickup.index) return;
+    const pickup = pickupPoint(trajet, demande.depart);
+    const drop = pickupPoint(trajet, demande.destination);
+    if (!pickup || !drop || drop.index <= pickup.index) return;
 
     let arriveeDansMinutes: number | null = null;
     let heurePassage: string | null = null;
     const position = ctx.db.positions.find((p) => p.trajetId === trajet.id && p.enLigne);
     if (trajet.statut === 'en_route' && position) {
-      const [longitude, latitude] = trajet.chemin[pickup.index];
-      const left = approach(ctx.db, trajet, { longitude, latitude }, ctx.now);
-      if (!left) return; // already passed the passenger
-      arriveeDansMinutes = Math.max(1, Math.ceil(left.secondes / 60));
+      const arrival = arrivalAt(ctx.db, trajet, pickup.index, ctx.now);
+      if (!arrival) return; // already passed the passenger
+      arriveeDansMinutes = arrival.minutes;
     } else {
       heurePassage = iso(new Date(new Date(trajet.dateDepart).getTime() + segmentSeconds(trajet, 0, pickup.index) * 1000));
     }
@@ -170,19 +167,34 @@ function publish(ctx: RequestContext): Trajet {
   return trajet;
 }
 
-/** Passenger home: trips on the road now whose path passes near the given point. */
-function around(ctx: RequestContext): Trajet[] {
+/**
+ * Passenger home: drivers on the road who will pass near the given point and still have
+ * a seat, soonest first. A driver who has passed the point is never listed.
+ */
+function around(ctx: RequestContext): PassingDriver[] {
   const user = requireUser(ctx);
   const point = { latitude: Number(ctx.query.latitude), longitude: Number(ctx.query.longitude) };
   if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) throw new HttpError(400, 'Position invalide.');
-  return ctx.db.trajets.filter(
-    (t) =>
-      t.statut === 'en_route' &&
-      t.chauffeurId !== user.id &&
-      t.placesLibres > 0 &&
-      (!t.reserveFemmes || user.sexe === 'femme') &&
-      nearestIndex(t, point).distanceMeters <= MAX_WALK_METRES,
-  );
+  return ctx.db.trajets
+    .flatMap((trajet): PassingDriver[] => {
+      if (trajet.statut !== 'en_route' || !isOfferedTo(trajet, user, 1)) return [];
+      const pickup = pickupPoint(trajet, point);
+      const arrival = pickup && arrivalAt(ctx.db, trajet, pickup.index, ctx.now);
+      if (!pickup || !arrival) return [];
+      const vehicule = findOr404(ctx.db.vehicules, (v) => v.id === trajet.vehiculeId, 'Véhicule');
+      return [
+        {
+          trajet,
+          chauffeur: toPublicProfile(userById(ctx, trajet.chauffeurId)),
+          vehicule: toVehicleSummary(vehicule),
+          priseEnCharge: toLieu(trajet.chemin[pickup.index], 'Près de toi'),
+          arriveeDansMinutes: arrival.minutes,
+          positionChauffeur: arrival.positionChauffeur,
+          cheminVersPassager: arrival.cheminVersPassager,
+        },
+      ];
+    })
+    .sort(bySoonestArrival);
 }
 
 export const tripsRoutes: MockRoute[] = [

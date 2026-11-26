@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppMap, MovingMarker, RouteLine, type LngLat, type MapFit } from '@/shared/map';
+import { AppMap, PlaceLabel, RouteLine, type LngLat, type MapFit } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, FieldMessage, Flash, Icon } from '@/shared/ui';
 import { formatDistance, formatDuration } from '@/shared/utils';
@@ -103,9 +103,10 @@ export function PublishScreen() {
   return (
     <View style={s.screen}>
       <AppMap fit={fit}>
-        {route.data ? <RouteLine id="publish-preview" coordinates={route.data.chemin} /> : null}
-        {depart ? <MovingMarker id="publish-depart" kind="place" coordinate={[depart.longitude, depart.latitude]} /> : null}
-        {arrivee ? <MovingMarker id="publish-arrivee" kind="place" coordinate={[arrivee.longitude, arrivee.latitude]} /> : null}
+        {/* The route comes after the points (once computed): it goes under the departure dot. */}
+        {route.data ? <RouteLine id="publish-preview" coordinates={route.data.chemin} belowLayerID={depart ? 'publish-depart-circle' : undefined} /> : null}
+        {depart ? <PlaceLabel id="publish-depart" coordinate={[depart.longitude, depart.latitude]} label="Départ" /> : null}
+        {arrivee ? <PlaceLabel id="publish-arrivee" coordinate={[arrivee.longitude, arrivee.latitude]} label="Arrivée" /> : null}
       </AppMap>
 
       <View style={[s.titleBox, { top: insets.top + theme.spacing[3] }]}>
@@ -193,15 +194,18 @@ const createStyles = ({ colors, typography, shadows, spacing, gutter, radii, con
     },
     title: { ...typography.subheading, color: colors.text },
     step: { ...typography.small, color: colors.textMuted },
+    // Attached to the screen edges, right on the tab bar: a sheet, like the homes.
     panel: {
       position: 'absolute',
-      left: gutter,
-      right: gutter,
-      bottom: spacing[4],
-      padding: spacing[4],
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: gutter,
+      paddingVertical: spacing[4],
       gap: spacing[3],
-      borderRadius: radii.lg,
-      borderWidth: 1,
+      borderTopLeftRadius: radii.xl,
+      borderTopRightRadius: radii.xl,
+      borderTopWidth: 1,
       borderColor: colors.surfaceBorder,
       backgroundColor: colors.surface,
       boxShadow: shadows.card,
