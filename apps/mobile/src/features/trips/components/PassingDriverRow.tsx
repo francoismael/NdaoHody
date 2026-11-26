@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { UserBadge, toDisplayBadge } from '@/features/profile';
+import { UserBadge, formatRating, toDisplayBadge, vehicleText } from '@/features/profile';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Avatar, Icon } from '@/shared/ui';
 
@@ -26,12 +26,7 @@ type PassingDriverRowProps = {
 const seatsText = (n: number): string => (n > 1 ? `${n} places libres` : '1 place libre');
 
 const ratingText = (note: number | null, count: number): string =>
-  note === null ? 'Pas encore noté' : `${note.toFixed(1).replace('.', ',')} · ${count} avis`;
-
-function vehicleText({ type, marque, modele, couleur }: DriverCardData['vehicule']): string {
-  const name = [marque, modele].filter(Boolean).join(' ') || (type === 'moto' ? 'Moto' : 'Voiture');
-  return `${name} · ${couleur}`;
-}
+  note === null ? 'Pas encore noté' : `${formatRating(note)} · ${count} avis`;
 
 /**
  * One driver for the passenger (home and search): his trip on top; below, who he is and

@@ -93,7 +93,7 @@ export function SearchScreen() {
   }
 
   const book = (result: ResultatRecherche) => router.push({ pathname: '/book/[id]', params: { id: String(result.trajet.id) } });
-  const driverProfile = (result: ResultatRecherche) => router.push({ pathname: '/driver/[id]', params: { id: String(result.chauffeur.id) } });
+  const driverProfile = (result: ResultatRecherche) => router.push({ pathname: '/driver/[id]', params: { id: String(result.chauffeur.id), tripId: String(result.trajet.id) } });
   const title = results.length > 1 ? `${results.length} chauffeurs sur ton trajet` : results.length === 1 ? '1 chauffeur sur ton trajet' : 'Aucun chauffeur sur ton trajet';
 
   const body = (() => {
