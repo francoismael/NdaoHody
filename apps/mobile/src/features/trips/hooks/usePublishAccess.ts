@@ -2,17 +2,18 @@ import type { Vehicule } from '@contract';
 
 import { useActiveVehicles, useMyApplication } from '@/features/verification';
 
-import { publishBlocker, type PublishBlocker } from '../rules';
+import { publishBlocker, usableVehicles, type PublishBlocker } from '../rules';
 
 export type PublishAccess =
   | { status: 'loading' }
   | { status: 'error'; error: Error; retry: () => void }
   | { status: 'blocked'; blocker: PublishBlocker }
-  | { status: 'ready'; vehicle: Vehicule };
+  /** The validated vehicles, the default one first: the driver picks one when there are several. */
+  | { status: 'ready'; vehicles: Vehicule[] };
 
 /**
  * Can this driver publish? Same rule as the server (`publishBlocker`): a validated
- * driver with a validated default vehicle. The screens explain, the server refuses.
+ * driver with at least one validated vehicle. The screens explain, the server refuses.
  */
 export function usePublishAccess(): PublishAccess {
   const application = useMyApplication();
@@ -31,7 +32,7 @@ export function usePublishAccess(): PublishAccess {
   if (!application.data || !vehicles.data) return { status: 'loading' };
 
   const blocker = publishBlocker(application.data.statutChauffeur, vehicles.data);
-  const vehicle = vehicles.data.find((v) => v.parDefaut && v.statut === 'valide');
-  if (blocker || !vehicle) return { status: 'blocked', blocker: blocker ?? 'vehicle_pending' };
-  return { status: 'ready', vehicle };
+  const usable = [...usableVehicles(vehicles.data)].sort((a, b) => Number(b.parDefaut) - Number(a.parDefaut));
+  if (blocker || usable.length === 0) return { status: 'blocked', blocker: blocker ?? 'vehicle_pending' };
+  return { status: 'ready', vehicles: usable };
 }

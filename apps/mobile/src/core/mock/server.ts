@@ -84,6 +84,13 @@ export function requireNumber(body: unknown, key: string): number {
   return value;
 }
 
+export function optionalNumber(body: unknown, key: string): number | null {
+  const value = field(body, key);
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new HttpError(400, `${key} doit être un nombre.`);
+  return value;
+}
+
 export function optionalBoolean(body: unknown, key: string): boolean {
   return field(body, key) === true;
 }

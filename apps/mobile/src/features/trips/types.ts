@@ -1,10 +1,13 @@
 import type { Chemin, Lieu, Position, Quartier, ResultatRecherche, Trajet } from '@contract';
 
-/** POST /trips. `dateDepart` only for a planned trip (immediate = now). */
+/**
+ * POST /trips. `dateDepart` only for a planned trip (immediate = now). `vehiculeId` only when the
+ * driver has several validated vehicles (contract DemandePublicationTrajet; one is taken alone).
+ */
 export type PublishTripInput = Pick<
   Trajet,
   'type' | 'depart' | 'arrivee' | 'chemin' | 'distanceMetres' | 'dureeSecondes' | 'placesTotal' | 'reserveFemmes'
-> & { dateDepart?: string };
+> & { dateDepart?: string; vehiculeId?: number };
 
 /**
  * The road between two places, its distance and duration.

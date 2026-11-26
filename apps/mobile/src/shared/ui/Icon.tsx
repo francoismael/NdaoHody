@@ -8,7 +8,7 @@ import { iconPaths, type IconName } from './icons';
 export type IconSize = 'sm' | 'md' | 'lg';
 
 /** Tons autorisés : chacun pointe vers un rôle du thème. */
-export type IconTone = 'default' | 'soft' | 'muted' | 'accent' | 'danger' | 'onPrimary';
+export type IconTone = 'default' | 'soft' | 'muted' | 'accent' | 'danger' | 'onPrimary' | 'onDanger';
 
 const sizes: Record<IconSize, number> = { sm: 16, md: 20, lg: 24 };
 
@@ -19,6 +19,7 @@ const toneRoles: Record<IconTone, ColorRole> = {
   accent: 'accent',
   danger: 'danger',
   onPrimary: 'onPrimary',
+  onDanger: 'onDanger',
 };
 
 export type IconProps = {

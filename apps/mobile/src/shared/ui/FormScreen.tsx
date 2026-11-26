@@ -26,6 +26,11 @@ export type FormScreenHandle = {
    * Call it right after setting the errors: it waits for them to be drawn.
    */
   revealFirstError: () => void;
+  /**
+   * Glides to the end of the form (same smooth scroll), e.g. after a choice that changes what
+   * follows, so the rest is seen without scrolling. Waits for the new layout to be drawn.
+   */
+  revealEnd: () => void;
 };
 
 /** Space kept above the field we scroll to. */
@@ -67,6 +72,9 @@ export function FormScreen({ title, subtitle, children, footer, safeTop = false,
   const scrollY = useRef(0);
   const targets = useRef(new Set<ErrorTarget>());
   const [revealRequest, setRevealRequest] = useState(0);
+  const [endRequest, setEndRequest] = useState(0);
+  const contentHeight = useRef(0);
+  const viewHeight = useRef(0);
   const stopReveal = useRef<(() => void) | null>(null);
 
   const cancelReveal = (): void => stopSmoothScroll(stopReveal);
@@ -84,7 +92,26 @@ export function FormScreen({ title, subtitle, children, footer, safeTop = false,
     [],
   );
 
-  useImperativeHandle(ref, () => ({ revealFirstError: () => setRevealRequest((n) => n + 1) }), []);
+  useImperativeHandle(
+    ref,
+    () => ({ revealFirstError: () => setRevealRequest((n) => n + 1), revealEnd: () => setEndRequest((n) => n + 1) }),
+    [],
+  );
+
+  // One frame later: the content has its new height (a chosen vehicle changes the seats below).
+  useEffect(() => {
+    const area = scroll.current;
+    if (endRequest === 0 || !area) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const to = Math.max(0, contentHeight.current - viewHeight.current);
+      if (to <= scrollY.current + 1) return;
+      stopSmoothScroll(stopReveal);
+      void smoothScrollTo(area, scrollY.current, to).then((stop) => {
+        stopReveal.current = stop;
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [endRequest]);
 
   // Runs after the fields drew their errors (children's effects run before this one).
   useEffect(() => {
@@ -121,6 +148,12 @@ export function FormScreen({ title, subtitle, children, footer, safeTop = false,
         }}
         scrollEventThrottle={16}
         onScrollBeginDrag={cancelReveal}
+        onContentSizeChange={(_width, height) => {
+          contentHeight.current = height;
+        }}
+        onLayout={(event) => {
+          viewHeight.current = event.nativeEvent.layout.height;
+        }}
         style={s.scroll}
         contentContainerStyle={[s.content, safeTop && { paddingTop: insets.top + theme.spacing[6] }]}
         keyboardShouldPersistTaps="handled"

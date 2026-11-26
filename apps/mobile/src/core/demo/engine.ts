@@ -170,6 +170,10 @@ export async function adminApproves(): Promise<void> {
   for (const vehicule of waiting) await actAs(null, 'POST', `/admin/vehicles/${vehicule.id}/approve`);
 }
 
+/** The admin answers ONE vehicle (added or changed later, the application already validated). */
+export const adminApprovesVehicle = (vehicleId: number) => actAs(null, 'POST', `/admin/vehicles/${vehicleId}/approve`);
+export const adminRejectsVehicle = (vehicleId: number, motif: string) => actAs(null, 'POST', `/admin/vehicles/${vehicleId}/reject`, { motif });
+
 /** The admin refuses some documents (all when `documents` is empty), with a reason shown to the driver. */
 export const adminRejects = (motif: string, documents: TypeDocument[] = []) =>
   actAs(null, 'POST', `/admin/drivers/${me()}/reject`, { motif, documents });

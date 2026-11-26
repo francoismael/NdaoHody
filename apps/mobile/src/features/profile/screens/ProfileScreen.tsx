@@ -80,6 +80,8 @@ export function ProfileScreen() {
 
       <View style={s.actions}>
         <Button label="Notifications" onPress={() => router.push('/notifications')} variant="secondary" />
+        {/* A route, not an import: verification already imports profile (no loop). */}
+        {isDriver ? <Button label="Mes véhicules" icon="car" onPress={() => router.push('/my-vehicles')} variant="secondary" /> : null}
         <Button label={switchLabel} onPress={switchRole} variant="secondary" />
         <Button label="Se déconnecter" onPress={signOut} variant="ghost" icon="logout" />
       </View>

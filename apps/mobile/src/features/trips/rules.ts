@@ -53,6 +53,10 @@ export const ACTIVE_TRIP_STATUSES: readonly StatutTrajet[] = ['publie', 'en_rout
 export const PUBLISH_MESSAGES = {
   notValidated: 'Ton compte chauffeur n’est pas encore validé.',
   vehiclePending: 'Ton véhicule n’est pas encore validé.',
+  /** Messages of the back (PublishTripUseCase.chooseVehicle). */
+  chooseVehicle: 'Choisis le véhicule de ce trajet.',
+  notMyVehicle: 'Choisis un de tes véhicules.',
+  vehicleNotValidated: 'Ce véhicule doit être validé avant de publier un trajet.',
   pastDeparture: 'Choisis une heure de départ à venir.',
   tooFarAhead: `Tu peux publier un trajet au plus ${PLAN_MAX_DAYS} jours à l’avance.`,
   alreadyOnRoad: 'Tu as déjà un trajet en route. Termine-le avant d’en publier un autre immédiat.',
@@ -67,15 +71,19 @@ export const PUBLISH_MESSAGES = {
   seatsInvalid: (max: number): string => `Entre 1 et ${max} place(s).`,
 } as const;
 
+/** The vehicles a trip can be published with: the validated ones (back: chooseVehicle). */
+export const usableVehicles = <T extends Pick<Vehicule, 'statut'>>(vehicles: readonly T[]): T[] => vehicles.filter((v) => v.statut === 'valide');
+
 /** Why a driver cannot publish, or null. Checked by the server AND shown by the screens. */
 export type PublishBlocker = 'not_validated' | 'vehicle_pending';
 
 export function publishBlocker(
   statutChauffeur: StatutChauffeur,
-  vehicles: readonly Pick<Vehicule, 'parDefaut' | 'statut'>[],
+  vehicles: readonly Pick<Vehicule, 'statut'>[],
 ): PublishBlocker | null {
   if (statutChauffeur !== 'valide') return 'not_validated';
-  return vehicles.some((v) => v.parDefaut && v.statut === 'valide') ? null : 'vehicle_pending';
+  // Any validated vehicle (several vehicles, 26/11): the driver picks one when he has more than one.
+  return usableVehicles(vehicles).length > 0 ? null : 'vehicle_pending';
 }
 
 /** Problem with a planned departure, read on the DEMO clock (`nowMs`), or null. */
