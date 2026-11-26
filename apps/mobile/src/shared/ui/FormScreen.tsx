@@ -1,10 +1,11 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react';
-import { AccessibilityInfo, Keyboard, Platform, ScrollView, StyleSheet, Text, View, type ScrollViewInstance, type ViewInstance } from 'react-native';
+import { Keyboard, Platform, ScrollView, StyleSheet, Text, View, type ScrollViewInstance, type ViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme, type Theme } from '@/shared/theme';
 
 import { FormErrorContext, type ErrorTarget, type FormErrorRegistry } from './formErrors';
+import { smoothScrollTo, stopSmoothScroll } from './smoothScroll';
 
 export type FormScreenProps = {
   title: string;
@@ -28,28 +29,6 @@ export type FormScreenHandle = {
 
 /** Space kept above the field we scroll to. */
 const REVEAL_MARGIN = 24;
-/** Slower than the native smooth scroll (~250 ms), so the eye can follow. */
-const REVEAL_DURATION_MS = 450;
-
-/** Starts slowly, speeds up, slows down at the end (cubic ease-in-out). */
-const easeInOutCubic = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
-
-/**
- * Scrolls `area` from `from` to `to` with an ease-in-out, frame by frame (the native
- * `scrollTo({ animated: true })` has a fixed speed and no easing). Returns how to stop it.
- */
-function animateScroll(area: ScrollViewInstance, from: number, to: number): () => void {
-  let frame = 0;
-  const start = Date.now();
-  const step = (): void => {
-    const progress = Math.min(1, (Date.now() - start) / REVEAL_DURATION_MS);
-    area.scrollTo({ y: from + (to - from) * easeInOutCubic(progress), animated: false });
-    if (progress < 1) frame = requestAnimationFrame(step);
-  };
-  frame = requestAnimationFrame(step);
-  return () => cancelAnimationFrame(frame);
-}
-
 /**
  * How much of this view the keyboard covers. Measured in window coordinates,
  * so it is right with or without a header and whether Android resizes the window
@@ -76,12 +55,6 @@ function useKeyboardOverlap(view: RefObject<ViewInstance | null>): number {
   return overlap;
 }
 
-/** Stops the scroll animation kept in `stop`, if any. */
-function stopAnimation(stop: RefObject<(() => void) | null>): void {
-  stop.current?.();
-  stop.current = null;
-}
-
 /** Form layout (sign-in, later vehicle, publish): title, fields, main button kept above the keyboard. */
 export function FormScreen({ title, subtitle, children, footer, safeTop = false, ref }: FormScreenProps) {
   const theme = useTheme();
@@ -95,8 +68,8 @@ export function FormScreen({ title, subtitle, children, footer, safeTop = false,
   const [revealRequest, setRevealRequest] = useState(0);
   const stopReveal = useRef<(() => void) | null>(null);
 
-  const cancelReveal = (): void => stopAnimation(stopReveal);
-  useEffect(() => () => stopAnimation(stopReveal), []);
+  const cancelReveal = (): void => stopSmoothScroll(stopReveal);
+  useEffect(() => () => stopSmoothScroll(stopReveal), []);
 
   const registry = useMemo<FormErrorRegistry>(
     () => ({
@@ -130,11 +103,9 @@ export function FormScreen({ title, subtitle, children, footer, safeTop = false,
         const hidden = first.top < areaTop || first.top + first.height > areaTop + areaHeight;
         if (!hidden) return;
         const to = Math.max(0, scrollY.current + first.top - areaTop - REVEAL_MARGIN);
-        void AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
-          stopAnimation(stopReveal);
-          // Reduced motion (Android setting "Remove animations"): jump, no movement.
-          if (reduced) area.scrollTo({ y: to, animated: false });
-          else stopReveal.current = animateScroll(area, scrollY.current, to);
+        stopSmoothScroll(stopReveal);
+        void smoothScrollTo(area, scrollY.current, to).then((stop) => {
+          stopReveal.current = stop;
         });
       });
     });

@@ -1,4 +1,4 @@
-import type { Lieu, Quartier, Trajet } from '@contract';
+import type { Chemin, Lieu, Position, Quartier, ResultatRecherche, Trajet } from '@contract';
 
 /** POST /trips. `dateDepart` only for a planned trip (immediate = now). */
 export type PublishTripInput = Pick<
@@ -28,3 +28,16 @@ export type PlaceSuggestionItem = { key: string; name: string; detail: string | 
   | { source: 'mapbox'; mapboxId: string }
   | { source: 'known'; place: ChosenPlace }
 );
+
+/**
+ * GET /trips/around: a driver on the road who will pass near the passenger, soonest first.
+ * GAP #9 (to send to the backend): no "drivers passing near me" route in data-objets.ts yet;
+ * the fields reuse ResultatRecherche and SuiviReservation.
+ */
+export type PassingDriver = Pick<ResultatRecherche, 'trajet' | 'chauffeur' | 'vehicule' | 'priseEnCharge'> & {
+  /** Road time to the pickup point, on the demo clock (at least 1). */
+  arriveeDansMinutes: number;
+  positionChauffeur: Position;
+  /** The driver's road to the pickup point. */
+  cheminVersPassager: Chemin;
+};

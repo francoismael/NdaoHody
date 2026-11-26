@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import type { StatutTrajet, Trajet } from '@contract';
@@ -24,10 +24,13 @@ type DriverHomePanelProps = {
   access: PublishAccess;
   /** Coming and on-the-road trips, soonest first. */
   trips: readonly Trajet[];
+  /** The touched trip: shown in full here and drawn on the map (by the home). */
+  openId: number | null;
+  onToggle: (trajetId: number) => void;
 };
 
 /** Driver home, bottom panel: verified or not, the way to publish, the coming trips. */
-export function DriverHomePanel({ access, trips }: DriverHomePanelProps) {
+export function DriverHomePanel({ access, trips, openId, onToggle }: DriverHomePanelProps) {
   const router = useRouter();
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
@@ -57,18 +60,26 @@ export function DriverHomePanel({ access, trips }: DriverHomePanelProps) {
 
       {trips.slice(0, SHOWN_TRIPS).map((trip) => {
         const status = STATUS[trip.statut];
+        const open = openId === trip.id;
         return (
-          <View key={trip.id} style={s.trip} accessible>
+          <Pressable
+            key={trip.id}
+            style={[s.trip, open && s.tripOpen]}
+            onPress={() => onToggle(trip.id)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            accessibilityHint={open ? undefined : 'Affiche le trajet en entier et sur la carte'}
+          >
             <View style={s.tripText}>
-              <Text style={s.tripRoute} numberOfLines={1}>
+              <Text style={s.tripRoute} numberOfLines={open ? undefined : 1}>
                 {trip.depart.libelle} → {trip.arrivee.libelle}
               </Text>
-              <Text style={s.tripMeta}>
+              <Text style={s.tripMeta} numberOfLines={open ? undefined : 1}>
                 {trip.type === 'immediat' ? 'Maintenant' : formatDayTime(new Date(trip.dateDepart), now)} · {trip.placesLibres}/{trip.placesTotal} place(s) libre(s)
               </Text>
             </View>
             {status ? <Tag label={status.label} tone={status.tone} /> : null}
-          </View>
+          </Pressable>
         );
       })}
       {ready && trips.length === 0 ? <Text style={s.empty}>Aucun trajet prévu. Publie ton premier trajet.</Text> : null}
@@ -90,8 +101,11 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
       gap: spacing[3],
       padding: spacing[3],
       borderRadius: radii.md,
+      borderWidth: 2,
+      borderColor: colors.fill,
       backgroundColor: colors.fill,
     },
+    tripOpen: { borderColor: colors.accent, backgroundColor: colors.accentSurface },
     tripText: { flex: 1, gap: spacing[1] },
     tripRoute: { ...typography.bodyStrong, color: colors.text },
     tripMeta: { ...typography.small, color: colors.textMuted },

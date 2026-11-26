@@ -25,6 +25,13 @@ export function nearName(area: string): string {
   return /^[aeiouyhàâéèêëîïôûù]/i.test(area) ? `Près d’${area}` : `Près de ${area}`;
 }
 
+/**
+ * A driver "passes near" a passenger when his path comes this close (a ~10 min walk
+ * to the road). The ONE threshold of the matching, read by the simulated server for
+ * the passenger home and the search (tomorrow: the API).
+ */
+export const PICKUP_MAX_WALK_METRES = 800;
+
 /** Shorter than this is not a carpool trip (same place twice, a few streets). */
 export const MIN_TRIP_METRES = 500;
 

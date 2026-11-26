@@ -25,4 +25,4 @@ export {
 } from './hooks/useTrips';
 export { usePublishAccess } from './hooks/usePublishAccess';
 export type { PublishAccess } from './hooks/usePublishAccess';
-export type { ChosenPlace, Place, PlaceSuggestionItem, PublishTripInput, RoutePreview } from './types';
+export type { ChosenPlace, PassingDriver, Place, PlaceSuggestionItem, PublishTripInput, RoutePreview } from './types';

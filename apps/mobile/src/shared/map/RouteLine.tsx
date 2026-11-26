@@ -8,10 +8,15 @@ type RouteLineProps = {
   /** Unique on the map (used for the source and the layer). */
   id: string;
   coordinates: LngLat[];
+  /**
+   * Draw the route under this layer (e.g. a marker's `${id}-circle`): a layer added
+   * later is drawn on top, so a route that appears after its points would hide them.
+   */
+  belowLayerID?: string;
 };
 
 /** A route drawn on AppMap. Knows nothing about carpooling. */
-export function RouteLine({ id, coordinates }: RouteLineProps) {
+export function RouteLine({ id, coordinates, belowLayerID }: RouteLineProps) {
   const { colors } = useTheme();
   if (coordinates.length < 2) return null;
   return (
@@ -21,6 +26,7 @@ export function RouteLine({ id, coordinates }: RouteLineProps) {
     >
       <LineLayer
         id={`${id}-line`}
+        belowLayerID={belowLayerID}
         style={{ lineColor: colors.accent, lineWidth: 4, lineOpacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
       />
     </ShapeSource>

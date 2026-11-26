@@ -4,6 +4,7 @@ import { StyleSheet, Text, TextInput, View, type TextInputInstance, type TextInp
 import { useTheme, type Theme } from '@/shared/theme';
 
 import { FieldMessage } from './FieldMessage';
+import { Icon, type IconName } from './Icon';
 import { useFormErrorTarget } from './formErrors';
 
 /** What the field holds: it decides the keyboard and the autofill (never set them by hand). */
@@ -20,6 +21,8 @@ export type TextFieldProps = {
   /** Help shown under the field when there is no error. */
   hint?: string;
   placeholder?: string;
+  /** A decorative icon inside the field, on the left (e.g. "search"). */
+  icon?: IconName;
   autoFocus?: boolean;
   maxLength?: number;
   /** "next" moves to the next field, "done" submits. */
@@ -48,6 +51,7 @@ export function TextField({
   error,
   hint,
   placeholder,
+  icon,
   autoFocus,
   maxLength,
   returnKeyType = 'done',
@@ -65,26 +69,33 @@ export function TextField({
       <Text style={s.label} importantForAccessibility="no" accessibilityElementsHidden>
         {label}
       </Text>
-      <TextInput
-        ref={ref}
-        style={[s.input, focused && s.inputFocused, hasError && s.inputError]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.textSubtle}
-        selectionColor={theme.colors.accent}
-        cursorColor={theme.colors.accent}
-        autoFocus={autoFocus}
-        maxLength={maxLength}
-        returnKeyType={returnKeyType}
-        onSubmitEditing={onSubmitEditing}
-        submitBehavior={returnKeyType === 'next' ? 'submit' : 'blurAndSubmit'}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        accessibilityLabel={label}
-        accessibilityHint={error ?? hint}
-        {...kinds[kind]}
-      />
+      <View>
+        <TextInput
+          ref={ref}
+          style={[s.input, icon ? s.inputWithIcon : null, focused && s.inputFocused, hasError && s.inputError]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.textSubtle}
+          selectionColor={theme.colors.accent}
+          cursorColor={theme.colors.accent}
+          autoFocus={autoFocus}
+          maxLength={maxLength}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
+          submitBehavior={returnKeyType === 'next' ? 'submit' : 'blurAndSubmit'}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          accessibilityLabel={label}
+          accessibilityHint={error ?? hint}
+          {...kinds[kind]}
+        />
+        {icon ? (
+          <View style={s.icon} pointerEvents="none">
+            <Icon name={icon} tone={focused ? 'accent' : 'muted'} />
+          </View>
+        ) : null}
+      </View>
       {hasError ? <FieldMessage tone="danger" message={error ?? ''} /> : hint ? <FieldMessage tone="muted" message={hint} /> : null}
     </View>
   );
@@ -104,6 +115,9 @@ const createStyles = ({ colors, typography, spacing, radii, controlHeight }: The
       backgroundColor: colors.surface,
       color: colors.text,
     },
+    // Room for the 20 dp icon and a gap before the text.
+    inputWithIcon: { paddingLeft: spacing[4] + spacing[5] + spacing[2] },
+    icon: { position: 'absolute', left: spacing[4], top: 0, bottom: 0, justifyContent: 'center' },
     inputFocused: { borderColor: colors.accent },
     inputError: { borderColor: colors.danger },
   });

@@ -14,6 +14,7 @@ export type { FlashProps, FlashTone } from './Flash';
 export { FormScreen } from './FormScreen';
 export type { FormScreenHandle, FormScreenProps } from './FormScreen';
 export { ErrorAnchor } from './ErrorAnchor';
+export { smoothScrollTo, stopSmoothScroll } from './smoothScroll';
 export type { ErrorAnchorProps } from './ErrorAnchor';
 export { Avatar } from './Avatar';
 export type { AvatarProps, AvatarSize } from './Avatar';

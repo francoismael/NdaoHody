@@ -196,6 +196,7 @@ function PickerContent({ title, near, selected, onSelect, onClose, current }: Pi
               setListOpen(true);
             }}
             placeholder="Ex. Analakely, Ivato, Ankorondrano…"
+            icon="search"
             maxLength={80}
             autoFocus={selected === null}
           />
@@ -245,9 +246,12 @@ function PickerContent({ title, near, selected, onSelect, onClose, current }: Pi
           {busy ? (
             <ActivityIndicator color={theme.colors.accent} accessibilityLabel="Recherche du nom du lieu" />
           ) : (
-            <Text style={s.cardText} accessibilityLiveRegion="polite" numberOfLines={2}>
-              {shown ? shown.libelle : 'Tape le nom d’un lieu ou touche la carte.'}
-            </Text>
+            <View style={s.cardPlace}>
+              {shown ? <Icon name="map-pin" size="sm" tone="accent" /> : null}
+              <Text style={s.cardText} accessibilityLiveRegion="polite" numberOfLines={2}>
+                {shown ? shown.libelle : 'Tape le nom d’un lieu ou touche la carte.'}
+              </Text>
+            </View>
           )}
           <Button label="Choisir ce lieu" disabled={!pointed || busy} onPress={() => pointed && choose(pointed)} />
           {current?.place ? (
@@ -297,5 +301,7 @@ const createStyles = ({ colors, typography, shadows, spacing, gutter, radii }: T
     note: { ...typography.small, color: colors.textMuted, padding: spacing[4] },
     spinner: { padding: spacing[3] },
     card: { padding: gutter, gap: spacing[3], borderTopWidth: 1, borderTopColor: colors.surfaceBorder, backgroundColor: colors.surface },
-    cardText: { ...typography.bodyStrong, color: colors.text },
+    // Pin + name centered together; a long name wraps, still centered.
+    cardPlace: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2] },
+    cardText: { ...typography.bodyStrong, color: colors.text, textAlign: 'center', flexShrink: 1 },
   });
