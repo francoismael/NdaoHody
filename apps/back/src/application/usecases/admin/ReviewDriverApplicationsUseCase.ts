@@ -6,7 +6,7 @@ import { DomainException } from '../../../domain/exception/DomainException';
 import { DriverDocumentRepository } from '../../../domain/repository/DriverDocumentRepository';
 import { UserRepository } from '../../../domain/repository/UserRepository';
 import type { RejectDriverRequest } from '../../dto/AdminRequests';
-import type { DriverApplicationView } from '../../dto/AdminResponses';
+import type { DossierChauffeur } from '@contract/back-office';
 import { PrivateFileStorage } from '../../port/PrivateFileStorage';
 import { UnitOfWork } from '../../port/UnitOfWork';
 import { UserNotifier } from '../../port/UserNotifier';
@@ -30,12 +30,12 @@ export class ReviewDriverApplicationsUseCase {
     private readonly unitOfWork: UnitOfWork,
   ) {}
 
-  async listPending(viewer: AdminAccount): Promise<DriverApplicationView[]> {
+  async listPending(): Promise<DossierChauffeur[]> {
     const applicants = await this.users.listByDriverStatus('en_attente');
-    return Promise.all(applicants.map((user) => this.toView(user, viewer)));
+    return Promise.all(applicants.map((user) => this.toView(user)));
   }
 
-  async approve(admin: AdminAccount, userId: number): Promise<DriverApplicationView> {
+  async approve(admin: AdminAccount, userId: number): Promise<DossierChauffeur> {
     const { user, documents } = await this.findPending(userId);
     if (!hasEveryDocument(documents)) {
       throw new DomainException('conflict', 'Le dossier est incomplet : permis recto, verso et selfie sont nécessaires.');
@@ -50,10 +50,10 @@ export class ReviewDriverApplicationsUseCase {
     });
 
     await this.notify(approved.id, 'kyc_valide', 'Dossier chauffeur validé', 'Tu peux maintenant publier des trajets.');
-    return this.toView(approved, admin);
+    return this.toView(approved);
   }
 
-  async reject(admin: AdminAccount, userId: number, request: RejectDriverRequest): Promise<DriverApplicationView> {
+  async reject(admin: AdminAccount, userId: number, request: RejectDriverRequest): Promise<DossierChauffeur> {
     const { user, documents } = await this.findPending(userId);
     const refusedTypes = request.documents?.length ? request.documents : null;
     const refused = latestDocuments(documents).filter((document) => !refusedTypes || refusedTypes.includes(document.type));
@@ -67,7 +67,7 @@ export class ReviewDriverApplicationsUseCase {
     });
 
     await this.notify(rejected.id, 'kyc_refuse', 'Dossier chauffeur refusé', `${request.motif}. Renvoie les documents concernés.`);
-    return this.toView(rejected, admin);
+    return this.toView(rejected);
   }
 
   private async findPending(userId: number) {
@@ -81,14 +81,12 @@ export class ReviewDriverApplicationsUseCase {
     return { user, documents: await this.documents.listByUser(user.id) };
   }
 
-  private async toView(user: User, viewer: AdminAccount): Promise<DriverApplicationView> {
-    const base = { utilisateurId: user.id, statutChauffeur: user.statutChauffeur, dateCreation: user.dateCreation };
-    if (viewer.role === 'investisseur') {
-      return { ...base, nom: null, prenom: null, telephone: null, photoUrl: null, numeroPermis: null, documents: [] };
-    }
+  private async toView(user: User): Promise<DossierChauffeur> {
     const documents = latestDocuments(await this.documents.listByUser(user.id));
     return {
-      ...base,
+      utilisateurId: user.id,
+      statutChauffeur: user.statutChauffeur,
+      dateCreation: user.dateCreation,
       nom: user.nom,
       prenom: user.prenom,
       telephone: user.telephone,

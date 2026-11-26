@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { normalizeEmail, toAdministrateur } from '../../../domain/entity/AdminAccount';
 import { DomainException } from '../../../domain/exception/DomainException';
 import { AdminAccountRepository } from '../../../domain/repository/AdminAccountRepository';
-import type { AdminSignInResponse } from '../../dto/AdminResponses';
+import type { ConnexionAdmin } from '@contract/back-office';
+import { permissionsOf } from '../../../domain/entity/adminPermissions';
 import { AdminTokenService } from '../../port/AccessTokenService';
 import { Clock } from '../../port/Clock';
 import { PasswordHasher } from '../../port/PasswordHasher';
@@ -26,7 +27,7 @@ export class AdminSignInUseCase {
     private readonly clock: Clock,
   ) {}
 
-  async execute(email: string, password: string): Promise<AdminSignInResponse> {
+  async execute(email: string, password: string): Promise<ConnexionAdmin> {
     const now = this.clock.now();
     const account = await this.accounts.findByEmail(normalizeEmail(email));
     if (!account) {
@@ -59,7 +60,12 @@ export class AdminSignInUseCase {
       derniereConnexion: now,
     });
     const token = this.tokens.issue(account.id, ADMIN_TOKEN_TTL_SECONDS);
-    return { accessToken: token.token, expiresInSeconds: token.expiresInSeconds, administrateur: toAdministrateur(signedIn) };
+    return {
+      accessToken: token.token,
+      expiresInSeconds: token.expiresInSeconds,
+      administrateur: toAdministrateur(signedIn),
+      permissions: permissionsOf(signedIn.role),
+    };
   }
 
   private locked(now: Date, until: Date): DomainException {

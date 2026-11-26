@@ -9,7 +9,7 @@ import {
 import { DomainException } from '../../../domain/exception/DomainException';
 import { AdminAccountRepository } from '../../../domain/repository/AdminAccountRepository';
 import type { CreateAdminAccountRequest } from '../../dto/AdminRequests';
-import type { AdminAccountWithPasswordResponse } from '../../dto/AdminResponses';
+import type { CompteAvecMotDePasse } from '@contract/back-office';
 import { Clock } from '../../port/Clock';
 import { PasswordHasher } from '../../port/PasswordHasher';
 import { RandomGenerator } from '../../port/RandomGenerator';
@@ -33,7 +33,7 @@ export class ManageAdminAccountsUseCase {
     return (await this.accounts.list()).map(toAdministrateur);
   }
 
-  async create(actor: AdminAccount, request: CreateAdminAccountRequest): Promise<AdminAccountWithPasswordResponse> {
+  async create(actor: AdminAccount, request: CreateAdminAccountRequest): Promise<CompteAvecMotDePasse> {
     if (!CREATABLE_ROLES.includes(request.role)) {
       throw new DomainException('forbidden', 'Ce rôle ne peut pas être créé depuis le back-office.');
     }
@@ -62,7 +62,7 @@ export class ManageAdminAccountsUseCase {
   }
 
   /** New temporary password; also unlocks the account. */
-  async resetPassword(accountId: number): Promise<AdminAccountWithPasswordResponse> {
+  async resetPassword(accountId: number): Promise<CompteAvecMotDePasse> {
     const account = await this.findManageable(accountId);
     const motDePasseTemporaire = this.random.password();
     const updated = await this.accounts.update(account.id, {
