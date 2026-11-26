@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { profileKeys } from '@/features/profile';
 
-import { driverStep, type DriverStep } from '../rules';
+import { MAX_VEHICLES, canAddVehicle, driverStep, type DriverStep } from '../rules';
 import { keepPhoto } from '../services/photoStorage';
-import { createVehicle, getMyApplication, getMyVehicles, uploadDocument } from '../services/verificationService';
-import type { CreateVehicleInput, UploadDocumentInput } from '../types';
+import { archiveVehicle, createVehicle, getMyApplication, getMyVehicles, updateVehicle, uploadDocument } from '../services/verificationService';
+import type { CreateVehicleInput, UpdateVehicleInput, UploadDocumentInput } from '../types';
 
 export const verificationKeys = {
   all: ['verification'] as const,
@@ -44,10 +44,22 @@ export const useKeepPhoto = () =>
 
 export const useCreateVehicle = () => useVerificationMutation((input: CreateVehicleInput) => createVehicle(input));
 
+export const useUpdateVehicle = () =>
+  useVerificationMutation(({ vehicleId, ...input }: UpdateVehicleInput & { vehicleId: number }) => updateVehicle(vehicleId, input));
+
+export const useArchiveVehicle = () => useVerificationMutation((vehicleId: number) => archiveVehicle(vehicleId));
+
 /** The vehicles that count (archived ones do not). */
 export function useActiveVehicles() {
   const vehicles = useMyVehicles();
   return { ...vehicles, data: vehicles.data?.filter((v) => v.statut !== 'archive') };
+}
+
+/** How many vehicles the driver has, and whether he may add one (3 at most, the server refuses a 4th). */
+export function useVehicleSlots(): { count: number; max: number; canAdd: boolean } | null {
+  const vehicles = useActiveVehicles();
+  if (!vehicles.data) return null;
+  return { count: vehicles.data.length, max: MAX_VEHICLES, canAdd: canAddVehicle(vehicles.data) };
 }
 
 /** Where the driver stands, from the server's data. null while loading. */

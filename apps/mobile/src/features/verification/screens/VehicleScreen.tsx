@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, type TextInputInstance } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import type { TypeVehicule } from '@contract';
 
@@ -20,7 +20,7 @@ import {
 import { isUserInputError } from '@/shared/utils';
 
 import { DocumentCamera } from '../components/DocumentCamera';
-import { useCreateVehicle, useKeepPhoto } from '../hooks/useVerification';
+import { useActiveVehicles, useCreateVehicle, useKeepPhoto, useUpdateVehicle, useVehicleSlots } from '../hooks/useVerification';
 import { MAX_CAR_SEATS, VERIFICATION_MESSAGES as M, isValidSeatCount, normalizePlateNumber } from '../rules';
 
 const TYPES: readonly ChoiceOption<TypeVehicule>[] = [
@@ -45,7 +45,11 @@ const FIELD_OF_MESSAGE: Record<string, Field> = {
 };
 
 /**
- * The vehicle (the sex is asked at sign-up, for everyone). Rules of the back: plate required
+ * A vehicle (the sex is asked at sign-up, for everyone). First one: last step of the application,
+ * then the waiting screen, which offers "Ajouter un autre véhicule" (3 at most, 26/11).
+ * `then=back`: opened from the waiting screen or the profile, goes back there once saved.
+ * `id`: change that vehicle (profile): its description only, as the back allows (not the plate,
+ * the type or the photo). Every vehicle, new or changed, is checked by the team. Rules of the back: plate required
  * for every vehicle (GAP: optional for a motorbike in the PWA), a motorbike has 1 seat,
  * a car 1 to 8, a photo of the vehicle.
  */
@@ -53,8 +57,13 @@ export function VehicleScreen() {
   const router = useRouter();
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
+  const { then, id } = useLocalSearchParams<{ then?: 'back'; id?: string }>();
   const createVehicle = useCreateVehicle();
+  const updateVehicle = useUpdateVehicle();
+  const active = useActiveVehicles();
+  const editing = id ? (active.data?.find((v) => v.id === Number(id)) ?? null) : null;
   const keepPhoto = useKeepPhoto();
+  const slots = useVehicleSlots();
 
   const [type, setType] = useState<TypeVehicule>('voiture');
   const [marque, setMarque] = useState('');
@@ -71,8 +80,21 @@ export function VehicleScreen() {
   const plateRef = useRef<TextInputInstance>(null);
   const form = useRef<FormScreenHandle>(null);
 
+  // Change mode: the form starts from the vehicle once it is loaded (adjusted while rendering, no effect).
+  const [loadedId, setLoadedId] = useState<number | null>(null);
+  if (editing && editing.id !== loadedId) {
+    setLoadedId(editing.id);
+    setType(editing.type);
+    setMarque(editing.marque ?? '');
+    setModele(editing.modele ?? '');
+    setCouleur(editing.couleur);
+    setPlaque(editing.immatriculation);
+    setPlaces(editing.places);
+    setPhotoUrl(editing.photoUrl);
+  }
+
   const isMoto = type === 'moto';
-  const sending = createVehicle.isPending;
+  const sending = createVehicle.isPending || updateVehicle.isPending;
 
   const clear = (field: Field): void => {
     setErrors((current) => ({ ...current, [field]: undefined }));
@@ -129,6 +151,11 @@ export function VehicleScreen() {
       return;
     }
     try {
+      if (editing) {
+        await updateVehicle.mutateAsync({ vehicleId: editing.id, marque: marque.trim() || null, modele: modele.trim() || null, couleur: couleur.trim(), places });
+        if (router.canGoBack()) router.back();
+        return;
+      }
       await createVehicle.mutateAsync({
         type,
         marque: marque.trim() || null,
@@ -138,7 +165,8 @@ export function VehicleScreen() {
         places,
         photoUrl,
       });
-      router.replace('/pending-validation');
+      if (then === 'back' && router.canGoBack()) router.back();
+      else router.replace('/pending-validation');
     } catch (error) {
       const field = isUserInputError(error) ? FIELD_OF_MESSAGE[error.message] : undefined;
       const message = error instanceof Error ? error.message : 'Envoi impossible. Réessaie.';
@@ -150,16 +178,53 @@ export function VehicleScreen() {
     }
   };
 
+  if (id && !editing) {
+    return (
+      <FormScreen
+        title="Modifier un véhicule"
+        footer={<Button label="Retour" icon="arrow-left" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
+      >
+        {active.isPending ? <Text style={s.label}>Chargement…</Text> : <Flash tone="danger" message={M.vehicleNotFound} />}
+      </FormScreen>
+    );
+  }
+
+  // Already 3: say it before he types anything (the server refuses a 4th too).
+  if (!editing && slots && !slots.canAdd && !createVehicle.isSuccess) {
+    return (
+      <FormScreen
+        title="Tu as déjà 3 véhicules"
+        subtitle={M.tooManyVehicles}
+        footer={<Button label="Retour" icon="arrow-left" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
+      >
+        {null}
+      </FormScreen>
+    );
+  }
+
+  const first = !editing && (slots?.count ?? 0) === 0;
+  const title = editing ? 'Modifier ce véhicule' : first ? 'Ton véhicule' : `Véhicule ${(slots?.count ?? 0) + 1} sur ${slots?.max ?? 3}`;
+  const subtitle = editing
+    ? `${editing.immatriculation} · la plaque, le type et la photo ne changent pas.`
+    : first
+      ? 'Dernière étape : dis aux passagers dans quel véhicule ils montent.'
+      : 'Un autre véhicule que tu conduis. L’équipe NdaoHody le vérifiera aussi.';
+  const submitLabel = editing ? 'Enregistrer les modifications' : first ? 'Envoyer mon dossier' : 'Envoyer ce véhicule';
   return (
     <FormScreen
       ref={form}
-      title="Ton véhicule"
-      subtitle="Dernière étape : dis aux passagers dans quel véhicule ils montent."
-      footer={<Button label="Envoyer mon dossier" icon="check" loading={sending} onPress={() => void submit()} />}
+      title={title}
+      subtitle={subtitle}
+      footer={<Button label={submitLabel} icon="check" loading={sending} disabled={editing?.enTrajet === true} onPress={() => void submit()} />}
     >
       {banner ? <Flash tone="danger" message={banner} /> : null}
+      {editing?.enTrajet ? (
+        <Flash tone="danger" message={`${M.vehicleInUse} Tu pourras le modifier une fois ce trajet terminé ou annulé.`} />
+      ) : editing ? (
+        <Flash message="Après tes modifications, l’équipe NdaoHody vérifiera de nouveau ce véhicule. D’ici là, tu ne pourras pas publier de trajet avec lui." />
+      ) : null}
 
-      <ChoiceGroup label="Type de véhicule" options={TYPES} value={type} onChange={changeType} />
+      {editing ? null : <ChoiceGroup label="Type de véhicule" options={TYPES} value={type} onChange={changeType} />}
 
       <TextField
         label="Marque (facultatif)"
@@ -194,20 +259,22 @@ export function VehicleScreen() {
         returnKeyType="next"
         onSubmitEditing={() => plateRef.current?.focus()}
       />
-      <TextField
-        ref={plateRef}
-        label="Plaque d’immatriculation"
-        kind="reference"
-        value={plaque}
-        onChangeText={(text) => {
-          setPlaque(text.toUpperCase());
-          clear('immatriculation');
-        }}
-        error={errors.immatriculation}
-        hint="Obligatoire, même pour une moto. Visible seulement par tes passagers, après leur réservation."
-        placeholder="2341 TBA"
-        maxLength={20}
-      />
+      {editing ? null : (
+        <TextField
+          ref={plateRef}
+          label="Plaque d’immatriculation"
+          kind="reference"
+          value={plaque}
+          onChangeText={(text) => {
+            setPlaque(text.toUpperCase());
+            clear('immatriculation');
+          }}
+          error={errors.immatriculation}
+          hint="Obligatoire, même pour une moto. Visible seulement par tes passagers, après leur réservation."
+          placeholder="2341 TBA"
+          maxLength={20}
+        />
+      )}
       <Stepper
         label={isMoto ? 'Places passagers (une moto : 1 passager)' : 'Places passagers (hors chauffeur)'}
         value={places}
@@ -221,17 +288,19 @@ export function VehicleScreen() {
         error={errors.places}
       />
 
-      <ErrorAnchor hasError={Boolean(errors.photo)} style={s.photoBlock}>
-        <Text style={s.label}>Photo du véhicule</Text>
-        {photoUrl ? <Image source={{ uri: photoUrl }} style={s.photo} accessibilityLabel="Photo de ton véhicule" /> : null}
-        <Button
-          label={photoUrl ? 'Reprendre la photo' : 'Prendre la photo'}
-          icon="camera"
-          variant="secondary"
-          onPress={() => setCapturing(true)}
-        />
-        {errors.photo ? <FieldMessage tone="danger" message={errors.photo} /> : null}
-      </ErrorAnchor>
+      {editing ? null : (
+        <ErrorAnchor hasError={Boolean(errors.photo)} style={s.photoBlock}>
+          <Text style={s.label}>Photo du véhicule</Text>
+          {photoUrl ? <Image source={{ uri: photoUrl }} style={s.photo} accessibilityLabel="Photo de ton véhicule" /> : null}
+          <Button
+            label={photoUrl ? 'Reprendre la photo' : 'Prendre la photo'}
+            icon="camera"
+            variant="secondary"
+            onPress={() => setCapturing(true)}
+          />
+          {errors.photo ? <FieldMessage tone="danger" message={errors.photo} /> : null}
+        </ErrorAnchor>
+      )}
     </FormScreen>
   );
 }

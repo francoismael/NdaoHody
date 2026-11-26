@@ -78,4 +78,20 @@ export const adminRoutes: MockRoute[] = [
       return { vehicule };
     },
   },
+  {
+    // Back AdminVehiclesController.reject: a vehicle refused on its own, with a reason the driver sees.
+    method: 'POST',
+    pattern: '/admin/vehicles/:id/reject',
+    handler: (ctx) => {
+      const id = idParam(ctx);
+      const vehicule = findOr404(ctx.db.vehicules, (v) => v.id === id, 'Véhicule');
+      if (vehicule.statut !== 'en_attente') throw new HttpError(409, "Ce véhicule n'est pas en attente de validation.");
+      const motif = optionalString(ctx.body, 'motif');
+      if (!motif || motif.length < 3 || motif.length > 255) throw new HttpError(400, 'Le motif doit faire de 3 à 255 caractères.');
+      vehicule.statut = 'refuse';
+      vehicule.motifRefus = motif;
+      notify(ctx.db, ctx.now, vehicule.utilisateurId, 'kyc_refuse', 'Véhicule refusé', `${vehicule.immatriculation} : ${motif}.`);
+      return { vehicule };
+    },
+  },
 ];

@@ -1,7 +1,7 @@
-import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet } from '@contract';
+import type { Chemin, DemandeRecherche, PositionChauffeur, ResultatRecherche, Trajet, Vehicule } from '@contract';
 
 import type { PassingDriver } from '@/features/trips/types';
-import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker } from '@/features/trips/rules';
+import { ACTIVE_TRIP_STATUSES, MIN_TRIP_METRES, PUBLISH_MESSAGES as M, departureProblem, publishBlocker, usableVehicles } from '@/features/trips/rules';
 import { haversineMeters, type LngLat } from '@/shared/map';
 import { isRecord } from '@/shared/utils';
 
@@ -11,6 +11,7 @@ import {
   findOr404,
   idParam,
   optionalBoolean,
+  optionalNumber,
   optionalString,
   requireLieu,
   requireNumber,
@@ -73,13 +74,26 @@ function requireChemin(body: unknown): Chemin {
   return value.map(([lng, lat]) => [lng, lat]);
 }
 
+/** Back PublishTripUseCase.chooseVehicle: one validated vehicle is taken alone; with several, the app sends vehiculeId. */
+function chooseVehicle(mine: readonly Vehicule[], vehiculeId: number | null): Vehicule {
+  if (vehiculeId === null) {
+    const usable = usableVehicles(mine);
+    if (usable.length > 1) throw new HttpError(400, M.chooseVehicle);
+    return usable[0];
+  }
+  const vehicule = mine.find((v) => v.id === vehiculeId);
+  if (!vehicule) throw new HttpError(400, M.notMyVehicle);
+  if (vehicule.statut !== 'valide') throw new HttpError(403, M.vehicleNotValidated);
+  return vehicule;
+}
+
 function publish(ctx: RequestContext): Trajet {
   const user = requireUser(ctx);
-  const mine = ctx.db.vehicules.filter((v) => v.utilisateurId === user.id);
+  const mine = ctx.db.vehicules.filter((v) => v.utilisateurId === user.id && v.statut !== 'archive');
   const blocker = publishBlocker(user.statutChauffeur, mine);
   if (blocker === 'not_validated') throw new HttpError(403, M.notValidated);
-  const vehicule = mine.find((v) => v.parDefaut && v.statut === 'valide');
-  if (blocker || !vehicule) throw new HttpError(409, M.vehiclePending);
+  if (blocker) throw new HttpError(409, M.vehiclePending);
+  const vehicule = chooseVehicle(mine, optionalNumber(ctx.body, 'vehiculeId'));
 
   const type = requireOneOf(ctx.body, 'type', ['immediat', 'a_l_avance'] as const);
   const placesTotal = Math.round(requireNumber(ctx.body, 'placesTotal'));

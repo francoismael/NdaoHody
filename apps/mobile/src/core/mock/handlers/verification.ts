@@ -3,14 +3,29 @@ import type { DocumentChauffeur, TypeDocument, Utilisateur, Vehicule } from '@co
 import {
   DOCUMENT_TYPES,
   VERIFICATION_MESSAGES as M,
+  canAddVehicle,
+  isCountedVehicle,
   isValidSeatCount,
   latestDocuments,
   normalizeLicenseNumber,
   normalizePlateNumber,
 } from '@/features/verification/rules';
-import type { DriverApplication } from '@/features/verification/types';
+import type { DriverApplication, MyVehicle } from '@/features/verification/types';
 
-import { HttpError, optionalString, requireNumber, requireOneOf, requireUser, type MockRoute, type RequestContext } from '../server';
+import { ACTIVE_TRIP_STATUSES } from '@/features/trips/rules';
+
+import {
+  HttpError,
+  idParam,
+  optionalBoolean,
+  optionalNumber,
+  optionalString,
+  requireNumber,
+  requireOneOf,
+  requireUser,
+  type MockRoute,
+  type RequestContext,
+} from '../server';
 import { iso } from '../time';
 import { nextId, type MockDb } from '../types';
 
@@ -100,7 +115,11 @@ export const verificationRoutes: MockRoute[] = [
   {
     method: 'GET',
     pattern: '/me/vehicles',
-    handler: (ctx): Vehicule[] => ctx.db.vehicules.filter((v) => v.utilisateurId === requireUser(ctx).id),
+    // Like the back (listByOwner): archived vehicles are gone for the driver. + enTrajet (GAP #16).
+    handler: (ctx): MyVehicle[] =>
+      ctx.db.vehicules
+        .filter((v) => v.utilisateurId === requireUser(ctx).id && isCountedVehicle(v))
+        .map((v) => ({ ...v, enTrajet: vehicleInUse(ctx.db, v.id) })),
   },
   {
     method: 'POST',
@@ -108,6 +127,7 @@ export const verificationRoutes: MockRoute[] = [
     handler: (ctx): { vehicule: Vehicule } => {
       const user = requireUser(ctx);
       assertDriverNotSuspended(user);
+      if (!canAddVehicle(ctx.db.vehicules.filter((v) => v.utilisateurId === user.id))) throw new HttpError(409, M.tooManyVehicles);
       const photoUrl = requirePicture(ctx.body, 'photoUrl');
       const type = requireOneOf(ctx.body, 'type', ['moto', 'voiture'] as const);
       const immatriculation = normalizePlateNumber(optionalString(ctx.body, 'immatriculation') ?? '');
@@ -138,4 +158,68 @@ export const verificationRoutes: MockRoute[] = [
       return { vehicule };
     },
   },
+  {
+    // Back ManageVehiclesUseCase.update: description only (no plate, type or photo).
+    method: 'PATCH',
+    pattern: '/me/vehicles/:id',
+    handler: (ctx): Vehicule => {
+      const user = requireUser(ctx);
+      assertDriverNotSuspended(user);
+      const vehicule = ownVehicle(ctx, user);
+      const places = optionalNumber(ctx.body, 'places') ?? vehicule.places;
+      if (!isValidSeatCount(vehicule.type, places)) throw new HttpError(400, M.seatsInvalid);
+      const couleur = optionalString(ctx.body, 'couleur');
+      const next = {
+        marque: optionalString(ctx.body, 'marque') ?? vehicule.marque,
+        modele: optionalString(ctx.body, 'modele') ?? vehicule.modele,
+        couleur: couleur ?? vehicule.couleur,
+        places,
+      };
+      const changed = (Object.keys(next) as (keyof typeof next)[]).some((key) => next[key] !== vehicule[key]);
+      // Validated rule (26/11): its description does not change while a trip uses it (the back
+      // refuses only the delete): GAP #16. Choosing it as the default one stays possible.
+      if (changed && vehicleInUse(ctx.db, vehicule.id)) throw new HttpError(409, M.vehicleInUse);
+      Object.assign(vehicule, next);
+      // Validated rule (26/11): after any change the team checks it again. The back does it from
+      // 'valide' only; here a refused vehicle goes back too (else it could never be re-checked): GAP #16.
+      if (changed && (vehicule.statut === 'valide' || vehicule.statut === 'refuse')) {
+        vehicule.statut = 'en_attente';
+        vehicule.motifRefus = null;
+      }
+      if (optionalBoolean(ctx.body, 'parDefaut') && !vehicule.parDefaut) {
+        ctx.db.vehicules.forEach((v) => {
+          if (v.utilisateurId === user.id) v.parDefaut = v.id === vehicule.id;
+        });
+      }
+      return vehicule;
+    },
+  },
+  {
+    // Back ManageVehiclesUseCase.archive: archived, never deleted (the plate stays tied to this driver).
+    method: 'DELETE',
+    pattern: '/me/vehicles/:id',
+    handler: (ctx): null => {
+      const user = requireUser(ctx);
+      const vehicule = ownVehicle(ctx, user);
+      if (vehicleInUse(ctx.db, vehicule.id)) throw new HttpError(409, M.vehicleInUse);
+      vehicule.statut = 'archive';
+      if (vehicule.parDefaut) {
+        vehicule.parDefaut = false;
+        const next = ctx.db.vehicules.find((v) => v.utilisateurId === user.id && isCountedVehicle(v));
+        if (next) next.parDefaut = true;
+      }
+      return null;
+    },
+  },
 ];
+
+/** A published or running trip uses this vehicle (back: isUsedByActiveTrip). */
+const vehicleInUse = (db: MockDb, vehicleId: number): boolean =>
+  db.trajets.some((t) => t.vehiculeId === vehicleId && ACTIVE_TRIP_STATUSES.includes(t.statut));
+
+function ownVehicle(ctx: RequestContext, user: Utilisateur): Vehicule {
+  const id = idParam(ctx);
+  const vehicule = ctx.db.vehicules.find((v) => v.id === id && v.utilisateurId === user.id && isCountedVehicle(v));
+  if (!vehicule) throw new HttpError(404, M.vehicleNotFound);
+  return vehicule;
+}

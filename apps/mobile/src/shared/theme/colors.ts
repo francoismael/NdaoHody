@@ -75,7 +75,9 @@ const palette = {
   red50: '#FBECE9',
   red100: '#F7DDD8',
   red200: '#F2D2CC',
+  red700: '#9A2F21', // ajout (26/11) : bouton « danger » pressé, thème clair
   redBright: '#FF8A7A',
+  redBrightPressed: '#F07462', // ajout (26/11) : bouton « danger » pressé, thème sombre
   redDark50: '#3A1D19',
   redDark100: '#4A231E',
   redDark200: '#5A2A23',
@@ -124,6 +126,9 @@ export const lightColors = {
 
   // États
   danger: palette.red600,
+  // Ajout (26/11) : bouton « danger » (confirmer une suppression), plein, texte contrasté.
+  dangerPressed: palette.red700,
+  onDanger: palette.white,
   dangerSurface: palette.red50,
   dangerSurfaceStrong: palette.red100,
   dangerBorder: palette.red200,
@@ -194,6 +199,8 @@ export const darkColors: ThemeColors = {
   borderStrong: palette.dark500,
 
   danger: palette.redBright,
+  dangerPressed: palette.redBrightPressed,
+  onDanger: palette.night, // rouge clair en sombre : texte foncé pour rester lisible
   dangerSurface: palette.redDark50,
   dangerSurfaceStrong: palette.redDark100,
   dangerBorder: palette.redDark200,

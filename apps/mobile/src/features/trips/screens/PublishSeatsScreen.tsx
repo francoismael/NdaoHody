@@ -6,6 +6,7 @@ import type { Trajet, TypeTrajet } from '@contract';
 
 import { usePriceEstimate } from '@/features/pricing';
 import { useMe } from '@/features/profile';
+import { VehicleCard } from '@/features/verification';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, ChoiceGroup, Flash, FormScreen, Icon, Stepper, type ChoiceOption, type FormScreenHandle } from '@/shared/ui';
 import {
@@ -48,10 +49,15 @@ export function PublishSeatsScreen() {
   const publish = usePublishTrip();
   const form = useRef<FormScreenHandle>(null);
 
-  const vehicle = access.status === 'ready' ? access.vehicle : null;
+  // Several validated vehicles (3 at most): he picks the one of this trip, the default one to start with.
+  const usable = access.status === 'ready' ? access.vehicles : [];
+  const [chosenVehicleId, setChosenVehicleId] = useState<number | null>(null);
+  const vehicle = usable.find((v) => v.id === chosenVehicleId) ?? usable[0] ?? null;
+  const choosing = usable.length > 1;
   const isMoto = vehicle?.type === 'moto';
   const [chosenSeats, setChosenSeats] = useState<number | null>(null);
-  const seats = isMoto ? 1 : (chosenSeats ?? Math.min(DEFAULT_CAR_SEATS, vehicle?.places ?? 1));
+  // Always within the chosen vehicle's seats (the server checks it too).
+  const seats = isMoto ? 1 : Math.min(chosenSeats ?? DEFAULT_CAR_SEATS, vehicle?.places ?? 1);
   const [who, setWho] = useState<'tous' | 'femmes'>('tous');
   const [seatsError, setSeatsError] = useState<string | null>(null);
   const [published, setPublished] = useState<Trajet | null>(null);
@@ -109,6 +115,7 @@ export function PublishSeatsScreen() {
         dureeSecondes: route.data.dureeSecondes,
         placesTotal: seats,
         reserveFemmes: who === 'femmes',
+        ...(choosing ? { vehiculeId: vehicle.id } : {}),
         ...(planned ? { dateDepart: toIsoWithOffset(planned, -planned.getTimezoneOffset()) } : {}),
       },
       {
@@ -144,6 +151,28 @@ export function PublishSeatsScreen() {
       footer={<Button label="Publier le trajet" icon="check" loading={publish.isPending} disabled={!vehicle || !route.data} onPress={submit} />}
     >
       {bannerError ? <Flash tone="danger" message={bannerError} /> : null}
+
+      {choosing && vehicle ? (
+        <View style={s.vehicles} accessibilityRole="radiogroup" accessibilityLabel="Avec quel véhicule ?">
+          <Text style={s.question}>Avec quel véhicule ?</Text>
+          {usable.map((v) => (
+            <VehicleCard
+              key={v.id}
+              vehicle={v}
+              selected={v.id === vehicle.id}
+              onPress={() => {
+                setChosenVehicleId(v.id);
+                // New vehicle, new seats: back to the default for it.
+                setChosenSeats(null);
+                setSeatsError(null);
+                // Glide down to the seats and the summary, as the sex choice at sign-up does.
+                form.current?.revealEnd();
+              }}
+            />
+          ))}
+          <Text style={s.hint}>Seuls tes véhicules validés par l’équipe NdaoHody sont proposés.</Text>
+        </View>
+      ) : null}
 
       {vehicle ? (
         <Stepper
@@ -200,6 +229,9 @@ const createStyles = ({ colors, typography, spacing, radii }: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     center: { alignItems: 'center', justifyContent: 'center' },
+    vehicles: { gap: spacing[2] },
+    question: { ...typography.bodyStrong, color: colors.text },
+    hint: { ...typography.small, color: colors.textMuted },
     recap: { gap: spacing[1], padding: spacing[4], borderRadius: radii.md, backgroundColor: colors.fill },
     recapRoute: { ...typography.bodyStrong, color: colors.text },
     recapLine: { ...typography.small, color: colors.textMuted },

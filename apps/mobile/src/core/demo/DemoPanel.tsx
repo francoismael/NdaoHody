@@ -203,6 +203,29 @@ export function DemoPanel() {
               </Text>
             ))}
           </View>
+          {/* Each vehicle waiting has its own answer (several vehicles, 26/11), even once the driver is validated. */}
+          {application.statutChauffeur !== 'en_attente'
+            ? application.vehicules
+                .filter((v) => v.statut === 'en_attente')
+                .map((v) => (
+                  <View key={v.id} style={styles.wrap}>
+                    <Button
+                      label={`Valider ${v.immatriculation}`}
+                      variant="secondary"
+                      width="auto"
+                      loading={busy === `Validation ${v.id}`}
+                      onPress={() => void run(`Validation ${v.id}`, () => engine.adminApprovesVehicle(v.id))}
+                    />
+                    <Button
+                      label={`Refuser ${v.immatriculation}`}
+                      variant="secondary"
+                      width="auto"
+                      loading={busy === `Refus ${v.id}`}
+                      onPress={() => void run(`Refus ${v.id}`, () => engine.adminRejectsVehicle(v.id, 'Photo floue'))}
+                    />
+                  </View>
+                ))
+            : null}
           {application.statutChauffeur === 'en_attente' ? (
             <View style={styles.wrap}>
               <Button label="Valider" variant="secondary" width="auto" loading={busy === 'Validation'} onPress={() => void run('Validation', engine.adminApproves)} />

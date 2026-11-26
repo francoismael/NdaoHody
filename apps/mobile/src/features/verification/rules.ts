@@ -1,4 +1,4 @@
-import type { DocumentChauffeur, StatutChauffeur, TypeDocument, TypeVehicule } from '@contract';
+import type { DocumentChauffeur, StatutChauffeur, TypeDocument, TypeVehicule, Vehicule } from '@contract';
 
 /**
  * Pure driver-application rules, shared by the screens and the simulated server.
@@ -9,6 +9,20 @@ import type { DocumentChauffeur, StatutChauffeur, TypeDocument, TypeVehicule } f
 export const DOCUMENT_TYPES: readonly TypeDocument[] = ['permis_recto', 'permis_verso', 'selfie'];
 
 export const MAX_CAR_SEATS = 8;
+
+/**
+ * Validated with the team (26/11): a driver owns 3 vehicles at most; archived (deleted) ones are
+ * not counted, refused ones are. GAP #16 (to send to the backend): the back and data-objets.ts
+ * allow "autant qu'il veut".
+ */
+export const MAX_VEHICLES = 3;
+
+/** Statuses that take one of the MAX_VEHICLES slots. */
+export const isCountedVehicle = (vehicle: Pick<Vehicule, 'statut'>): boolean => vehicle.statut !== 'archive';
+
+/** The driver may add one more vehicle. */
+export const canAddVehicle = (vehicles: readonly Pick<Vehicule, 'statut'>[]): boolean =>
+  vehicles.filter(isCountedVehicle).length < MAX_VEHICLES;
 
 /** How a document is named on screen (app and demo panel). */
 export const DOCUMENT_LABELS: Record<TypeDocument, string> = {
@@ -29,6 +43,10 @@ export const VERIFICATION_MESSAGES = {
   seatsInvalid: 'Une moto a 1 place ; une voiture de 1 à 8 places.',
   /** Not a message of the back (its validator answers in English): written for the app. */
   colorRequired: 'Indique la couleur du véhicule.',
+  /** Not in the back yet (GAP #16). */
+  tooManyVehicles: `Tu as déjà ${MAX_VEHICLES} véhicules, le maximum. Supprime-en un pour en ajouter un autre.`,
+  vehicleNotFound: 'Véhicule introuvable.',
+  vehicleInUse: 'Ce véhicule est utilisé par un trajet publié ou en cours.',
   alreadyValidated: 'Ton dossier chauffeur est déjà validé.',
   suspended: 'Ton activité de chauffeur est suspendue. Contacte le support Ndaohody.',
   sexLocked: 'Le sexe ne peut plus être modifié. Contacte le support Ndaohody.',

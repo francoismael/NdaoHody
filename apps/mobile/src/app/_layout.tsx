@@ -82,6 +82,7 @@ export default function RootLayout() {
             {/* Empty header: the screen shows its own title (the camera hides the header). */}
             <Stack.Screen name="(driver)/verification" options={{ title: '' }} />
             <Stack.Screen name="(driver)/vehicle" options={{ title: '' }} />
+            <Stack.Screen name="(driver)/my-vehicles" options={{ title: 'Mes véhicules' }} />
             <Stack.Screen name="(driver)/pending-validation" options={{ title: 'Mon dossier chauffeur' }} />
             <Stack.Screen name="(driver)/publish-route" options={{ title: 'Publier' }} />
             <Stack.Screen name="(driver)/publish-seats" options={{ title: 'Publier' }} />

@@ -9,7 +9,7 @@ import { Icon, type IconName, type IconTone } from './Icon';
  * Variantes du jour (PWA .btn--*). Les autres (dark, soft, danger, brand)
  * naîtront quand un écran en aura besoin.
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export type ButtonProps = {
   /** Texte du bouton, aussi lu par le lecteur d'écran. */
@@ -61,6 +61,15 @@ const variants: Record<ButtonVariant, VariantRoles> = {
     pressedBorder: 'transparent',
     text: 'text',
     icon: 'default',
+  },
+  /** Ajout (26/11) : confirmer une action qui détruit (« Oui, supprimer »). */
+  danger: {
+    background: 'danger',
+    pressed: 'dangerPressed',
+    border: 'transparent',
+    pressedBorder: 'transparent',
+    text: 'onDanger',
+    icon: 'onDanger',
   },
 };
 
