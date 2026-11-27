@@ -3,7 +3,7 @@ import { EtaService } from '../../../../src/application/service/EtaService';
 import { TrackingService } from '../../../../src/application/service/TrackingService';
 import { ShareDriverPositionUseCase } from '../../../../src/application/usecases/tracking/ShareDriverPositionUseCase';
 import { DRIVER, PASSENGER, REQUEST, setupBookings } from '../../../support/bookingSetup';
-import { FixedClock } from '../../../support/inMemory';
+import { FixedClock, InMemorySettings } from '../../../support/inMemory';
 import { PARIS, StraightLineRoutes } from '../../../support/inMemoryGeo';
 
 /** About 1 km before Tanjombato on the driver's way. */
@@ -11,7 +11,7 @@ const DRIVER_POSITION = { latitude: -18.97, longitude: 47.53 };
 
 async function setup() {
   const rides = setupBookings();
-  const tracking = new TrackingService(rides.trips, new EtaService(new StraightLineRoutes(), new FixedClock()));
+  const tracking = new TrackingService(rides.trips, new EtaService(new StraightLineRoutes(), new FixedClock()), new InMemorySettings());
   const share = new ShareDriverPositionUseCase(rides.trips, rides.bookings, rides.positions, tracking, rides.realtime, new FixedClock());
   const booking = await rides.request.create(PASSENGER, REQUEST);
   return { ...rides, share, booking };

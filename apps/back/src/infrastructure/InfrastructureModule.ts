@@ -24,6 +24,8 @@ import { ConversationRepository } from '../domain/repository/ConversationReposit
 import { DriverPositionRepository } from '../domain/repository/DriverPositionRepository';
 import { DriverDocumentRepository } from '../domain/repository/DriverDocumentRepository';
 import { OtpCodeRepository } from '../domain/repository/OtpCodeRepository';
+import { ReportRepository } from '../domain/repository/ReportRepository';
+import { ReviewRepository } from '../domain/repository/ReviewRepository';
 import { SettingRepository } from '../domain/repository/SettingRepository';
 import { TariffRepository } from '../domain/repository/TariffRepository';
 import { TripRepository } from '../domain/repository/TripRepository';
@@ -57,6 +59,8 @@ import { TypeOrmConversationRepository } from './persistence/postgres/repositori
 import { TypeOrmDriverPositionRepository } from './persistence/postgres/repositories/TypeOrmDriverPositionRepository';
 import { TypeOrmDriverDocumentRepository } from './persistence/postgres/repositories/TypeOrmDriverDocumentRepository';
 import { TypeOrmOtpCodeRepository } from './persistence/postgres/repositories/TypeOrmOtpCodeRepository';
+import { TypeOrmReportRepository } from './persistence/postgres/repositories/TypeOrmReportRepository';
+import { TypeOrmReviewRepository } from './persistence/postgres/repositories/TypeOrmReviewRepository';
 import { TypeOrmSettingRepository } from './persistence/postgres/repositories/TypeOrmSettingRepository';
 import { TypeOrmTariffRepository } from './persistence/postgres/repositories/TypeOrmTariffRepository';
 import { TypeOrmTripRepository } from './persistence/postgres/repositories/TypeOrmTripRepository';
@@ -97,6 +101,8 @@ const BINDINGS: ClassProvider[] = [
   { provide: DriverPositionRepository, useClass: TypeOrmDriverPositionRepository },
   { provide: BlockRepository, useClass: TypeOrmBlockRepository },
   { provide: ConversationRepository, useClass: TypeOrmConversationRepository },
+  { provide: ReviewRepository, useClass: TypeOrmReviewRepository },
+  { provide: ReportRepository, useClass: TypeOrmReportRepository },
 ];
 
 /**

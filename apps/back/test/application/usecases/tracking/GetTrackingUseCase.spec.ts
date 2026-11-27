@@ -2,7 +2,7 @@ import { EtaService } from '../../../../src/application/service/EtaService';
 import { TrackingService } from '../../../../src/application/service/TrackingService';
 import { GetTrackingUseCase } from '../../../../src/application/usecases/tracking/GetTrackingUseCase';
 import { DRIVER, PASSENGER, REQUEST, setupBookings } from '../../../support/bookingSetup';
-import { FixedClock, InMemoryUsers, makeUser } from '../../../support/inMemory';
+import { FixedClock, InMemoryUsers, makeUser, InMemorySettings } from '../../../support/inMemory';
 import { InMemoryVehicles, makeVehicle } from '../../../support/inMemoryDriver';
 import { StraightLineRoutes } from '../../../support/inMemoryGeo';
 
@@ -12,7 +12,7 @@ function setup() {
     makeUser({ id: 1, prenom: 'Andry', telephone: '+261340000003' }),
     makeUser({ id: 9, prenom: 'Zo', telephone: '+261340000011' }),
   );
-  const tracking = new TrackingService(rides.trips, new EtaService(new StraightLineRoutes(), new FixedClock()));
+  const tracking = new TrackingService(rides.trips, new EtaService(new StraightLineRoutes(), new FixedClock()), new InMemorySettings());
   const getTracking = new GetTrackingUseCase(
     rides.bookings,
     rides.trips,

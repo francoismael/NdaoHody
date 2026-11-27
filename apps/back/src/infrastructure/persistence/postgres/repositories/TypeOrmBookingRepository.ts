@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { StatutReservation } from '@contract';
-import { In } from 'typeorm';
+import { And, In, LessThan, MoreThanOrEqual } from 'typeorm';
 import { ACTIVE_BOOKING_STATUSES, type Booking, type BookingChanges, type NewBooking } from '../../../../domain/entity/Booking';
 import { BookingRepository } from '../../../../domain/repository/BookingRepository';
 import { BookingEntity, toBooking, toBookingChanges, toBookingRow } from '../entities/BookingEntity';
@@ -72,6 +72,23 @@ export class TypeOrmBookingRepository extends BookingRepository {
       return [];
     }
     const entities = await this.context.repository(BookingEntity).findBy({ id: In(rows.map((row) => Number(row.id))) });
+    return entities.map(toBooking);
+  }
+
+  async listWaitEndedBetween(from: Date, to: Date): Promise<Booking[]> {
+    const entities = await this.context.repository(BookingEntity).find({
+      where: { statut: 'chauffeur_sur_place', finAttente: And(MoreThanOrEqual(from), LessThan(to)) },
+    });
+    return entities.map(toBooking);
+  }
+
+  async listFinishedWithoutReviewBetween(from: Date, to: Date): Promise<Booking[]> {
+    const entities = await this.context
+      .repository(BookingEntity)
+      .createQueryBuilder('r')
+      .where('r.statut = :statut AND r.dateFinCourse >= :from AND r.dateFinCourse < :to', { statut: 'terminee', from, to })
+      .andWhere('NOT EXISTS (SELECT 1 FROM avis a WHERE a.reservation_id = r.id AND a.auteur_id = r.passager_id)')
+      .getMany();
     return entities.map(toBooking);
   }
 

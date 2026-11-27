@@ -37,3 +37,31 @@ describe('RunRideJobsUseCase: drivers without position', () => {
     await expect(jobs.markDriversOffline()).resolves.toEqual([]);
   });
 });
+
+describe('RunRideJobsUseCase: arrival and reviews', () => {
+  it('tells the driver when his 10-minute wait is over', async () => {
+    const { request, answer, ride, jobs, positions, clock, notifier } = setupBookings();
+    const booking = await request.create(PASSENGER, REQUEST);
+    await answer.accept(DRIVER, booking.id);
+    await positions.save(1, 1, { latitude: -18.9609, longitude: 47.528 }, true, clock.now());
+    await ride.onSite(DRIVER, booking.id);
+    clock.advanceSeconds(10 * 60 + 5);
+
+    await jobs.announceWaitEnded();
+
+    expect(notifier.sent.at(-1)).toMatchObject({ utilisateurId: 1, type: 'attente_terminee' });
+  });
+
+  it('reminds the passenger to rate his driver 1 h after the ride', async () => {
+    const { request, answer, ride, jobs, clock, notifier } = setupBookings();
+    const booking = await request.create(PASSENGER, REQUEST);
+    await answer.accept(DRIVER, booking.id);
+    await ride.start(DRIVER, booking.id);
+    await ride.finish(DRIVER, booking.id);
+    clock.advanceSeconds(60 * 60 + 30);
+
+    await jobs.handleTrips();
+
+    expect(notifier.sent.some((sent) => sent.utilisateurId === 9 && sent.type === 'demande_avis')).toBe(true);
+  });
+});

@@ -14,6 +14,7 @@ import { CreateBookingRequest, RefuseBookingRequest } from '../../application/dt
 import { AnswerBookingUseCase } from '../../application/usecases/bookings/AnswerBookingUseCase';
 import { ManageBookingsUseCase } from '../../application/usecases/bookings/ManageBookingsUseCase';
 import { RequestBookingUseCase } from '../../application/usecases/bookings/RequestBookingUseCase';
+import { ManageRideUseCase } from '../../application/usecases/rides/ManageRideUseCase';
 import { GetTrackingUseCase } from '../../application/usecases/tracking/GetTrackingUseCase';
 import type { User } from '../../domain/entity/User';
 import { Authenticated, CurrentUser } from '../decorator/AuthenticatedDecorators';
@@ -31,6 +32,7 @@ export class BookingsController {
     private readonly answerBooking: AnswerBookingUseCase,
     private readonly bookings: ManageBookingsUseCase,
     private readonly tracking: GetTrackingUseCase,
+    private readonly ride: ManageRideUseCase,
   ) {}
 
   @Post()
@@ -77,6 +79,41 @@ export class BookingsController {
   @ApiCreatedResponse({ description: 'New request to the same driver after an expired one (2 times at most).' })
   retry(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
     return this.requestBooking.retry(user, id);
+  }
+
+  @Post(':id/on-site')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Driver: "Je suis sur place" (within 500 m, checked by the server). The passenger has 10 min.' })
+  onSite(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
+    return this.ride.onSite(user, id);
+  }
+
+  @Post(':id/extend-wait')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Driver, after the 10 min: waits 10 more minutes.' })
+  extendWait(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
+    return this.ride.extendWait(user, id);
+  }
+
+  @Post(':id/no-show')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Driver, after the 10 min: the passenger is absent; seats given back, absence counted.' })
+  noShow(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
+    return this.ride.noShow(user, id);
+  }
+
+  @Post(':id/start')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Driver: the passenger is on board; the trip is "en_cours".' })
+  start(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
+    return this.ride.start(user, id);
+  }
+
+  @Post(':id/finish')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Driver: this ride is over; the passenger is asked to rate the driver.' })
+  finish(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
+    return this.ride.finish(user, id);
   }
 
   @Post(':id/cancel')

@@ -1,4 +1,4 @@
-NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 9)
+NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 11)
 Adresse de base : http://localhost:3000
 Swagger : http://localhost:3000/api/docs
 
@@ -494,6 +494,64 @@ Recevoir    : "tracking-update"     MiseAJourSuivi   (passager et chauffeur)
               "location-required"   { "message": "..." } (chauffeur sans position depuis 2 min)
 Test dans Postman : New -> Socket.IO, URL ci-dessus, onglet "Handshake" / "Auth" : { "token": "..." },
 puis écouter les événements ci-dessus (onglet "Events") et envoyer "driver-position".
+
+
+==============================================================
+ ÉTAPE 10 — ARRIVÉE ET COURSE                     [TOKEN APP du chauffeur]
+==============================================================
+
+POST http://localhost:3000/api/v1/reservations/{id d'une réservation acceptée}/on-site
+-> « Je suis sur place ». Le back vérifie avec la dernière position du chauffeur (de moins de 2 min)
+   qu'il est à moins de 500 m du point de prise en charge. Le passager est prévenu et a 10 min pour venir.
+   Envoyer d'abord la position du chauffeur avec POST /api/v1/me/position.
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la réservation}/extend-wait
+-> Après les 10 minutes, le chauffeur attend 10 minutes de plus. Avant la fin des 10 min : 409.
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la réservation}/no-show
+-> Après les 10 minutes, le passager n'est pas venu : il est marqué absent, les places reviennent
+   au trajet et son absence est comptée.
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la réservation}/start
+-> Le passager est monté : sa course démarre, le trajet passe "en_cours".
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la réservation}/finish
+-> La course de CE passager est terminée (les autres continuent). Il reçoit « Note ton chauffeur ».
+(pas de body)
+
+POST http://localhost:3000/api/v1/trips/{id du trajet}/finish
+-> Le chauffeur termine son trajet à l'arrivée. Refusé s'il reste des passagers à prendre ou à déposer.
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 11 — AVIS ET BADGES                        [TOKEN APP]
+==============================================================
+
+POST http://localhost:3000/api/v1/reviews                              [passager]
+-> Le passager note son chauffeur après une course terminée, une seule fois (le chauffeur ne note pas
+   ses passagers). La note moyenne et le badge du chauffeur sont recalculés.
+{
+  "reservationId": "id de la réservation terminée (nombre)",
+  "note": "de 1 à 5 (nombre)",
+  "commentaire": "facultatif, 500 caractères au plus"
+}
+
+GET http://localhost:3000/api/v1/users/{id de l'utilisateur}/reviews
+-> Les avis reçus par un utilisateur, le plus récent d'abord, avec le prénom et la photo de l'auteur.
+(pas de body)
+
+GET http://localhost:3000/api/v1/users/{id de l'utilisateur}/public
+-> Le profil public : prénom, photo, badge, note moyenne (jamais le téléphone).
+(pas de body)
+
+GET http://localhost:3000/api/v1/drivers/{id du chauffeur}/public
+-> Le profil public d'un chauffeur : note, nombre de courses, véhicule par défaut.
+(pas de body)
 
 
 ==============================================================

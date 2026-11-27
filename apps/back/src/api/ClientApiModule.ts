@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { RealtimePublisher } from '../application/port/RealtimePublisher';
+import { BadgeService } from '../application/service/BadgeService';
 import { TrackingService } from '../application/service/TrackingService';
+import { PublicProfilesUseCase } from '../application/usecases/reviews/PublicProfilesUseCase';
+import { ReviewsUseCase } from '../application/usecases/reviews/ReviewsUseCase';
+import { ManageRideUseCase } from '../application/usecases/rides/ManageRideUseCase';
 import { GetTrackingUseCase } from '../application/usecases/tracking/GetTrackingUseCase';
 import { ShareDriverPositionUseCase } from '../application/usecases/tracking/ShareDriverPositionUseCase';
 import { SharePassengerPositionUseCase } from '../application/usecases/tracking/SharePassengerPositionUseCase';
@@ -41,6 +45,7 @@ import { DriverController } from './controller/DriverController';
 import { GeoController } from './controller/GeoController';
 import { MeController } from './controller/MeController';
 import { MyRidesController } from './controller/MyRidesController';
+import { ReviewsController } from './controller/ReviewsController';
 import { TripsController } from './controller/TripsController';
 import { AccessTokenGuard } from './guard/AccessTokenGuard';
 
@@ -49,7 +54,7 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
  * Add here the controllers used by passengers and drivers, and their use cases.
  */
 @Module({
-  controllers: [AuthController, MeController, MyRidesController, DriverController, GeoController, TripsController, BookingsController],
+  controllers: [AuthController, MeController, MyRidesController, DriverController, GeoController, TripsController, BookingsController, ReviewsController],
   providers: [
     AccessTokenGuard,
     SessionIssuerService,
@@ -88,6 +93,10 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
     SocketRealtimePublisher,
     { provide: RealtimePublisher, useExisting: SocketRealtimePublisher },
     LiveGateway,
+    BadgeService,
+    ManageRideUseCase,
+    ReviewsUseCase,
+    PublicProfilesUseCase,
   ],
 })
 export class ClientApiModule {}

@@ -1,7 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
-import type { DemandeReservation } from '@contract';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { DemandeAvis, DemandeReservation } from '@contract';
 import { Transform, Type } from 'class-transformer';
-import { IsInt, IsString, Length, Max, Min, ValidateNested } from 'class-validator';
+import { IsInt, IsOptional, IsString, Length, Max, Min, ValidateNested } from 'class-validator';
 import { PlaceRequest } from './TripRequests';
 import { trimString } from '../helper/trimString';
 
@@ -37,4 +37,24 @@ export class RefuseBookingRequest {
   @IsString()
   @Length(3, 255)
   motif!: string;
+}
+
+/** POST /reviews (data object DemandeAvis). */
+export class CreateReviewRequest implements DemandeAvis {
+  @ApiProperty({ example: 12 })
+  @IsInt()
+  reservationId!: number;
+
+  @ApiProperty({ example: 5, description: '1 to 5.' })
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  note!: number;
+
+  @ApiPropertyOptional({ example: 'Chauffeur ponctuel et prudent.' })
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @Length(1, 500)
+  commentaire?: string;
 }

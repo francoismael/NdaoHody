@@ -53,6 +53,24 @@ export class TypeOrmUserRepository extends UserRepository {
     return toUser(await repository.findOneByOrFail({ id }));
   }
 
+  async countRide(id: number, as: 'passager' | 'chauffeur'): Promise<void> {
+    await this.context.repository(UserEntity).increment({ id }, as === 'passager' ? 'coursesPassager' : 'coursesChauffeur', 1);
+  }
+
+  async countAbsence(id: number): Promise<void> {
+    await this.context.repository(UserEntity).increment({ id }, 'absences', 1);
+  }
+
+  async refreshRating(id: number): Promise<void> {
+    await this.context.manager().query(
+      `UPDATE utilisateur u SET
+         note_moyenne = (SELECT round(avg(a.note)::numeric, 1) FROM avis a WHERE a.cible_id = u.id),
+         nombre_notes = (SELECT count(*) FROM avis a WHERE a.cible_id = u.id)
+       WHERE u.id = $1`,
+      [id],
+    );
+  }
+
   async hasRideInProgress(id: number): Promise<boolean> {
     const rows: { en_course: boolean }[] = await this.context.manager().query(
       `SELECT EXISTS (

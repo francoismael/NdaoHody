@@ -10,6 +10,7 @@ import type { DossierChauffeur } from '@contract/back-office';
 import { PrivateFileStorage } from '../../port/PrivateFileStorage';
 import { UnitOfWork } from '../../port/UnitOfWork';
 import { UserNotifier } from '../../port/UserNotifier';
+import { BadgeService } from '../../service/BadgeService';
 import { notifyBestEffort } from '../../helper/bestEffort';
 import { toDocumentChauffeur } from '../../helper/driverDocumentView';
 
@@ -28,6 +29,7 @@ export class ReviewDriverApplicationsUseCase {
     private readonly privateFiles: PrivateFileStorage,
     private readonly notifier: UserNotifier,
     private readonly unitOfWork: UnitOfWork,
+    private readonly badges: BadgeService,
   ) {}
 
   async listPending(): Promise<DossierChauffeur[]> {
@@ -49,6 +51,7 @@ export class ReviewDriverApplicationsUseCase {
       return this.users.update(user.id, { statutChauffeur: 'valide' });
     });
 
+    await this.badges.refresh(approved.id);
     await this.notify(approved.id, 'kyc_valide', 'Dossier chauffeur validé', 'Tu peux maintenant publier des trajets.');
     return this.toView(approved);
   }
@@ -66,6 +69,7 @@ export class ReviewDriverApplicationsUseCase {
       return this.users.update(user.id, { statutChauffeur: 'refuse' });
     });
 
+    await this.badges.refresh(rejected.id);
     await this.notify(rejected.id, 'kyc_refuse', 'Dossier chauffeur refusé', `${request.motif}. Renvoie les documents concernés.`);
     return this.toView(rejected);
   }

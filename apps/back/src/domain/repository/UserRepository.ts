@@ -17,6 +17,15 @@ export abstract class UserRepository {
 
   abstract update(id: number, changes: UserChanges): Promise<User>;
 
+  /** One more finished ride, as a passenger or as a driver. */
+  abstract countRide(id: number, as: 'passager' | 'chauffeur'): Promise<void>;
+
+  /** One more missed pickup (the driver waited and marked him absent). */
+  abstract countAbsence(id: number): Promise<void>;
+
+  /** Average rating and number of ratings computed again from the reviews he received. */
+  abstract refreshRating(id: number): Promise<void>;
+
   /** true while the user rides as a passenger or drives a trip that has started. */
   abstract hasRideInProgress(id: number): Promise<boolean>;
 }

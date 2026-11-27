@@ -26,7 +26,7 @@ export type StatutReservation =
   | 'acceptee'            // le chauffeur vient chercher le passager
   | 'refusee'
   | 'expiree'             // pas de réponse en 3 min : le passager peut relancer ou chercher un autre
-  | 'chauffeur_sur_place' // compte à rebours de 15 min
+  | 'chauffeur_sur_place' // compte à rebours de 10 min
   | 'en_course'           // passager à bord
   | 'terminee'
   | 'absent'
@@ -88,6 +88,12 @@ export interface ProfilPublic {
   badge: Badge;
   noteMoyenne: number | null;
   nombreNotes: number;
+}
+
+/** GET /drivers/:id/public : le profil public d'un chauffeur, avec ses courses et son véhicule par défaut. */
+export interface ProfilChauffeurPublic extends ProfilPublic {
+  nombreCourses: number;          // courses terminées comme chauffeur
+  vehicule: Pick<Vehicule, 'type' | 'marque' | 'modele' | 'couleur'> | null;   // véhicule par défaut validé
 }
 
 
@@ -249,7 +255,7 @@ export interface Reservation {
   dateExpiration: string;         // dateDemande + 3 min (compte à rebours du chauffeur)
   dateReponse: string | null;
   dateSurPlace: string | null;    // « Je suis déjà sur place »
-  finAttente: string | null;      // fin du compte à rebours de 15 min en cours
+  finAttente: string | null;      // fin du compte à rebours de 10 min en cours
   prolongations: number;
   dateDebutCourse: string | null;
   dateFinCourse: string | null;
@@ -297,7 +303,8 @@ export interface MiseAJourSuivi {
   positionChauffeur: Position;
   cheminVersPassager: Chemin;     // vide quand le passager est déjà à bord
   arriveeDansMinutes: number | null;  // null quand le passager est déjà à bord
-  distanceMetres: number;         // à vol d'oiseau jusqu'à la prise en charge ; < 500 -> « sur place »
+  distanceMetres: number;         // à vol d'oiseau jusqu'à la prise en charge
+  peutSignalerSurPlace: boolean;  // true à moins de 500 m : le chauffeur voit « Je suis sur place »
 }
 
 /** "passenger-position" : la position du passager, envoyée à son chauffeur pendant l'approche. */
@@ -368,6 +375,18 @@ export interface Avis {
   note: number;                   // 1 à 5
   commentaire: string | null;
   dateAvis: string;
+}
+
+/** POST /reviews : seul le PASSAGER note son chauffeur, une seule fois, après une course terminée. */
+export interface DemandeAvis {
+  reservationId: number;
+  note: number;                   // 1 à 5
+  commentaire?: string;           // 500 caractères au plus
+}
+
+/** GET /users/:id/reviews : un avis reçu, avec le prénom et la photo de son auteur (jamais son téléphone). */
+export interface AvisAvecAuteur extends Avis {
+  auteur: Pick<ProfilPublic, 'prenom' | 'photoUrl'>;
 }
 
 export interface Signalement {

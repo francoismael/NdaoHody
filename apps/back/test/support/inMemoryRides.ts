@@ -1,7 +1,7 @@
 /**
  * In-memory fakes for trips and bookings (unit tests, no database).
  */
-import type { Chemin, Position, PositionChauffeur, StatutReservation, StatutTrajet, Tarif, TypeVehicule } from '@contract';
+import type { Avis, AvisAvecAuteur, Chemin, Position, PositionChauffeur, StatutReservation, StatutTrajet, Tarif, TypeVehicule } from '@contract';
 import { RealtimeEvent, RealtimePublisher } from '../../src/application/port/RealtimePublisher';
 import { NewNotification, UserNotifier } from '../../src/application/port/UserNotifier';
 import type { Booking, BookingChanges, NewBooking } from '../../src/domain/entity/Booking';
@@ -10,9 +10,11 @@ import { BlockRepository } from '../../src/domain/repository/BlockRepository';
 import { BookingRepository } from '../../src/domain/repository/BookingRepository';
 import { ConversationRepository } from '../../src/domain/repository/ConversationRepository';
 import { DriverPositionRepository } from '../../src/domain/repository/DriverPositionRepository';
+import { ReportRepository } from '../../src/domain/repository/ReportRepository';
+import { NewReview, ReviewRepository } from '../../src/domain/repository/ReviewRepository';
 import { TariffRepository } from '../../src/domain/repository/TariffRepository';
 import { TripRepository, type CandidateCriteria, type TripMatch } from '../../src/domain/repository/TripRepository';
-import { NOW } from './inMemory';
+import { InMemoryUsers, NOW } from './inMemory';
 
 export function makeTrip(overrides: Partial<Trip> = {}): Trip {
   return {
@@ -204,6 +206,18 @@ export class InMemoryBookings extends BookingRepository {
     return due;
   }
 
+  async listWaitEndedBetween(from: Date, to: Date): Promise<Booking[]> {
+    return this.rows.filter(
+      (booking) => booking.statut === 'chauffeur_sur_place' && booking.finAttente !== null && new Date(booking.finAttente) >= from && new Date(booking.finAttente) < to,
+    );
+  }
+
+  async listFinishedWithoutReviewBetween(from: Date, to: Date): Promise<Booking[]> {
+    return this.rows.filter(
+      (booking) => booking.statut === 'terminee' && booking.dateFinCourse !== null && new Date(booking.dateFinCourse) >= from && new Date(booking.dateFinCourse) < to,
+    );
+  }
+
   async countRetries(id: number): Promise<number> {
     let count = 0;
     let current = this.rows.find((row) => row.id === id);
@@ -281,5 +295,41 @@ export class RecordingNotifier extends UserNotifier {
 
   async notify(notification: NewNotification): Promise<void> {
     this.sent.push(notification);
+  }
+}
+
+/** Reviews in memory; each rating is also given to the users fake so it can compute the average. */
+export class InMemoryReviews extends ReviewRepository {
+  readonly rows: Avis[] = [];
+
+  constructor(private readonly users: InMemoryUsers) {
+    super();
+  }
+
+  async create(review: NewReview): Promise<Avis> {
+    const row: Avis = { ...review, id: this.rows.length + 1 };
+    this.rows.push(row);
+    this.users.ratings.set(review.cibleId, [...(this.users.ratings.get(review.cibleId) ?? []), review.note]);
+    return row;
+  }
+
+  async findByBookingAndAuthor(reservationId: number, auteurId: number): Promise<Avis | null> {
+    return this.rows.find((row) => row.reservationId === reservationId && row.auteurId === auteurId) ?? null;
+  }
+
+  async listReceivedBy(cibleId: number): Promise<AvisAvecAuteur[]> {
+    return this.rows
+      .filter((row) => row.cibleId === cibleId)
+      .map((row) => ({ ...row, auteur: { prenom: 'Auteur', photoUrl: null } }));
+  }
+}
+
+export class FixedReports extends ReportRepository {
+  constructor(private readonly confirmed = 0) {
+    super();
+  }
+
+  async countConfirmedAgainst(): Promise<number> {
+    return this.confirmed;
   }
 }

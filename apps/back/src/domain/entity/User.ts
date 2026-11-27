@@ -8,7 +8,7 @@ export type User = Utilisateur & {
 
 /** Fields the back can change on an account. */
 export type UserChanges = Partial<
-  Pick<User, 'nom' | 'prenom' | 'sexe' | 'photoUrl' | 'modeActuel' | 'statut' | 'statutChauffeur' | 'telephone' | 'numeroPermis'>
+  Pick<User, 'nom' | 'prenom' | 'sexe' | 'photoUrl' | 'modeActuel' | 'statut' | 'statutChauffeur' | 'telephone' | 'numeroPermis' | 'badge'>
 >;
 
 /** Last name, first name and sex are required before booking (old accounts may lack them). */

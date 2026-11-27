@@ -28,7 +28,7 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 | 7 | Rechercher | « Le chauffeur passe sur mon chemin » |
 | 8 | Réserver | Demande, réponse en 3 min, relance |
 | 9 | Suivi en direct | Carte et minutes avant l'arrivée |
-| 10 | Arrivée et course | Sur place à 500 m, attente 15 min, démarrer, terminer |
+| 10 | Arrivée et course | Sur place à 500 m, attente 10 min, démarrer, terminer |
 | 11 | Après la course | Avis, badges |
 | 12 | Notifications | Push FCM + historique MongoDB + préférences |
 | 13 | Sécurité des usagers | SOS, signalements, blocages, lien de suivi pour un proche, messagerie |
@@ -273,14 +273,15 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 
 ## Étape 10 — Arrivée et course
 
-- [ ] À moins de 500 m, l'app reçoit `peutSignalerSurPlace: true`
-- [ ] `POST /reservations/:id/sur-place` : distance vérifiée par le serveur ; passager alerté ; compte à rebours de 15 min (`fin_attente`)
-- [ ] Tâche : fin des 15 min → le chauffeur choisit
-  - [ ] `POST /reservations/:id/prolonger` : nouveau compte à rebours de 15 min
-  - [ ] `POST /reservations/:id/absent` : places libérées, absence comptée
-- [ ] `POST /reservations/:id/demarrer` : passager à bord, trajet `en_cours`
-- [ ] `POST /reservations/:id/terminer` : course de **ce** passager terminée ; notification « Votre course est terminée, notez votre chauffeur »
-- [ ] Trajet terminé quand toutes les courses sont fermées (fin automatique de secours)
+- [x] À moins de 500 m (réglage `rayon_sur_place_metres`), l'app reçoit `peutSignalerSurPlace: true` dans `tracking-update`
+- [x] `POST /reservations/:id/on-site` : distance vérifiée par le serveur avec la dernière position du chauffeur (de moins de 2 min) ; passager alerté ; compte à rebours de **10 min** (`fin_attente`, réglage `attente_minutes`)
+- [x] Tâche (toutes les 15 s) : fin des 10 min → le chauffeur est prévenu et choisit
+  - [x] `POST /reservations/:id/extend-wait` : nouveau compte à rebours de 10 min (`prolongations` + 1)
+  - [x] `POST /reservations/:id/no-show` : passager absent, places libérées, absence comptée (badge recalculé)
+- [x] `POST /reservations/:id/start` : passager à bord, trajet `en_cours`
+- [x] `POST /reservations/:id/finish` : course de **ce** passager terminée, courses comptées (passager et chauffeur) ; notification « Ta course est terminée : note ton chauffeur » ; plus personne à bord → le trajet repasse `en_route` (le chauffeur peut prendre d'autres passagers)
+- [x] `POST /trips/:id/finish` : le chauffeur termine son trajet à l'arrivée (refusé s'il reste des passagers à prendre ou à déposer) ; il passe hors ligne
+- [x] Fin automatique de secours : un trajet oublié en route, sans passager, se termine 3 h après son arrivée prévue
 
 **Fini quand** : le parcours complet passe : publier → rechercher → réserver → accepter → sur place → démarrer → terminer.
 
@@ -288,19 +289,22 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 
 ## Étape 11 — Après la course : avis et badges
 
-- [ ] `POST /reservations/:id/avis` : 1 à 5 + commentaire, dans les deux sens, une seule fois
-- [ ] Note moyenne recalculée
-- [ ] Rappel si pas d'avis après 1 h
-- [ ] Badges calculés par le serveur :
+**Seul le passager note** son chauffeur (règle de l'app) : le chauffeur ne note pas ses passagers.
 
-| Badge | Passager | Chauffeur |
+- [x] `POST /reviews` (`DemandeAvis`) : 1 à 5 + commentaire facultatif (500 caractères), par le passager, une seule fois, après une course terminée
+- [x] Note moyenne du chauffeur recalculée (`note_moyenne`, `nombre_notes`)
+- [x] Rappel « Note ton chauffeur » si pas d'avis 1 h après la course
+- [x] `GET /users/:id/reviews` (`AvisAvecAuteur` : prénom et photo de l'auteur, jamais son téléphone), `GET /users/:id/public`, `GET /drivers/:id/public` (`ProfilChauffeurPublic`)
+- [x] Badges calculés par le serveur :
+
+| Badge | Passager | Chauffeur (dossier validé) |
 |---|---|---|
 | nouveau | moins de 3 courses | moins de 5 courses |
-| non_verifie | profil incomplet | dossier non validé |
-| verifie | profil complet, au moins 3 courses | dossier et véhicule validés, au moins 5 courses |
-| top | note ≥ 4,7 sur 20 courses | note ≥ 4,7 sur 30 courses, pas de signalement validé |
+| non_verifie | profil incomplet | aucun véhicule validé |
+| verifie | profil complet, au moins 3 courses | véhicule validé, au moins 5 courses |
+| top | au moins 20 courses et jamais absent (les passagers ne sont pas notés) | note ≥ 4,7 sur 30 courses, pas de signalement validé |
 
-- [ ] Recalcul après chaque course, avis, absence ou décision admin
+- [x] Recalcul après chaque course, avis, absence ou décision admin (dossier ou véhicule validé / refusé) ; notification « badge obtenu » quand on passe Vérifié ou Top
 
 ---
 
@@ -380,7 +384,7 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 | `delai_reponse_secondes` | 180 | Le chauffeur a 3 min pour répondre |
 | `relances_max` | 2 | Relances au même chauffeur |
 | `rayon_sur_place_metres` | 500 | Bouton « Je suis déjà sur place » |
-| `attente_minutes` | 15 | Compte à rebours |
+| `attente_minutes` | 10 | Compte à rebours quand le chauffeur est sur place |
 | `marge_route_metres` | 30 | Marge GPS « sur la route » |
 | `frequence_position_secondes` | 5 | Envoi de la position du chauffeur |
 | `otp_duree_minutes` | 5 | Validité du code SMS |

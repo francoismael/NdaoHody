@@ -549,7 +549,7 @@ INSERT INTO parametre (cle, valeur, description) VALUES
 ('delai_reponse_secondes', '180',   'Le chauffeur a 3 minutes pour répondre à une demande'),
 ('relances_max',           '2',     'Nouvelles demandes possibles au même chauffeur après expiration'),
 ('rayon_sur_place_metres', '500',   'Distance à partir de laquelle « Je suis déjà sur place » apparaît'),
-('attente_minutes',        '15',    'Compte à rebours quand le chauffeur est sur place'),
+('attente_minutes',        '10',    'Compte à rebours de 10 min quand le chauffeur est sur place'),
 ('marge_route_metres',     '30',    'Marge GPS pour savoir si un point est sur la route du chauffeur'),
 ('frequence_position_secondes', '5', 'Envoi de la position du chauffeur'),
 ('otp_duree_minutes',      '5',     'Durée de validité du code SMS'),

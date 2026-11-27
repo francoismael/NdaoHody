@@ -3,8 +3,10 @@ import type { MiseAJourSuivi, Position } from '@contract';
 import type { Booking } from '../../domain/entity/Booking';
 import { haversineMeters } from '../../domain/entity/geo';
 import type { Trip } from '../../domain/entity/Trip';
+import { SettingRepository } from '../../domain/repository/SettingRepository';
 import { TripRepository } from '../../domain/repository/TripRepository';
 import { describeError } from '../helper/bestEffort';
+import { ON_SITE_RADIUS_METRES, readSetting } from '../helper/settings';
 import { EtaService } from './EtaService';
 
 /** Bookings followed live: the driver is coming (or the passenger is on board). */
@@ -21,22 +23,34 @@ export class TrackingService {
   constructor(
     private readonly trips: TripRepository,
     private readonly eta: EtaService,
+    private readonly settings: SettingRepository,
   ) {}
 
   async update(trip: Trip, booking: Booking, driverPosition: Position): Promise<MiseAJourSuivi> {
     if (booking.statut === 'en_course') {
       // On board: only the position matters.
-      return { reservationId: booking.id, positionChauffeur: driverPosition, cheminVersPassager: [], arriveeDansMinutes: null, distanceMetres: 0 };
+      return {
+        reservationId: booking.id,
+        positionChauffeur: driverPosition,
+        cheminVersPassager: [],
+        arriveeDansMinutes: null,
+        distanceMetres: 0,
+        peutSignalerSurPlace: false,
+      };
     }
 
     const pickup = booking.priseEnCharge;
     const path = await this.trips.pathBetween(trip.id, driverPosition, pickup);
+    const distanceMetres = Math.round(haversineMeters(driverPosition, pickup));
+    const radius = await readSetting(this.settings, ON_SITE_RADIUS_METRES);
     return {
       reservationId: booking.id,
       positionChauffeur: driverPosition,
       cheminVersPassager: path?.chemin ?? [],
       arriveeDansMinutes: await this.minutesToPickup(trip, driverPosition, pickup, path?.distanceMetres ?? 0),
-      distanceMetres: Math.round(haversineMeters(driverPosition, pickup)),
+      distanceMetres,
+      // The driver can say "I am here" within 500 m, once (not again while he already waits).
+      peutSignalerSurPlace: booking.statut === 'acceptee' && distanceMetres <= radius,
     };
   }
 

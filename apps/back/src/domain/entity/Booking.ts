@@ -22,7 +22,18 @@ export type NewBooking = Pick<
 >;
 
 export type BookingChanges = Partial<
-  Pick<Booking, 'statut' | 'dateReponse' | 'dateAnnulation' | 'motifRefus'>
+  Pick<
+    Booking,
+    | 'statut'
+    | 'dateReponse'
+    | 'dateAnnulation'
+    | 'motifRefus'
+    | 'dateSurPlace'
+    | 'finAttente'
+    | 'prolongations'
+    | 'dateDebutCourse'
+    | 'dateFinCourse'
+  >
 >;
 
 /** Still in progress: one at most per passenger and trip (uq_reservation_une_active). */
