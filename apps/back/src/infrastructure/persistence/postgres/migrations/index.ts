@@ -4,6 +4,7 @@ import { UserSessions1795586605794 } from './1795586605794-user-sessions';
 import { DriverIdentityAndAdminLock1795588919382 } from './1795588919382-driver-identity-and-admin-lock';
 import { TripsAndBookings1795700189694 } from './1795700189694-trips-and-bookings';
 import { ShorterWaitOnSite1795787988290 } from './1795787988290-shorter-wait-on-site';
+import { WhatsAppOtp1795788968602 } from './1795788968602-whatsapp-otp';
 
 /**
  * Every migration, in order. The back is bundled by webpack, so migrations
@@ -16,4 +17,5 @@ export const MIGRATIONS = [
   DriverIdentityAndAdminLock1795588919382,
   TripsAndBookings1795700189694,
   ShorterWaitOnSite1795787988290,
+  WhatsAppOtp1795788968602,
 ];

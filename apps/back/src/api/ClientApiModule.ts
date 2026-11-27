@@ -12,6 +12,7 @@ import { LiveGateway } from './gateway/LiveGateway';
 import { SocketRealtimePublisher } from './gateway/SocketRealtimePublisher';
 import { AccountRecoveryService } from '../application/service/AccountRecoveryService';
 import { EtaService } from '../application/service/EtaService';
+import { OtpIssuerService } from '../application/service/OtpIssuerService';
 import { SessionIssuerService } from '../application/service/SessionIssuerService';
 import { TripCancellationService } from '../application/service/TripCancellationService';
 import { AnswerBookingUseCase } from '../application/usecases/bookings/AnswerBookingUseCase';
@@ -60,6 +61,7 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
     SessionIssuerService,
     AccountRecoveryService,
     AuthenticateUserUseCase,
+    OtpIssuerService,
     RequestOtpUseCase,
     VerifyOtpUseCase,
     RefreshSessionUseCase,

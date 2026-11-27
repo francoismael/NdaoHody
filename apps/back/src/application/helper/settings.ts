@@ -11,6 +11,7 @@ export const MAX_RETRIES: Setting = { cle: 'relances_max', defaut: 2 };
 export const ROUTE_MARGIN_METRES: Setting = { cle: 'marge_route_metres', defaut: 30 };
 export const MAX_DAYS_AHEAD: Setting = { cle: 'trajet_max_jours_avance', defaut: 15 };
 export const ON_SITE_RADIUS_METRES: Setting = { cle: 'rayon_sur_place_metres', defaut: 500 };
+export const OTP_VALIDITY_MINUTES: Setting = { cle: 'otp_duree_minutes', defaut: 5 };
 export const WAIT_MINUTES: Setting = { cle: 'attente_minutes', defaut: 10 };
 
 export async function readSetting(settings: SettingRepository, setting: Setting): Promise<number> {

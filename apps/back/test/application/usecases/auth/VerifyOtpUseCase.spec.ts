@@ -24,6 +24,7 @@ async function setup(users = new InMemoryUsers()) {
   const useCase = new VerifyOtpUseCase(otpCodes, users, hasher, issuer, new DirectUnitOfWork(), clock);
   await otpCodes.create({
     telephone: PHONE,
+    canal: 'whatsapp',
     codeHash: hasher.hash('123456'),
     dateExpiration: new Date(NOW.getTime() + 5 * 60_000),
     dateCreation: NOW,
@@ -81,6 +82,17 @@ describe('VerifyOtpUseCase', () => {
     await useCase.execute(PHONE, '123456');
 
     await expect(useCase.execute(PHONE, '123456')).rejects.toMatchObject({ reason: 'invalid' });
+  });
+
+  it('refuses a code cancelled because it was replaced by an SMS code', async () => {
+    const { useCase, otpCodes, clock } = await setup();
+    await otpCodes.cancel(1, clock.now());
+
+    await expect(useCase.execute(PHONE, '123456')).rejects.toMatchObject({
+      reason: 'invalid',
+      message: expect.stringContaining('remplacé'),
+    });
+    expect(otpCodes.rows[0]?.dateUtilisation).toBeNull();
   });
 
   it('refuses a suspended account with a clear message', async () => {

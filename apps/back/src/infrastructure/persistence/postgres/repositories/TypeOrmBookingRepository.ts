@@ -62,7 +62,7 @@ export class TypeOrmBookingRepository extends BookingRepository {
   }
 
   async expireDue(now: Date): Promise<Booking[]> {
-    const rows: { id: number }[] = await this.context.manager().query(
+    const rows = await this.context.queryReturning<{ id: number }>(
       `UPDATE reservation SET statut = 'expiree'
        WHERE statut = 'en_attente' AND date_expiration <= $1
        RETURNING id`,

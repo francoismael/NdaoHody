@@ -5,6 +5,7 @@ import { APP_GUARD, RouterModule } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminApiModule } from '../api/AdminApiModule';
 import { ClientApiModule } from '../api/ClientApiModule';
+import { WebhookApiModule } from '../api/WebhookApiModule';
 import { FilesController } from '../api/controller/FilesController';
 import { HealthController } from '../api/controller/HealthController';
 import { AccountThrottlerGuard } from '../api/guard/AccountThrottlerGuard';
@@ -35,6 +36,8 @@ const DEFAULT_RATE_LIMIT = { ttl: 60_000, limit: 100 };
     }),
     ClientApiModule,
     AdminApiModule,
+    // /api/webhooks/... (outside services such as Meta)
+    WebhookApiModule,
     // /api/v1/... for the native app, /api/admin/... for the back-office
     RouterModule.register([
       { path: 'v1', module: ClientApiModule },
