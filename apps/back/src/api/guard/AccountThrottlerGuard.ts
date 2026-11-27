@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   InjectThrottlerOptions,
@@ -26,6 +26,11 @@ export class AccountThrottlerGuard extends ThrottlerGuard {
     private readonly adminTokens: AdminTokenService,
   ) {
     super(options, storage, reflector);
+  }
+
+  /** WebSocket messages (positions every 5 s) are not counted: the connection itself needs a valid token. */
+  override canActivate(context: ExecutionContext): Promise<boolean> {
+    return context.getType() === 'http' ? super.canActivate(context) : Promise.resolve(true);
   }
 
   protected override async getTracker(request: Record<string, unknown>): Promise<string> {

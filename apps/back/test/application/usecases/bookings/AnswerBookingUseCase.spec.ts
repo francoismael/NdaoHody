@@ -47,3 +47,15 @@ describe('AnswerBookingUseCase', () => {
     await expect(answer.accept(makeUser({ id: 2 }), booking.id)).rejects.toMatchObject({ reason: 'not_found' });
   });
 });
+
+describe('AnswerBookingUseCase: real time', () => {
+  it('the driver sees a new request at once, the passenger sees the answer at once', async () => {
+    const { request, answer, realtime } = setupBookings();
+    const booking = await request.create(PASSENGER, REQUEST);
+    expect(realtime.eventsFor(1)).toContain('booking-requested');
+
+    await answer.accept(DRIVER, booking.id);
+
+    expect(realtime.eventsFor(9)).toContain('booking-updated');
+  });
+});

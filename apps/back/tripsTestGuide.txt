@@ -1,0 +1,303 @@
+NDAOHODY — TESTER LES ÉTAPES 6 À 9 (PUBLIER, RECHERCHER, RÉSERVER, SUIVRE)
+À faire dans l'ordre, dans Postman. Chaque requête utilise ce que la précédente a renvoyé.
+
+[TOKEN CHAUFFEUR]  = Authorization -> Bearer Token -> accessToken du chauffeur (034 00 000 03)
+[TOKEN PASSAGER 1] = accessToken du passager 1 (034 00 000 11)
+[TOKEN PASSAGER 2] = accessToken du passager 2 (034 00 000 07)
+Les GET : copier l'URL complète, Body = none. Les POST / PATCH : Body -> raw -> JSON.
+Un accessToken dure 15 min : en cas de 401, refaire la connexion de ce compte.
+
+
+==============================================================
+ 0. PRÉPARER
+==============================================================
+
+1. Remettre les données de démo à zéro :   npm run db:seed
+2. Démarrer le back :                      npx nx serve back
+   (la nouvelle migration s'applique toute seule ; les trajets de démo prévus dans le passé
+    sont annulés automatiquement dans la première minute : c'est normal)
+
+POST http://localhost:3000/api/v1/auth/otp
+-> Code SMS pour le CHAUFFEUR (Rabe Andry, chauffeur validé, voiture 1357 TBD). Le code s'affiche dans le terminal.
+{
+  "telephone": "034 00 000 03"
+}
+
+POST http://localhost:3000/api/v1/auth/otp/verify
+-> Connexion du chauffeur. Copier l'accessToken : c'est le TOKEN CHAUFFEUR.
+{
+  "telephone": "034 00 000 03",
+  "code": "code reçu dans le terminal du back"
+}
+
+Refaire ces 2 requêtes avec 034 00 000 11 (TOKEN PASSAGER 1), puis avec 034 00 000 07 (TOKEN PASSAGER 2).
+
+
+==============================================================
+ ÉTAPE 6 — PUBLIER UN TRAJET                      [TOKEN CHAUFFEUR]
+==============================================================
+
+GET http://localhost:3000/api/v1/me/vehicles
+-> Les véhicules du chauffeur. Attendu : 1 voiture "valide" (avec un seul véhicule validé,
+   il est pris tout seul à la publication, sans choix à faire).
+(pas de body)
+
+POST http://localhost:3000/api/v1/trips
+-> Publie un trajet qui part MAINTENANT, d'Andoharanofotsy à Analakely.
+   Attendu : 201, statut "en_route", placesLibres 3, un "chemin" calculé par le back.
+   NOTER SON "id" : c'est le TRAJET IMMÉDIAT de la suite.
+{
+  "type": "immediat",
+  "depart": { "libelle": "Andoharanofotsy, rond-point", "latitude": -18.9850, "longitude": 47.5330 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 3
+}
+
+POST http://localhost:3000/api/v1/trips
+-> Même requête une 2e fois : 409 "Tu as déjà un trajet en route" (un seul trajet en route à la fois).
+{
+  "type": "immediat",
+  "depart": { "libelle": "Andoharanofotsy, rond-point", "latitude": -18.9850, "longitude": 47.5330 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 3
+}
+
+POST http://localhost:3000/api/v1/trips
+-> Publie un trajet PRÉVU demain matin, d'Ivato à Analakely. Attendu : 201, statut "publie".
+   NOTER SON "id" : c'est le TRAJET PRÉVU de la suite.
+{
+  "type": "a_l_avance",
+  "depart": { "libelle": "Ivato, aéroport", "latitude": -18.7969, "longitude": 47.4788 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 3,
+  "dateDepart": "demain à 7h30, ex. 2026-11-28T07:30:00+03:00"
+}
+
+POST http://localhost:3000/api/v1/trips
+-> Trajet prévu dans 20 jours : 400 "Un trajet se publie au plus 15 jours à l'avance."
+{
+  "type": "a_l_avance",
+  "depart": { "libelle": "Ivato, aéroport", "latitude": -18.7969, "longitude": 47.4788 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 3,
+  "dateDepart": "une date dans 20 jours, ex. 2026-12-17T07:30:00+03:00"
+}
+
+POST http://localhost:3000/api/v1/trips
+-> Plus de places que la voiture : 400 "Ce véhicule a 3 place(s) passager au plus."
+{
+  "type": "a_l_avance",
+  "depart": { "libelle": "Ivato, aéroport", "latitude": -18.7969, "longitude": 47.4788 },
+  "arrivee": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "placesTotal": 6,
+  "dateDepart": "après-demain à 7h30, ex. 2026-11-29T07:30:00+03:00"
+}
+
+GET http://localhost:3000/api/v1/me/trips
+-> Les trajets du chauffeur : le trajet immédiat et le trajet prévu, le plus récent d'abord.
+(pas de body)
+
+GET http://localhost:3000/api/v1/me/trips/active
+-> Le trajet en route : le TRAJET IMMÉDIAT.
+(pas de body)
+
+PATCH http://localhost:3000/api/v1/trips/{id du TRAJET PRÉVU}
+-> Change l'heure et les places avant le départ. Attendu : 200, dateDepart et placesTotal changés.
+{
+  "dateDepart": "demain à 8h00, ex. 2026-11-28T08:00:00+03:00",
+  "placesTotal": 2
+}
+
+POST http://localhost:3000/api/v1/trips/{id du TRAJET PRÉVU}/start
+-> « Je pars » trop tôt : 409 "Trop tôt : tu pourras partir 30 min avant l'heure prévue."
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 7 — RECHERCHER                             [TOKEN PASSAGER 1]
+==============================================================
+
+Un chauffeur sans position depuis 2 minutes passe hors ligne et disparaît des recherches
+(étape 9). Les trajets de démo n'envoient pas de position : ils n'apparaissent plus.
+Juste avant de chercher, le chauffeur envoie donc sa position :
+
+POST http://localhost:3000/api/v1/me/position                          [TOKEN CHAUFFEUR]
+-> Le chauffeur est au départ de son TRAJET IMMÉDIAT (Andoharanofotsy) : il reste en ligne 2 minutes.
+{
+  "latitude": -18.9850,
+  "longitude": 47.5330
+}
+
+POST http://localhost:3000/api/v1/trips/search
+-> Tanjombato -> Analakely, maintenant (moins de 2 minutes après la position ci-dessus).
+   Attendu : 200 avec le TRAJET IMMÉDIAT (Andry).
+   Chaque résultat : arriveeDansMinutes, distanceMetres, prixParPlace, prixTotal, sans téléphone.
+   Pour la suite, garder du résultat du TRAJET IMMÉDIAT : "priseEnCharge" et "depose".
+{
+  "depart": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "destination": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "places": 1,
+  "quand": "maintenant"
+}
+
+POST http://localhost:3000/api/v1/trips/search
+-> Le sens inverse, Analakely -> Tanjombato : ni le trajet n°1, ni le TRAJET IMMÉDIAT
+   (le passager doit monter AVANT de descendre, dans le sens du chauffeur).
+{
+  "depart": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "destination": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "places": 1,
+  "quand": "maintenant"
+}
+
+POST http://localhost:3000/api/v1/trips/search
+-> Plus tard : le TRAJET PRÉVU passe à Ivato vers 8h00. Attendu : il apparaît, avec "heurePassage".
+{
+  "depart": { "libelle": "Ivato, aéroport", "latitude": -18.7969, "longitude": 47.4788 },
+  "destination": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 },
+  "places": 1,
+  "quand": "demain à 8h00, la même heure que le TRAJET PRÉVU, ex. 2026-11-28T08:00:00+03:00"
+}
+
+
+==============================================================
+ ÉTAPE 8 — RÉSERVER
+==============================================================
+
+--- Demande acceptée ---
+
+POST http://localhost:3000/api/v1/reservations                         [TOKEN PASSAGER 1]
+-> Demande 1 place sur le TRAJET IMMÉDIAT. Attendu : 201, statut "en_attente",
+   prixParPlace / prixTotal calculés par le back, dateExpiration = maintenant + 3 min.
+   NOTER SON "id" : c'est la DEMANDE 1.
+{
+  "trajetId": "id du TRAJET IMMÉDIAT (nombre)",
+  "places": 1,
+  "priseEnCharge": "priseEnCharge du résultat de recherche du TRAJET IMMÉDIAT",
+  "depose": "depose du résultat de recherche du TRAJET IMMÉDIAT"
+}
+
+GET http://localhost:3000/api/v1/me/requests                           [TOKEN CHAUFFEUR]
+-> Les demandes qui attendent le chauffeur. Attendu : la DEMANDE 1.
+   À faire en moins de 3 minutes après la demande, sinon elle expire.
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/accept   [TOKEN CHAUFFEUR]
+-> Le chauffeur accepte. Attendu : 200, statut "acceptee".
+(pas de body)
+
+GET http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}         [TOKEN CHAUFFEUR]
+-> Les places ont été retirées : placesLibres passe de 3 à 2.
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/cancel   [TOKEN PASSAGER 1]
+-> Le passager essaie d'annuler après l'acceptation : 409
+   "Tu ne peux plus annuler : le chauffeur a déjà répondu."
+(pas de body)
+
+GET http://localhost:3000/api/v1/me/reservations                       [TOKEN PASSAGER 1]
+-> Les réservations du passager : la DEMANDE 1, statut "acceptee".
+(pas de body)
+
+--- Suivi en direct (étape 9) : le chauffeur avance, les minutes baissent ---
+
+POST http://localhost:3000/api/v1/me/position                          [TOKEN CHAUFFEUR]
+-> Le chauffeur est encore loin, près du départ.
+{
+  "latitude": -18.9820,
+  "longitude": 47.5320
+}
+
+GET http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/tracking   [TOKEN PASSAGER 1]
+-> L'écran de suivi : positionChauffeur, cheminVersPassager, arriveeDansMinutes, distanceMetres,
+   et les deux numéros de téléphone (visibles maintenant que la demande est acceptée).
+   NOTER "arriveeDansMinutes" et "distanceMetres".
+(pas de body)
+
+POST http://localhost:3000/api/v1/me/position                          [TOKEN CHAUFFEUR]
+-> Le chauffeur a avancé, il est presque à Tanjombato.
+{
+  "latitude": -18.9650,
+  "longitude": 47.5290
+}
+
+GET http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/tracking   [TOKEN PASSAGER 1]
+-> Attendu : "arriveeDansMinutes" et "distanceMetres" plus petits qu'avant, et le chemin plus court.
+(pas de body)
+
+--- Demande refusée ---
+
+POST http://localhost:3000/api/v1/reservations                         [TOKEN PASSAGER 2]
+-> Le passager 2 demande 1 place sur le même TRAJET IMMÉDIAT. NOTER SON "id" : c'est la DEMANDE 2.
+{
+  "trajetId": "id du TRAJET IMMÉDIAT (nombre)",
+  "places": 1,
+  "priseEnCharge": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "depose": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 }
+}
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 2}/refuse   [TOKEN CHAUFFEUR]
+-> Le chauffeur refuse avec un motif. Attendu : 200, statut "refusee".
+{
+  "motif": "raison du refus, ex. Je ne passe plus par là"
+}
+
+GET http://localhost:3000/api/v1/reservations/{id de la DEMANDE 2}/refusal-reason   [TOKEN PASSAGER 2]
+-> Le passager voit le motif : { "motif": "Je ne passe plus par là" }.
+(pas de body)
+
+--- Demande qui expire, puis relance ---
+
+POST http://localhost:3000/api/v1/reservations                         [TOKEN PASSAGER 2]
+-> Nouvelle demande du passager 2 sur le même trajet. NOTER SON "id" : c'est la DEMANDE 3.
+   Puis NE RIEN FAIRE pendant 3 minutes et 15 secondes.
+{
+  "trajetId": "id du TRAJET IMMÉDIAT (nombre)",
+  "places": 1,
+  "priseEnCharge": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "depose": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 }
+}
+
+GET http://localhost:3000/api/v1/reservations/{id de la DEMANDE 3}     [TOKEN PASSAGER 2]
+-> Après 3 min sans réponse : statut "expiree".
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 3}/accept   [TOKEN CHAUFFEUR]
+-> Accepter une demande expirée : 409 "Cette demande a expiré : le passager peut la relancer."
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 3}/retry    [TOKEN PASSAGER 2]
+-> Relance la même demande au même chauffeur (2 fois au plus). Attendu : 201, nouvelle demande
+   "en_attente" avec "relanceDe" = id de la DEMANDE 3. NOTER SON "id" : c'est la DEMANDE 4.
+(pas de body)
+
+--- Annulations ---
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 4}/cancel   [TOKEN PASSAGER 2]
+-> Le passager annule AVANT la réponse du chauffeur : autorisé. Attendu : statut "annulee_passager".
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/cancel   [TOKEN CHAUFFEUR]
+-> Le chauffeur annule le passager 1 (pas encore monté) : autorisé. Attendu : statut "annulee_chauffeur".
+(pas de body)
+
+GET http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}         [TOKEN CHAUFFEUR]
+-> La place est revenue : placesLibres repasse à 3.
+(pas de body)
+
+POST http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}/cancel    [TOKEN CHAUFFEUR]
+-> Le chauffeur annule tout son trajet. Attendu : statut "annule".
+(pas de body)
+
+
+==============================================================
+ SI ÇA NE MARCHE PAS
+==============================================================
+
+401 -> le token de ce compte a expiré (15 min) : refaire sa connexion (partie 0).
+400 "property ... should not exist" -> un champ en trop dans le body (ex. "chemin" sur /trips).
+400 "Ta prise en charge et ta dépose doivent être sur le chemin du chauffeur"
+    -> reprendre exactement "priseEnCharge" et "depose" du résultat de /trips/search.
+409 "Tu as déjà une demande en cours sur ce trajet" -> ce passager a déjà une demande active ici.
+500 -> envoyer l'erreur affichée dans le terminal du back (une requête SQL a pu échouer).
+503 -> Mapbox ne répond pas (Internet, MAPBOX_ACCESS_TOKEN).

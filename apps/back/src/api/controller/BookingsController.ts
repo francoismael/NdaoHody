@@ -8,12 +8,13 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Reservation } from '@contract';
+import type { Reservation, SuiviReservation } from '@contract';
 import { ApiErrorResponse } from '../../application/dto/ApiErrorResponse';
 import { CreateBookingRequest, RefuseBookingRequest } from '../../application/dto/BookingRequests';
 import { AnswerBookingUseCase } from '../../application/usecases/bookings/AnswerBookingUseCase';
 import { ManageBookingsUseCase } from '../../application/usecases/bookings/ManageBookingsUseCase';
 import { RequestBookingUseCase } from '../../application/usecases/bookings/RequestBookingUseCase';
+import { GetTrackingUseCase } from '../../application/usecases/tracking/GetTrackingUseCase';
 import type { User } from '../../domain/entity/User';
 import { Authenticated, CurrentUser } from '../decorator/AuthenticatedDecorators';
 
@@ -29,6 +30,7 @@ export class BookingsController {
     private readonly requestBooking: RequestBookingUseCase,
     private readonly answerBooking: AnswerBookingUseCase,
     private readonly bookings: ManageBookingsUseCase,
+    private readonly tracking: GetTrackingUseCase,
   ) {}
 
   @Post()
@@ -42,6 +44,12 @@ export class BookingsController {
   @ApiOkResponse({ description: 'The booking (passenger or driver of the trip only).' })
   get(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Reservation> {
     return this.bookings.get(user, id);
+  }
+
+  @Get(':id/tracking')
+  @ApiOkResponse({ description: 'Tracking screen (SuiviReservation): driver position, road to the pickup point, minutes. After acceptance.' })
+  track(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<SuiviReservation> {
+    return this.tracking.execute(user, id);
   }
 
   @Get(':id/refusal-reason')

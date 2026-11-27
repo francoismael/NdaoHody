@@ -1,7 +1,9 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import type { Reservation, Trajet } from '@contract';
+import { PositionRequest } from '../../application/dto/GeoRequests';
 import { ManageBookingsUseCase } from '../../application/usecases/bookings/ManageBookingsUseCase';
+import { ShareDriverPositionUseCase } from '../../application/usecases/tracking/ShareDriverPositionUseCase';
 import { ManageTripsUseCase } from '../../application/usecases/trips/ManageTripsUseCase';
 import type { User } from '../../domain/entity/User';
 import { Authenticated, CurrentUser } from '../decorator/AuthenticatedDecorators';
@@ -14,7 +16,17 @@ export class MyRidesController {
   constructor(
     private readonly trips: ManageTripsUseCase,
     private readonly bookings: ManageBookingsUseCase,
+    private readonly driverPosition: ShareDriverPositionUseCase,
   ) {}
+
+  @Post('position')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({
+    description: 'The driver’s position (same as the WebSocket "driver-position"): passengers receive "tracking-update".',
+  })
+  sharePosition(@CurrentUser() user: User, @Body() body: PositionRequest): Promise<void> {
+    return this.driverPosition.execute(user, { latitude: body.latitude, longitude: body.longitude });
+  }
 
   @Get('trips')
   @ApiOkResponse({ description: 'Trips published by the driver, newest departure first.' })

@@ -3,6 +3,7 @@ import { bestEffort } from '../../application/helper/bestEffort';
 import { SECOND_MS } from '../../application/helper/durations';
 import {
   BOOKING_JOB_EVERY_SECONDS,
+  POSITION_JOB_EVERY_SECONDS,
   RunRideJobsUseCase,
   TRIP_JOB_EVERY_SECONDS,
 } from '../../application/usecases/jobs/RunRideJobsUseCase';
@@ -22,6 +23,7 @@ export class RideJobsScheduler implements OnApplicationBootstrap, OnApplicationS
 
   onApplicationBootstrap(): void {
     this.every('bookings', BOOKING_JOB_EVERY_SECONDS, () => this.jobs.expireBookings());
+    this.every('positions', POSITION_JOB_EVERY_SECONDS, () => this.jobs.markDriversOffline());
     this.every('trips', TRIP_JOB_EVERY_SECONDS, () => this.jobs.handleTrips());
   }
 

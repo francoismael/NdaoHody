@@ -10,6 +10,7 @@ import { TripRepository } from '../../../domain/repository/TripRepository';
 import { notifyBestEffort } from '../../helper/bestEffort';
 import { toReservation } from '../../helper/rideViews';
 import { Clock } from '../../port/Clock';
+import { RealtimePublisher } from '../../port/RealtimePublisher';
 import { UnitOfWork } from '../../port/UnitOfWork';
 import { UserNotifier } from '../../port/UserNotifier';
 
@@ -30,6 +31,7 @@ export class AnswerBookingUseCase {
     private readonly trips: TripRepository,
     private readonly conversations: ConversationRepository,
     private readonly notifier: UserNotifier,
+    private readonly realtime: RealtimePublisher,
     private readonly unitOfWork: UnitOfWork,
     private readonly clock: Clock,
   ) {}
@@ -50,6 +52,7 @@ export class AnswerBookingUseCase {
       return changed;
     });
 
+    this.realtime.toUser(booking.passagerId, 'booking-updated', toReservation(accepted));
     await notifyBestEffort(this.logger, this.notifier, {
       utilisateurId: booking.passagerId,
       type: 'demande_acceptee',
@@ -71,6 +74,7 @@ export class AnswerBookingUseCase {
       throw new DomainException('conflict', ALREADY_ANSWERED_MESSAGE);
     }
 
+    this.realtime.toUser(booking.passagerId, 'booking-updated', toReservation(refused));
     await notifyBestEffort(this.logger, this.notifier, {
       utilisateurId: booking.passagerId,
       type: 'demande_refusee',

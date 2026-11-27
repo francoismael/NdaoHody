@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Position, StatutTrajet } from '@contract';
+import type { Chemin, Position, StatutTrajet } from '@contract';
 import { And, LessThan, MoreThanOrEqual } from 'typeorm';
 import { ACTIVE_BOOKING_STATUSES } from '../../../../domain/entity/Booking';
 import { BOOKABLE_STATUSES, ON_THE_ROAD_STATUSES, type NewTrip, type Trip, type TripChanges } from '../../../../domain/entity/Trip';
@@ -122,6 +122,28 @@ export class TypeOrmTripRepository extends TripRepository {
         ACTIVE_BOOKING_STATUSES,
       ],
     );
+  }
+
+  async pathBetween(tripId: number, from: Position, to: Position): Promise<{ chemin: Chemin; distanceMetres: number } | null> {
+    const rows: { chemin: string | null; distance: number | null }[] = await this.context.manager().query(
+      `WITH t AS (SELECT chemin_geo::geometry AS g FROM trajet WHERE id = $1),
+       f AS (
+         SELECT g,
+                ST_LineLocatePoint(g, ST_SetSRID(ST_MakePoint($2, $3), 4326)) AS a,
+                ST_LineLocatePoint(g, ST_SetSRID(ST_MakePoint($4, $5), 4326)) AS b
+         FROM t
+       )
+       SELECT CASE WHEN a < b THEN ST_AsGeoJSON(ST_LineSubstring(g, a, b)) END AS chemin,
+              CASE WHEN a < b THEN ST_Length(ST_LineSubstring(g, a, b)::geography) END AS distance
+       FROM f`,
+      [tripId, from.longitude, from.latitude, to.longitude, to.latitude],
+    );
+    const row = rows[0];
+    if (!row?.chemin || row.distance === null) {
+      return null;
+    }
+    const geometry = JSON.parse(row.chemin) as { coordinates: Chemin };
+    return { chemin: geometry.coordinates, distanceMetres: Math.round(Number(row.distance)) };
   }
 
   async measure(tripId: number, priseEnCharge: Position, depose: Position, margeMetres: number): Promise<TripMatch | null> {

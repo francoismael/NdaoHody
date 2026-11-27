@@ -91,9 +91,11 @@
     "@nestjs/jwt": "^12.0.5",
     "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.2.12",
     "@nestjs/swagger": "^11.4.8",
     "@nestjs/throttler": "^6.8.0",
     "@nestjs/typeorm": "^11.0.3",
+    "@nestjs/websockets": "^11.2.12",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@rnmapbox/maps": "^10.3.19",
     "@tanstack/query-async-storage-persister": "^5.108.4",
@@ -130,6 +132,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "sharp": "^0.35.5",
+    "socket.io": "^4.8.4",
     "typeorm": "^0.3.31",
     "zustand": "^5.1.0"
   }

@@ -240,7 +240,8 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 
   - prix total = prix d'une place × places (ex. 3 places en voiture sur 12 km → 10 800 Ar)
 - [x] Chauffeur prévenu (historique des notifications MongoDB)
-- [ ] Chauffeur prévenu en direct : push FCM (étape 12) et WebSocket (étape 9)
+- [x] Chauffeur prévenu en direct par WebSocket (`booking-requested`, étape 9)
+- [ ] Chauffeur prévenu par push FCM quand l'app est fermée (étape 12)
 - [x] `POST /reservations/:id/accept` : places retirées en une seule opération (jamais deux fois la même place) ; la discussion s'ouvre
 - [x] `POST /reservations/:id/refuse` avec un motif ; notification au passager ; `GET /reservations/:id/refusal-reason`
 - [x] Tâche toutes les 15 s : sans réponse en 3 min → `expiree`, passager prévenu, demande retirée de l'écran du chauffeur (`GET /me/requests`)
@@ -256,13 +257,15 @@ A ●━━━━━━━━━● B ━━━━━━━━━● C ━━━
 
 ## Étape 9 — Suivi en direct
 
-- [ ] Passerelle WebSocket protégée par le JWT, une salle par trajet et par réservation
-- [ ] Le chauffeur envoie sa position toutes les 5 s → `position_chauffeur`
-- [ ] Après acceptation, le passager reçoit : position du chauffeur, chemin jusqu'à lui, minutes avant l'arrivée
-- [ ] Le chauffeur reçoit la position du passager et le chemin jusqu'à lui
-- [ ] GPS obligatoire : sans position récente → « Active ta localisation »
-- [ ] Chauffeur hors ligne après 2 min sans position (disparaît des recherches)
-- [ ] Secours sans WebSocket : `GET /reservations/:id/suivi` (`SuiviReservation`)
+- [x] Passerelle WebSocket (Socket.IO, namespace `/live`) protégée par le JWT de l'app ; chaque connexion rejoint seulement la salle de **son compte** (`user:<id>`) : on ne reçoit que ce qui concerne ses trajets et réservations
+- [x] Le chauffeur envoie sa position toutes les 5 s (événement `driver-position`, ou `POST /me/position`) → `position_chauffeur`
+- [x] Après acceptation, le passager reçoit `tracking-update` (`MiseAJourSuivi`) : position du chauffeur, chemin jusqu'à lui, minutes avant l'arrivée (Mapbox via `EtaService`, sinon estimées avec la route si Mapbox ne répond pas)
+- [x] Le chauffeur reçoit la position du passager (`passenger-position`, jamais enregistrée) et le même `tracking-update` avec le chemin jusqu'à lui
+- [x] GPS obligatoire : chauffeur sans position depuis 2 min → événement `location-required` « Active ta localisation »
+- [x] Chauffeur hors ligne après 2 min sans position (tâche toutes les 30 s) : il disparaît des recherches
+- [x] Secours sans WebSocket : `GET /reservations/:id/tracking` (`SuiviReservation`, téléphones visibles après acceptation)
+- [x] Réservations en direct (reste de l'étape 8) : `booking-requested` au chauffeur, `booking-updated` (acceptée, refusée, expirée, annulée) au passager et au chauffeur
+- [ ] App mobile : se connecter à `/live`, envoyer `driver-position` / `passenger-position`, écouter les événements (liste dans `data-objets.ts`)
 
 **Fini quand** : le passager voit le chauffeur avancer et les minutes baisser.
 

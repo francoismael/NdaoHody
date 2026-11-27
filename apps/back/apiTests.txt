@@ -1,4 +1,4 @@
-NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 8)
+NDAOHODY — API DU BACK, PAR ÉTAPE (ROADMAP-BACK.md, étapes 0 à 9)
 Adresse de base : http://localhost:3000
 Swagger : http://localhost:3000/api/docs
 
@@ -455,6 +455,45 @@ POST http://localhost:3000/api/v1/reservations/{id de la réservation}/cancel   
    Chauffeur : peut annuler un passager jusqu'à sa montée ; les places reviennent au trajet.
    L'autre est prévenu.
 (pas de body)
+
+
+==============================================================
+ ÉTAPE 9 — SUIVI EN DIRECT                        [TOKEN APP]
+==============================================================
+
+Un chauffeur sans position depuis 2 minutes passe hors ligne : il disparaît des recherches.
+Pendant les tests, envoyer sa position (POST /me/position) juste avant de chercher.
+
+POST http://localhost:3000/api/v1/me/position                          [chauffeur]
+-> Envoie la position du chauffeur (le téléphone le fait toutes les 5 s par WebSocket).
+   Le chauffeur reste en ligne, et chaque passager accepté de son trajet reçoit en direct
+   la position, le chemin jusqu'à lui et les minutes avant l'arrivée.
+{
+  "latitude": -18.9750,
+  "longitude": 47.5310
+}
+
+GET http://localhost:3000/api/v1/reservations/{id d'une réservation acceptée}/tracking
+-> L'écran de suivi en entier (passager ou chauffeur de ce trajet, après acceptation) :
+   position du chauffeur, chemin jusqu'au point de prise en charge, minutes avant l'arrivée,
+   distance (moins de 500 m : bouton « Je suis sur place » à l'étape 10), et les deux téléphones.
+   Avant l'acceptation : 409.
+(pas de body)
+
+--- WebSocket (Socket.IO), pour l'app mobile ---
+
+Adresse     : http://localhost:3000/live   (Socket.IO, namespace "/live")
+Connexion   : auth = { "token": "accessToken de l'app" }  — sans token valide, la connexion est fermée
+Envoyer     : "driver-position"     { "latitude": ..., "longitude": ... }               (chauffeur, toutes les 5 s)
+              "passenger-position"  { "reservationId": ..., "latitude": ..., "longitude": ... }  (passager)
+              Réponse (acquittement) : { "ok": true } ou { "ok": false, "message": "..." }
+Recevoir    : "tracking-update"     MiseAJourSuivi   (passager et chauffeur)
+              "passenger-position"  PositionPassager (chauffeur)
+              "booking-requested"   Reservation      (chauffeur : nouvelle demande)
+              "booking-updated"     Reservation      (acceptée, refusée, expirée, annulée)
+              "location-required"   { "message": "..." } (chauffeur sans position depuis 2 min)
+Test dans Postman : New -> Socket.IO, URL ci-dessus, onglet "Handshake" / "Auth" : { "token": "..." },
+puis écouter les événements ci-dessus (onglet "Events") et envoyer "driver-position".
 
 
 ==============================================================
