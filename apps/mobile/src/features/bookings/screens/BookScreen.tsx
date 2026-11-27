@@ -119,7 +119,7 @@ export function BookScreen() {
   };
 
   /*
-   * Said in the picker before choosing (same 800 m rule as the server: spanOnPath); the server
+   * Said in the picker before choosing (same walk rule as the server: spanOnPath, PICKUP_MAX_WALK_METRES); the server
    * checks again. Only the point being picked is judged against the other one.
    */
   const checkPickup = (point: LngLat): string | null => {
@@ -286,6 +286,7 @@ export function BookScreen() {
             near={depose ?? here}
             selected={depose ? chosen(depose) : null}
             route={route}
+            overview
             check={checkDrop}
             onSelect={(place) => {
               setChosenDrop(place);

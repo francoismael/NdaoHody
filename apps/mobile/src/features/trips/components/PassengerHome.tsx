@@ -12,7 +12,7 @@ import { bookingHref, driverProfileHref, type BookingLink } from '../bookingLink
 import type { LocationState } from '../hooks/useLocationIssue';
 import { useDemoPosition, useTripsAround } from '../hooks/useTrips';
 import type { PassingDriver } from '../types';
-import { LocationPrompt } from './LocationPrompt';
+import { LocationPrompt, LocationVeil } from './LocationPrompt';
 import { PassingDriverRow } from './PassingDriverRow';
 
 /** The list never takes more than this share of the screen: the passenger's point stays visible. */
@@ -150,12 +150,15 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
       </AppMap>
 
       {issue ? (
-        // No position: a card in the middle of the map, no list (drivers need the passenger's point).
-        <View style={s.promptArea} pointerEvents="box-none">
-          <LocationPrompt issue={issue}>
-            <Button label="Rechercher un trajet" icon="search" variant="secondary" onPress={search} />
-          </LocationPrompt>
-        </View>
+        // No position: a veil over the whole map, the prompt in the middle, no list (drivers need the passenger's point).
+        <>
+          <LocationVeil home="passenger" />
+          <View style={s.promptArea} pointerEvents="box-none">
+            <LocationPrompt issue={issue}>
+              <Button label="Rechercher un trajet" icon="search" variant="ghost" onPress={search} />
+            </LocationPrompt>
+          </View>
+        </>
       ) : (
         <View style={s.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
           {checking ? (
@@ -259,7 +262,8 @@ const createStyles = ({ colors, typography, spacing, gutter, radii, shadows }: T
       backgroundColor: colors.surface,
       boxShadow: shadows.card,
     },
-    promptArea: { ...StyleSheet.absoluteFill, justifyContent: 'center', paddingHorizontal: gutter },
+    // A little below the middle: lines up with the notifications dialog (centered on the whole window).
+    promptArea: { ...StyleSheet.absoluteFill, justifyContent: 'center', paddingHorizontal: gutter, paddingTop: spacing[10] },
     block: { gap: spacing[3] },
     actions: { gap: spacing[2] },
     loading: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

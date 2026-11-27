@@ -1,68 +1,65 @@
-import { useMemo, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState, type ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { useTheme, type Theme } from '@/shared/theme';
-import { Button, Icon } from '@/shared/ui';
+import { Button, PromptCard } from '@/shared/ui';
 
-import type { LocationIssue } from '../hooks/useLocationIssue';
+import type { LocationIssue, LocationStep } from '../hooks/useLocationIssue';
 
 type LocationPromptProps = {
   issue: LocationIssue;
-  /** More actions under the main one (e.g. "Rechercher un trajet"). */
+  /** More actions under the steps (e.g. "Rechercher un trajet"). */
   children?: ReactNode;
+  /** The short note and the buttons, all secondary: no icon nor title (driver home). */
+  plain?: boolean;
+  /** With `plain`: the shortest note (little map left above a tall panel). */
+  short?: boolean;
 };
 
 /**
- * The position is off: a card in the middle of the map (the map stays visible around it),
- * an info icon, why it matters, and the one action that fixes it.
+ * The position is off: in the middle of the map, why it matters and a button per step still
+ * to do (permission, then GPS). No card of its own: it sits on the LocationVeil.
  */
-export function LocationPrompt({ issue, children }: LocationPromptProps) {
-  const theme = useTheme();
-  const s = useMemo(() => createStyles(theme), [theme]);
+export function LocationPrompt({ issue, children, plain = false, short = false }: LocationPromptProps) {
+  // The step whose action is running (refused GPS box: the spinner stops, the button stays).
+  const [running, setRunning] = useState<string | null>(null);
+  const press = async (step: LocationStep) => {
+    if (step.waits) setRunning(step.label);
+    try {
+      await step.onPress();
+    } finally {
+      setRunning(null);
+    }
+  };
   return (
-    <View style={s.card} accessibilityRole="alert">
-      <View style={s.tile}>
-        <Icon name="info-circle" size="lg" tone="accent" />
-      </View>
-      <Text style={s.title} accessibilityRole="header">
-        {issue.title}
-      </Text>
-      <Text style={s.text}>{issue.text}</Text>
-      <View style={s.actions}>
-        <Button label={issue.action} icon={issue.icon} onPress={issue.onPress} />
-        {children}
-      </View>
-    </View>
+    <PromptCard title={plain ? undefined : issue.title} text={plain ? (short ? issue.shortNote : issue.note) : issue.text} bare>
+      {/* One main action: the first step left; the other one, if any, in secondary (plain: all secondary). */}
+      {issue.steps.map((step, index) => (
+        <Button
+          key={step.label}
+          label={step.label}
+          icon={step.icon}
+          variant={index === 0 && !plain ? 'primary' : 'secondary'}
+          loading={running === step.label}
+          onPress={() => void press(step)}
+        />
+      ))}
+      {children}
+    </PromptCard>
   );
 }
 
-/** Not wider than this on a big screen: it reads as a dialog, not a page. */
-const CARD_MAX_WIDTH = 360;
+/** The map stays faintly visible under the veil; a little more covered on the passenger home (title and longer text). */
+const VEIL_OPACITY = { driver: 0.75, passenger: 0.98 } as const;
 
-const createStyles = ({ colors, typography, spacing, radii, shadows }: Theme) =>
+/** While the position is off: a veil over the whole map, the prompt on top. Touches go through. */
+export function LocationVeil({ home }: { home: keyof typeof VEIL_OPACITY }) {
+  const theme = useTheme();
+  const s = useMemo(() => createStyles(theme), [theme]);
+  return <View style={[s.veil, { opacity: VEIL_OPACITY[home] }]} pointerEvents="none" />;
+}
+
+const createStyles = ({ colors }: Theme) =>
   StyleSheet.create({
-    card: {
-      width: '100%',
-      maxWidth: CARD_MAX_WIDTH,
-      alignSelf: 'center',
-      alignItems: 'center',
-      gap: spacing[3],
-      padding: spacing[5],
-      borderRadius: radii.xl,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.surface,
-      boxShadow: shadows.card,
-    },
-    tile: {
-      width: spacing[10] + spacing[4],
-      height: spacing[10] + spacing[4],
-      borderRadius: radii.full,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.accentSurface,
-    },
-    title: { ...typography.subheading, color: colors.text, textAlign: 'center' },
-    text: { ...typography.small, color: colors.textMuted, textAlign: 'center' },
-    actions: { alignSelf: 'stretch', gap: spacing[2], marginTop: spacing[1] },
+    veil: { ...StyleSheet.absoluteFill, backgroundColor: colors.surface },
   });

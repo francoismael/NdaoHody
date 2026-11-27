@@ -21,11 +21,12 @@ export const PLAN_STEP_MINUTES = 15;
 export const PLAN_SUGGESTED_MINUTES = [6 * 60, 7 * 60, 12 * 60, 17 * 60, 18 * 60] as const;
 
 /**
- * A driver "passes near" a passenger when his path comes this close (a ~10 min walk
+ * A driver "passes near" a passenger when his path comes this close (a ~3 min walk
  * to the road). The ONE threshold of the matching, read by the simulated server for
- * the passenger home and the search (tomorrow: the API).
+ * the passenger home, the search and the booking (tomorrow: the API).
+ * 27/11: 800 → 200 m (decided in bloc 8). GAP #11: the back only allows a 30 m GPS margin.
  */
-export const PICKUP_MAX_WALK_METRES = 800;
+export const PICKUP_MAX_WALK_METRES = 200;
 
 /**
  * Search time window, measured on WHEN THE DRIVER PASSES THE PASSENGER'S POINT

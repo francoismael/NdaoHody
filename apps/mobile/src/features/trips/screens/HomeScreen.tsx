@@ -8,7 +8,7 @@ import { AppMap, PlaceLabel, RouteLine, type MapFit } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 
 import { DriverHomePanel } from '../components/DriverHomePanel';
-import { LocationPrompt } from '../components/LocationPrompt';
+import { LocationPrompt, LocationVeil } from '../components/LocationPrompt';
 import { PassengerHome } from '../components/PassengerHome';
 import { useLocationIssue, type LocationState } from '../hooks/useLocationIssue';
 import { usePublishAccess } from '../hooks/usePublishAccess';
@@ -44,6 +44,9 @@ export function HomeScreen() {
     </View>
   );
 }
+
+/** Past this many trips the panel is tall: the location card keeps only its shortest line. */
+const MANY_TRIPS = 3;
 
 /** Driver home: the panel with his coming trips at the bottom (the touched one on the map); no position: a card on the map. */
 function DriverHome({ located, issue }: LocationState) {
@@ -84,13 +87,15 @@ function DriverHome({ located, issue }: LocationState) {
         {openTrip ? <PlaceLabel id="driver-trip-depart" coordinate={openTrip.chemin[0]} label="Départ" /> : null}
         {openTrip ? <PlaceLabel id="driver-trip-arrivee" coordinate={openTrip.chemin[openTrip.chemin.length - 1]} label="Arrivée" /> : null}
       </AppMap>
+      {/* No position: a veil over the whole map (under the panel, drawn after it), the card's text and buttons on top. */}
+      {issue ? <LocationVeil home="driver" /> : null}
       <View style={styles.driverPanel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
         <DriverHomePanel access={access} trips={activeTrips} openId={openId} onToggle={(id) => setOpenId((current) => (current === id ? null : id))} />
       </View>
       {issue ? (
         // In the middle of the map part left free by the panel.
         <View style={[styles.promptArea, { top: insets.top + spacing[10], bottom: panelHeight }]} pointerEvents="box-none">
-          <LocationPrompt issue={issue} />
+          <LocationPrompt issue={issue} plain short={activeTrips.length > MANY_TRIPS} />
         </View>
       ) : null}
     </View>

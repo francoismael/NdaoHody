@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Position } from '@contract';
 
-import { AppMap, MovingMarker, PlaceLabel, RouteLine, newSearchSession, type LngLat, type MapFocus } from '@/shared/map';
+import { AppMap, MovingMarker, PlaceLabel, RouteLine, newSearchSession, type LngLat, type MapFit, type MapFocus } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, FieldMessage, Icon, TextField } from '@/shared/ui';
 import { useDebouncedValue } from '@/shared/utils';
@@ -87,6 +87,8 @@ export type PlacePickerProps = {
   route?: { path: LngLat[]; car: LngLat | null; you: LngLat | null; end: LngLat };
   /** Booking: why a touched or found point cannot be chosen (said at once; "Choisir ce lieu" stays off). */
   check?: (point: LngLat) => string | null;
+  /** With `route` (booking drop): opens on "Toi" and the driver's destination together; a touched or found point is then zoomed in. */
+  overview?: boolean;
 };
 
 /**
@@ -126,7 +128,7 @@ export function PlacePicker({ visible, onClose, ...content }: PlacePickerProps) 
 
 type PickerContentProps = Omit<PlacePickerProps, 'visible'>;
 
-function PickerContent({ title, near, selected, onSelect, onClose, current, route, check }: PickerContentProps) {
+function PickerContent({ title, near, selected, onSelect, onClose, current, route, check, overview = false }: PickerContentProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
 
@@ -149,6 +151,22 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
         : { coordinate: [near.longitude, near.latitude], zoom: CITY_ZOOM },
     [shown, near],
   );
+  // Booking drop, until a point is touched or found: "Toi", the driver's destination and the
+  // chosen place all in view. Keyed on the numbers: the route and the selected place are new objects at each
+  // refresh (the car moves), and a new fit would bring the camera back while the user moves the map.
+  const { spacing } = theme;
+  const [endLng, endLat] = route?.end ?? [null, null];
+  const [youLng, youLat] = route?.you ?? [null, null];
+  const selLng = selected?.longitude ?? null;
+  const selLat = selected?.latitude ?? null;
+  const fit = useMemo<MapFit | null>(() => {
+    if (!overview || pointed || endLng === null || endLat === null) return null;
+    const points: LngLat[] = [[endLng, endLat]];
+    if (youLng !== null && youLat !== null) points.push([youLng, youLat]);
+    if (selLng !== null && selLat !== null) points.push([selLng, selLat]);
+    // Room above for the bubbles ("Destination du chauffeur" is the widest).
+    return { coordinates: points, insets: { top: spacing[10] + spacing[6], bottom: spacing[8], left: spacing[10], right: spacing[10] } };
+  }, [overview, pointed, endLng, endLat, youLng, youLat, selLng, selLat, spacing]);
   const problem = pointed && check ? check([pointed.longitude, pointed.latitude]) : null;
   const typed = debounced.trim().length >= PLACE_SEARCH_MIN_CHARS;
   const showList = listOpen && typed;
@@ -194,7 +212,7 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
 
         <View style={s.search}>
           <TextField
-            label="Rechercher un lieu"
+            label="Recherche un lieu ou touche la carte"
             value={query}
             onChangeText={(text) => {
               setQuery(text);
@@ -210,7 +228,7 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
 
         <View style={s.body}>
           {/* Moves and fades with the sheet (TextureView on Android). */}
-          <AppMap focus={focus} onPress={drop} insideAnimation>
+          <AppMap fit={fit} focus={focus} onPress={drop} insideAnimation>
             {/* Mounted first: the car and the chosen point are drawn above the road. */}
             {route ? <RouteLine id="place-picker-route" coordinates={route.path} tone="onward" /> : null}
             {route ? <PlaceLabel id="place-picker-end" coordinate={route.end} label="Destination du chauffeur" tone="onward" /> : null}

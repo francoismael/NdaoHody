@@ -2,21 +2,26 @@ import { useLocationPermission } from '@/shared/map';
 import type { IconName } from '@/shared/ui';
 
 // On Android the system box has its own text: we explain BEFORE asking.
-const ASK = {
-  title: 'Autorise ta position',
-  text: 'Pour une meilleure expérience, autorise NdaoHody à utiliser ta position : tu verras les trajets et les chauffeurs près de toi. Sans ta position, la carte reste centrée sur Tana.',
-};
-const DENIED = {
-  title: 'Localisation désactivée',
-  text: 'Active la localisation pour avoir une meilleure expérience. Sans ta position, la carte reste centrée sur Tana et tu ne vois pas ce qui se passe près de toi.',
-};
-const GPS_OFF = {
-  title: 'Localisation coupée',
-  text: 'Active la localisation de ton téléphone pour avoir une meilleure expérience. Sans ta position, la carte reste centrée sur Tana et tu ne vois pas ce qui se passe près de toi.',
+// One card for both things the position needs (the app's permission, the phone's GPS):
+// a button for each one still to do; a step already done is not shown.
+const TITLE = 'Accès à ta position';
+const TEXT =
+  'Profite d’une meilleure expérience en activant ta localisation. NdaoHody reste utilisable sans, mais les options de la carte seront limitées.';
+/** Driver home: one short line above the buttons; shorter still when the panel is tall. */
+const NOTE = 'Autorise ta position et active ton GPS pour profiter pleinement de l’app.';
+const SHORT_NOTE = 'Autorise ta position et active ton GPS.';
+
+/** One thing the position still needs, with the action that does it. */
+export type LocationStep = {
+  label: string;
+  icon: IconName;
+  onPress: () => Promise<void>;
+  /** The button spins until the action is over (the GPS box, then the check): the step or the whole card then goes. */
+  waits?: boolean;
 };
 
-/** What blocks the position, with the one action that fixes it (and its icon). */
-export type LocationIssue = { title: string; text: string; action: string; icon: IconName; onPress: () => void };
+/** What blocks the position: why it matters (full text, or the notes of the light card) and the steps left. */
+export type LocationIssue = { title: string; text: string; note: string; shortNote: string; steps: LocationStep[] };
 
 export type LocationState = {
   /** Permission granted AND GPS on. */
@@ -29,11 +34,13 @@ export type LocationState = {
 /** The home's location state, shared by the driver and the passenger homes. */
 export function useLocationIssue(): LocationState {
   const { status, canAskAgain, request, servicesEnabled, enableServices } = useLocationPermission();
-  const located = status === 'granted' && servicesEnabled;
-  let issue: LocationIssue | null = null;
-  if (status === 'undetermined') issue = { ...ASK, action: 'Autoriser ma position', icon: 'settings', onPress: request };
-  else if (status === 'denied') issue = { ...DENIED, action: canAskAgain ? 'Réessayer' : 'Ouvrir les réglages', icon: 'settings', onPress: request };
-  // The phone's GPS itself: the location icon (the others are app settings).
-  else if (status === 'granted' && !servicesEnabled) issue = { ...GPS_OFF, action: 'Activer la localisation', icon: 'map-pin', onPress: enableServices };
+  const allowed = status === 'granted';
+  const located = allowed && servicesEnabled;
+  const steps: LocationStep[] = [];
+  // Refused for good: only the settings can change it (request opens them).
+  if (!allowed) steps.push({ label: status === 'denied' && !canAskAgain ? 'Ouvrir les réglages' : 'Autoriser ma position', icon: 'settings', onPress: request });
+  // The phone's GPS itself: the location icon (the permission is an app setting).
+  if (!servicesEnabled) steps.push({ label: 'Activer la localisation', icon: 'map-pin', onPress: enableServices, waits: true });
+  const issue = status === 'checking' || located ? null : { title: TITLE, text: TEXT, note: NOTE, shortNote: SHORT_NOTE, steps };
   return { located, checking: status === 'checking', issue };
 }

@@ -1,19 +1,16 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
-import type { Reservation } from '@contract';
 
 import { useDriverProfile } from '@/features/profile';
 import { useTrip } from '@/features/trips';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, Flash, FormScreen, Icon } from '@/shared/ui';
-import { formatAriary, formatCountdown, useSecondsLeft } from '@/shared/utils';
+import { formatAriary, formatCountdown } from '@/shared/utils';
 
+import { useAnswerCountdown } from '../hooks/useAnswerCountdown';
 import { useCancelReservation, useRefusalReason, useReservation, useRetryReservation } from '../hooks/useBookings';
-
-/** Statuses after a yes: the ride goes on (block 9). */
-const ACCEPTED: readonly Reservation['statut'][] = ['acceptee', 'chauffeur_sur_place', 'en_course', 'terminee'];
+import { ACCEPTED_STATUSES } from '../rules';
 
 /**
  * Waiting for the driver (block 7). Only READS the reservation the server sent back
@@ -35,18 +32,7 @@ export function BookingWaitScreen() {
   const retry = useRetryReservation();
   const refusal = useRefusalReason(reservationId, data?.statut === 'refusee');
 
-  const waiting = data?.statut === 'en_attente';
-  const left = useSecondsLeft(data && waiting ? new Date(data.dateExpiration).getTime() : null);
-  const timeUp = waiting && left === 0;
-  const { refetch } = reservation;
-
-  // At 0:00 the server decides (the real API expires requests every 15 s): ask it again.
-  useEffect(() => {
-    if (!timeUp) return undefined;
-    void refetch();
-    const timer = setInterval(() => void refetch(), 2000);
-    return () => clearInterval(timer);
-  }, [timeUp, refetch]);
+  const { waiting, left, timeUp } = useAnswerCountdown(data, reservation.refetch);
 
   if (reservation.isPending) {
     return (
@@ -111,7 +97,7 @@ export function BookingWaitScreen() {
     );
   }
 
-  if (ACCEPTED.includes(data.statut)) {
+  if (ACCEPTED_STATUSES.includes(data.statut)) {
     return (
       <FormScreen
         title={`${name} a accepté !`}
