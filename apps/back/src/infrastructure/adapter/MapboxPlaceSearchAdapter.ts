@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Lieu, Position } from '@contract';
 import { PlaceSearch, PlaceSuggestion } from '../../application/port/PlaceSearch';
-import { isRecord, text } from '../helper/json';
+import { isRecord, text } from '../../application/helper/json';
 import { MapboxClient } from './MapboxClient';
 
 const SUGGESTION_LIMIT = 6;

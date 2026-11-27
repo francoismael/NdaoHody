@@ -9,6 +9,7 @@ import { TripRepository } from '../../../domain/repository/TripRepository';
 import { notifyBestEffort } from '../../helper/bestEffort';
 import { toReservation } from '../../helper/rideViews';
 import { Clock } from '../../port/Clock';
+import { RealtimePublisher } from '../../port/RealtimePublisher';
 import { UnitOfWork } from '../../port/UnitOfWork';
 import { UserNotifier } from '../../port/UserNotifier';
 
@@ -23,6 +24,7 @@ export class ManageBookingsUseCase {
     private readonly bookings: BookingRepository,
     private readonly trips: TripRepository,
     private readonly notifier: UserNotifier,
+    private readonly realtime: RealtimePublisher,
     private readonly unitOfWork: UnitOfWork,
     private readonly clock: Clock,
   ) {}
@@ -77,6 +79,7 @@ export class ManageBookingsUseCase {
       return changed;
     });
 
+    this.realtime.toUser(byDriver ? booking.passagerId : trip.chauffeurId, 'booking-updated', toReservation(cancelled));
     await notifyBestEffort(this.logger, this.notifier, {
       utilisateurId: byDriver ? booking.passagerId : trip.chauffeurId,
       type: 'reservation_annulee',

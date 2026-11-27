@@ -16,7 +16,9 @@ import {
   makeMatch,
   makeTrip,
   RecordedConversations,
+  RecordedPositions,
   RecordingNotifier,
+  RecordingPublisher,
 } from './inMemoryRides';
 
 export const DRIVER = makeUser({ id: 1, statutChauffeur: 'valide' });
@@ -33,6 +35,8 @@ export function setupBookings({ placesLibres = 4, blocked = false } = {}) {
   trips.matches = [makeMatch({ tripId: 1, distanceMetres: 12_000 })];
   const bookings = new InMemoryBookings();
   const notifier = new RecordingNotifier();
+  const realtime = new RecordingPublisher();
+  const positions = new RecordedPositions();
   const conversations = new RecordedConversations();
   const clock = new FixedClock();
   const unitOfWork = new DirectUnitOfWork();
@@ -45,13 +49,14 @@ export function setupBookings({ placesLibres = 4, blocked = false } = {}) {
     new FixedBlocks(blocked),
     settings,
     notifier,
+    realtime,
     clock,
   );
-  const answer = new AnswerBookingUseCase(bookings, trips, conversations, notifier, unitOfWork, clock);
-  const manage = new ManageBookingsUseCase(bookings, trips, notifier, unitOfWork, clock);
-  const cancellation = new TripCancellationService(trips, bookings, notifier, unitOfWork, clock);
-  const jobs = new RunRideJobsUseCase(bookings, trips, cancellation, notifier, clock);
-  return { request, answer, manage, jobs, trips, bookings, notifier, conversations, clock };
+  const answer = new AnswerBookingUseCase(bookings, trips, conversations, notifier, realtime, unitOfWork, clock);
+  const manage = new ManageBookingsUseCase(bookings, trips, notifier, realtime, unitOfWork, clock);
+  const cancellation = new TripCancellationService(trips, bookings, notifier, realtime, unitOfWork, clock);
+  const jobs = new RunRideJobsUseCase(bookings, trips, positions, cancellation, notifier, realtime, clock);
+  return { request, answer, manage, jobs, trips, bookings, notifier, realtime, positions, conversations, clock };
 }
 
 

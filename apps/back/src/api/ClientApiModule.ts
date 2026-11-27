@@ -1,4 +1,11 @@
 import { Module } from '@nestjs/common';
+import { RealtimePublisher } from '../application/port/RealtimePublisher';
+import { TrackingService } from '../application/service/TrackingService';
+import { GetTrackingUseCase } from '../application/usecases/tracking/GetTrackingUseCase';
+import { ShareDriverPositionUseCase } from '../application/usecases/tracking/ShareDriverPositionUseCase';
+import { SharePassengerPositionUseCase } from '../application/usecases/tracking/SharePassengerPositionUseCase';
+import { LiveGateway } from './gateway/LiveGateway';
+import { SocketRealtimePublisher } from './gateway/SocketRealtimePublisher';
 import { AccountRecoveryService } from '../application/service/AccountRecoveryService';
 import { EtaService } from '../application/service/EtaService';
 import { SessionIssuerService } from '../application/service/SessionIssuerService';
@@ -74,6 +81,13 @@ import { AccessTokenGuard } from './guard/AccessTokenGuard';
     ManageBookingsUseCase,
     RunRideJobsUseCase,
     RideJobsScheduler,
+    TrackingService,
+    ShareDriverPositionUseCase,
+    SharePassengerPositionUseCase,
+    GetTrackingUseCase,
+    SocketRealtimePublisher,
+    { provide: RealtimePublisher, useExisting: SocketRealtimePublisher },
+    LiveGateway,
   ],
 })
 export class ClientApiModule {}

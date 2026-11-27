@@ -280,6 +280,32 @@ export interface SuiviReservation {
   distanceMetres: number;         // < 500 -> bouton « Je suis déjà sur place »
 }
 
+/* Temps réel (Socket.IO, namespace "/live", token dans auth.token à la connexion).
+   L'app reçoit seulement ce qui concerne son compte.
+   Le chauffeur envoie  "driver-position"     { latitude, longitude }            toutes les 5 s
+   Le passager envoie   "passenger-position"  { reservationId, latitude, longitude }
+   L'app reçoit         "tracking-update"     MiseAJourSuivi   (passager et chauffeur)
+                        "passenger-position"  PositionPassager (chauffeur)
+                        "booking-requested"   Reservation      (chauffeur : nouvelle demande)
+                        "booking-updated"     Reservation      (acceptée, refusée, expirée, annulée)
+                        "location-required"   { message }      (chauffeur sans position depuis 2 min)
+   Sans WebSocket : GET /reservations/:id/tracking renvoie un SuiviReservation complet. */
+
+/** "tracking-update" : à chaque position du chauffeur, pour chaque réservation acceptée de son trajet. */
+export interface MiseAJourSuivi {
+  reservationId: number;
+  positionChauffeur: Position;
+  cheminVersPassager: Chemin;     // vide quand le passager est déjà à bord
+  arriveeDansMinutes: number | null;  // null quand le passager est déjà à bord
+  distanceMetres: number;         // à vol d'oiseau jusqu'à la prise en charge ; < 500 -> « sur place »
+}
+
+/** "passenger-position" : la position du passager, envoyée à son chauffeur pendant l'approche. */
+export interface PositionPassager extends Position {
+  reservationId: number;
+  dateMiseAJour: string;
+}
+
 
 /* ---------------------------------------------------------------------------
    Lien de suivi pour un proche (table lien_suivi)

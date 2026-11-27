@@ -3,7 +3,7 @@ import type { Chemin, Position } from '@contract';
 import { DrivingRoute, RouteProvider } from '../../application/port/RouteProvider';
 import { positionKey, toPosition } from '../../domain/entity/geo';
 import { DomainException } from '../../domain/exception/DomainException';
-import { isLngLat, isRecord } from '../helper/json';
+import { isLngLat, isRecord } from '../../application/helper/json';
 import { MAP_UNAVAILABLE_MESSAGE, MapboxClient } from './MapboxClient';
 
 /** Mapbox Directions accepts up to 25 stops per call. */

@@ -70,3 +70,6 @@ export class RouteQuery {
   @IsLongitude()
   arriveeLongitude!: number;
 }
+
+/** POST /me/position: the driver's position (same as the WebSocket event "driver-position"). */
+export class PositionRequest extends PositionQuery {}

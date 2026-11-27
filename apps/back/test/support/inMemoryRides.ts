@@ -1,7 +1,8 @@
 /**
  * In-memory fakes for trips and bookings (unit tests, no database).
  */
-import type { Position, StatutReservation, StatutTrajet, Tarif, TypeVehicule } from '@contract';
+import type { Chemin, Position, PositionChauffeur, StatutReservation, StatutTrajet, Tarif, TypeVehicule } from '@contract';
+import { RealtimeEvent, RealtimePublisher } from '../../src/application/port/RealtimePublisher';
 import { NewNotification, UserNotifier } from '../../src/application/port/UserNotifier';
 import type { Booking, BookingChanges, NewBooking } from '../../src/domain/entity/Booking';
 import { ON_THE_ROAD_STATUSES, plannedArrival, type NewTrip, type Trip, type TripChanges } from '../../src/domain/entity/Trip';
@@ -125,6 +126,16 @@ export class InMemoryTrips extends TripRepository {
     return this.matches;
   }
 
+  /** Straight line from `from` to `to`, 1 km; null when asked so (driver already past the pickup). */
+  pathResult: { chemin: Chemin; distanceMetres: number } | null | undefined = undefined;
+
+  async pathBetween(_tripId: number, from: Position, to: Position): Promise<{ chemin: Chemin; distanceMetres: number } | null> {
+    if (this.pathResult !== undefined) {
+      return this.pathResult;
+    }
+    return { chemin: [[from.longitude, from.latitude], [to.longitude, to.latitude]], distanceMetres: 1000 };
+  }
+
   async measure(tripId: number): Promise<TripMatch | null> {
     return this.matches.find((match) => match.tripId === tripId) ?? null;
   }
@@ -215,10 +226,35 @@ export class FixedTariffs extends TariffRepository {
 }
 
 export class RecordedPositions extends DriverPositionRepository {
-  readonly saved: { chauffeurId: number; trajetId: number | null; position: Position }[] = [];
+  readonly saved: { chauffeurId: number; trajetId: number | null; position: Position; enLigne: boolean }[] = [];
+  readonly rows = new Map<number, PositionChauffeur>();
 
-  async save(chauffeurId: number, trajetId: number | null, position: Position): Promise<void> {
-    this.saved.push({ chauffeurId, trajetId, position });
+  async save(chauffeurId: number, trajetId: number | null, position: Position, enLigne: boolean, at: Date): Promise<void> {
+    this.saved.push({ chauffeurId, trajetId, position, enLigne });
+    this.rows.set(chauffeurId, { chauffeurId, trajetId, ...position, enLigne, dateMiseAJour: at.toISOString() });
+  }
+
+  async findByDriver(chauffeurId: number): Promise<PositionChauffeur | null> {
+    return this.rows.get(chauffeurId) ?? null;
+  }
+
+  async markStaleOffline(before: Date): Promise<number[]> {
+    const stale = [...this.rows.values()].filter((row) => row.enLigne && new Date(row.dateMiseAJour) < before);
+    stale.forEach((row) => (row.enLigne = false));
+    return stale.map((row) => row.chauffeurId);
+  }
+}
+
+/** Records what would be pushed over WebSocket. */
+export class RecordingPublisher extends RealtimePublisher {
+  readonly sent: { userId: number; event: RealtimeEvent; payload: object }[] = [];
+
+  toUser(userId: number, event: RealtimeEvent, payload: object): void {
+    this.sent.push({ userId, event, payload });
+  }
+
+  eventsFor(userId: number): RealtimeEvent[] {
+    return this.sent.filter((sent) => sent.userId === userId).map((sent) => sent.event);
   }
 }
 

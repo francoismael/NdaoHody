@@ -1,4 +1,4 @@
-import type { Position, StatutTrajet } from '@contract';
+import type { Chemin, Position, StatutTrajet } from '@contract';
 import type { NewTrip, Trip, TripChanges } from '../entity/Trip';
 
 /** Where the passenger's pickup and drop-off fall on a trip's path. */
@@ -57,6 +57,12 @@ export abstract class TripRepository {
 
   /** Bookable trips whose path passes by both points, pickup before drop-off (PostGIS). */
   abstract findCandidates(criteria: CandidateCriteria): Promise<TripMatch[]>;
+
+  /**
+   * The part of the trip's path from `from` to `to` (both projected on the path) and its length;
+   * null when `to` is behind `from` (e.g. the driver already passed the pickup point).
+   */
+  abstract pathBetween(tripId: number, from: Position, to: Position): Promise<{ chemin: Chemin; distanceMetres: number } | null>;
 
   /** The same measure for one given trip; null when a point is off its path or in the wrong order. */
   abstract measure(tripId: number, priseEnCharge: Position, depose: Position, margeMetres: number): Promise<TripMatch | null>;

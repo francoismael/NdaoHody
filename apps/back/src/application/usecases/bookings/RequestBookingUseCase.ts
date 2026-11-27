@@ -18,6 +18,7 @@ import { assertInMadagascar } from '../../helper/geoRules';
 import { toReservation } from '../../helper/rideViews';
 import { MAX_RETRIES, readSetting, RESPONSE_DELAY_SECONDS, ROUTE_MARGIN_METRES } from '../../helper/settings';
 import { Clock } from '../../port/Clock';
+import { RealtimePublisher } from '../../port/RealtimePublisher';
 import { UserNotifier } from '../../port/UserNotifier';
 
 const TRIP_NOT_FOUND_MESSAGE = 'Trajet introuvable.';
@@ -45,6 +46,7 @@ export class RequestBookingUseCase {
     private readonly blocks: BlockRepository,
     private readonly settings: SettingRepository,
     private readonly notifier: UserNotifier,
+    private readonly realtime: RealtimePublisher,
     private readonly clock: Clock,
   ) {}
 
@@ -114,6 +116,7 @@ export class RequestBookingUseCase {
       dateExpiration: addMs(now, delaySeconds * SECOND_MS).toISOString(),
     });
 
+    this.realtime.toUser(trip.chauffeurId, 'booking-requested', toReservation(booking));
     await notifyBestEffort(this.logger, this.notifier, {
       utilisateurId: trip.chauffeurId,
       type: 'nouvelle_demande',
