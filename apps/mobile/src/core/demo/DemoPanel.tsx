@@ -175,16 +175,13 @@ export function DemoPanel() {
         </>
       ) : null}
 
-      {role === 'chauffeur' ? (
-        <>
-          <Text style={styles.section}>Le passager simulé</Text>
-          <View style={styles.wrap}>
-            <Button label="Nouvelle demande" variant="secondary" width="auto" loading={busy === 'Nouvelle demande'} onPress={() => void run('Nouvelle demande', engine.passengerRequests)} />
-            {f && !playsDriver ? act('Annuler la demande', engine.passengerCancels, engine.allowed(f, 'annulee_passager')) : null}
-            {f && !playsDriver ? act('Fin du délai', engine.skipWait, f.reservation.statut === 'en_attente') : null}
-          </View>
-        </>
-      ) : null}
+      {/* In both modes (bloc 8): a request must ring even while the driver is in passenger mode. */}
+      <Text style={styles.section}>Le passager simulé</Text>
+      <View style={styles.wrap}>
+        <Button label="Nouvelle demande" variant="secondary" width="auto" loading={busy === 'Nouvelle demande'} onPress={() => void run('Nouvelle demande', engine.passengerRequests)} />
+        {f && !playsDriver ? act('Annuler la demande', engine.passengerCancels, engine.allowed(f, 'annulee_passager')) : null}
+        {f && !playsDriver ? act('Fin du délai', engine.skipWait, f.reservation.statut === 'en_attente') : null}
+      </View>
 
       {application && (application.documents.length > 0 || application.statutChauffeur !== 'aucun') ? (
         <>

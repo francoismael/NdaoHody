@@ -11,6 +11,8 @@ export { CodeInput } from './CodeInput';
 export type { CodeInputProps } from './CodeInput';
 export { Flash } from './Flash';
 export type { FlashProps, FlashTone } from './Flash';
+export { PromptCard } from './PromptCard';
+export type { PromptCardProps } from './PromptCard';
 export { FormScreen } from './FormScreen';
 export type { FormScreenHandle, FormScreenProps } from './FormScreen';
 export { ErrorAnchor } from './ErrorAnchor';

@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 
 import { useSession, useSessionReady } from '@/features/auth';
+import { PushPermissionPrompt, usePushObserver } from '@/features/notifications';
 import { QueryProvider } from '@/shared/query';
 import { useAppFonts, useTheme } from '@/shared/theme';
 
@@ -24,8 +25,12 @@ export default function RootLayout() {
   const theme = useTheme();
   const sessionReady = useSessionReady();
   const { signedIn, isPassenger, isDriver } = useSession();
+  // The notifications banner only on the tab screens (elsewhere it would cover the header).
+  const onTabs = useSegments()[0] === '(tabs)';
   // Guards must not run before the saved session is read, or they redirect to /phone.
   const ready = fontsReady && sessionReady;
+  // Tapped notification: role switch, then the request or the wait screen (bloc 8).
+  usePushObserver(ready);
 
   // Fond de la fenêtre native : évite un flash blanc derrière les écrans en sombre.
   useEffect(() => {
@@ -98,6 +103,8 @@ export default function RootLayout() {
         <Stack.Screen name="theme-preview" options={{ title: 'Thème (dev)' }} />
         <Stack.Screen name="ui-preview" options={{ title: 'UI (dev)' }} />
       </Stack>
+      {/* Notifications (bloc 8): asked once signed in (channel first), then a banner on the tabs. */}
+      {signedIn ? <PushPermissionPrompt banner={onTabs} /> : null}
     </QueryProvider>
   );
 }

@@ -17,7 +17,7 @@ import { indexAtFraction } from '@/shared/map';
 
 import { refreshDerived } from './derived';
 import { ITINERARIES, type ItineraryKey } from './itineraries';
-import { notify } from './notify';
+import { addNotification } from './notify';
 import { PLACES, type PlaceKey } from './places';
 import { quoteForTrip } from './pricing';
 import { getRoute } from './routeCache';
@@ -360,11 +360,11 @@ export function createSeed(now: Date): MockDb {
   ]);
   addConversation(db, now, withTiana, [[USERS.tiana, -5, 'J’arrive dans 10 minutes à Analakely.', false]]);
 
-  const accepted = notify(db, now, USERS.hery, 'demande_acceptee', 'Réservation acceptée', 'Njaka a accepté ta demande pour demain à 7 h 30.', { reservationId: withNjaka.id, trajetId: t4.id });
+  const accepted = addNotification(db, now, USERS.hery, 'demande_acceptee', 'Réservation acceptée', 'Njaka a accepté ta demande pour demain à 7 h 30.', { reservationId: withNjaka.id, trajetId: t4.id });
   accepted.lu = true;
   accepted.dateCreation = isoIn(now, -118);
-  notify(db, now, USERS.hery, 'nouveau_message', 'Nouveau message de Njaka', 'Parfait, c’est noté comme point de rendez-vous.', { reservationId: withNjaka.id }).dateCreation = isoIn(now, -95);
-  notify(db, now, USERS.hery, 'demande_avis', 'Note ton trajet avec Tiana', 'Comment s’est passé ton trajet d’hier ?', { reservationId: lastRideWithTiana.id }).dateCreation = isoIn(now, -DAY_MINUTES + 60);
+  addNotification(db, now, USERS.hery, 'nouveau_message', 'Nouveau message de Njaka', 'Parfait, c’est noté comme point de rendez-vous.', { reservationId: withNjaka.id }).dateCreation = isoIn(now, -95);
+  addNotification(db, now, USERS.hery, 'demande_avis', 'Note ton trajet avec Tiana', 'Comment s’est passé ton trajet d’hier ?', { reservationId: lastRideWithTiana.id }).dateCreation = isoIn(now, -DAY_MINUTES + 60);
 
   syncSequences(db);
   refreshDerived(db, now);

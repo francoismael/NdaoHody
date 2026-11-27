@@ -1,6 +1,6 @@
 import type { Conversation, DemandeReservation, Reservation, Trajet } from '@contract';
 
-import { ACTIVE_BOOKING_STATUSES, ANSWER_DELAY_MINUTES, pathSpanMessage } from '@/features/bookings/rules';
+import { ACTIVE_BOOKING_STATUSES, ANSWER_DELAY_MINUTES, pathSpanMessage, refusalReasonError } from '@/features/bookings/rules';
 import type { PriceQuote } from '@/features/pricing/types';
 import { PICKUP_MAX_WALK_METRES } from '@/features/trips/rules';
 import { addMinutes } from '@/shared/utils';
@@ -8,7 +8,7 @@ import { addMinutes } from '@/shared/utils';
 import { refreshDerived } from '../derived';
 import { notify } from '../notify';
 import { passingAt, pathSpanOrProblem } from '../matching';
-import { HttpError, findOr404, idParam, requireLieu, requireNumber, requireString, requireUser, type MockRoute, type RequestContext } from '../server';
+import { HttpError, findOr404, idParam, optionalString, requireLieu, requireNumber, requireUser, type MockRoute, type RequestContext } from '../server';
 import { iso } from '../time';
 import { nextId } from '../types';
 import { transition } from '../reservationFlow';
@@ -31,7 +31,7 @@ const readWish = (body: unknown): BookingWish => ({
 
 /**
  * Same checks as the back (RequestBookingUseCase), then the frozen price of the passenger's part.
- * The pickup and drop the passenger chose are moved onto the driver's path (same 800 m rule as
+ * The pickup and drop the passenger chose are moved onto the driver's path (same walk rule, PICKUP_MAX_WALK_METRES, as
  * the home and the search: core/mock/matching.ts), seen as a search result for this trip.
  * Shared by the quote (GAP #15) and the request.
  */
@@ -101,10 +101,11 @@ function createReservation(ctx: RequestContext, trajet: Trajet, wish: BookingWis
 
 const tripOf = (ctx: RequestContext): Trajet => findOr404(ctx.db.trajets, (t) => t.id === requireNumber(ctx.body, 'trajetId'), 'Trajet');
 
-/** Only the trip's driver answers, and only a request still waiting. */
+/** Only the trip's driver answers, and only a request still waiting (back AnswerBookingUseCase.findWaiting). */
 function pendingForDriver(ctx: RequestContext) {
   const parties = driverParties(ctx, idParam(ctx));
-  if (parties.reservation.statut === 'expiree') throw new HttpError(409, 'La demande a expiré.');
+  // refreshDerived has already expired it if its 3 minutes are over.
+  if (parties.reservation.statut === 'expiree') throw new HttpError(409, 'Cette demande a expiré : le passager peut la relancer.');
   if (parties.reservation.statut !== 'en_attente') throw new HttpError(409, 'Cette demande a déjà une réponse.');
   return parties;
 }
@@ -185,8 +186,9 @@ export const bookingsRoutes: MockRoute[] = [
     method: 'POST',
     pattern: '/reservations/:id/refuse',
     handler: (ctx): Reservation => {
-      const motif = requireString(ctx.body, 'motif');
-      if (motif.length < 3) throw new HttpError(400, 'Indique un motif de refus.');
+      const motif = optionalString(ctx.body, 'motif') ?? '';
+      const problem = refusalReasonError(motif);
+      if (problem) throw new HttpError(400, problem);
       const { reservation, trajet } = pendingForDriver(ctx);
       transition(reservation, 'refusee', ctx.now);
       ctx.db.motifsRefus[reservation.id] = motif;

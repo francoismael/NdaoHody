@@ -3,8 +3,18 @@ import type { Notification, TypeNotification } from '@contract';
 import { iso } from './time';
 import { nextId, type MockDb } from './types';
 
-/** Adds a notification, as the server would before sending the push. */
-export function notify(
+type PushSender = (notification: Notification) => void;
+
+/** One push channel (the back's UserNotifier, FCM later). A new sender replaces the old one. */
+let pushSender: PushSender | null = null;
+
+/** core/push plugs the phone in here: every notification the server creates is sent to it. */
+export function setPushSender(sender: PushSender): void {
+  pushSender = sender;
+}
+
+/** Stores a notification without sending it (the seed's history: what happened before the demo). */
+export function addNotification(
   db: MockDb,
   now: Date,
   utilisateurId: number,
@@ -24,5 +34,12 @@ export function notify(
     dateCreation: iso(now),
   };
   db.notifications.push(notification);
+  return notification;
+}
+
+/** Adds a notification, then sends the push, as the server would. */
+export function notify(...args: Parameters<typeof addNotification>): Notification {
+  const notification = addNotification(...args);
+  pushSender?.(notification);
   return notification;
 }

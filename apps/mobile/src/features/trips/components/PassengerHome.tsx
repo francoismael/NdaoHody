@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppMap, MovingMarker, PlaceLabel, RouteLine, type LngLat, type MapFit, type MapFocus } from '@/shared/map';
+import { LIVE_REFRESH_MS } from '@/shared/query';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, Flash, Icon, smoothScrollTo, stopSmoothScroll } from '@/shared/ui';
 import { formatDuration } from '@/shared/utils';
@@ -12,7 +13,7 @@ import { bookingHref, driverProfileHref, type BookingLink } from '../bookingLink
 import type { LocationState } from '../hooks/useLocationIssue';
 import { useDemoPosition, useTripsAround } from '../hooks/useTrips';
 import type { PassingDriver } from '../types';
-import { LocationPrompt } from './LocationPrompt';
+import { LocationPrompt, LocationVeil } from './LocationPrompt';
 import { PassingDriverRow } from './PassingDriverRow';
 
 /** The list never takes more than this share of the screen: the passenger's point stays visible. */
@@ -122,18 +123,18 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
                 key={driver.trajet.id}
                 id={`driver-${driver.trajet.id}`}
                 coordinate={toLngLat(driver.positionChauffeur)}
-                glideMs={5000}
+                glideMs={LIVE_REFRESH_MS}
                 label={String(i + 1)}
               />
             ))}
         {/*
           Chosen driver, alone and on top. On Mapbox the last layer added is drawn
           on top, and a layer keeps its place once added: so what must be in front is mounted
-          when chosen, after the rest, in this order. His road on to his destination (onward),
-          his road to the passenger (green), the arrival, then his point and the
+          when chosen, after the rest, in this order. His road on to his destination,
+          his road to the passenger (both amber: the whole route), the arrival, then his point and the
           passenger's dot again (ids per driver: choosing another one mounts new layers on top).
         */}
-        {selected ? <RouteLine id="after-passenger" coordinates={selected.cheminApresPassager} tone="onward" /> : null}
+        {selected ? <RouteLine id="after-passenger" coordinates={selected.cheminApresPassager} /> : null}
         {selected ? <RouteLine id="to-passenger" coordinates={selected.cheminVersPassager} /> : null}
         {selected ? <PlaceLabel id="driver-arrival" coordinate={toLngLat(selected.trajet.arrivee)} label="Destination du chauffeur" tone="onward" /> : null}
         {selected ? (
@@ -141,7 +142,7 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
             key={`chosen-${selected.trajet.id}`}
             id={`chosen-driver-${selected.trajet.id}`}
             coordinate={toLngLat(selected.positionChauffeur)}
-            glideMs={5000}
+            glideMs={LIVE_REFRESH_MS}
             label={String(selectedRank)}
             highlighted
           />
@@ -150,12 +151,15 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
       </AppMap>
 
       {issue ? (
-        // No position: a card in the middle of the map, no list (drivers need the passenger's point).
-        <View style={s.promptArea} pointerEvents="box-none">
-          <LocationPrompt issue={issue}>
-            <Button label="Rechercher un trajet" icon="search" variant="secondary" onPress={search} />
-          </LocationPrompt>
-        </View>
+        // No position: a veil over the whole map, the prompt in the middle, no list (drivers need the passenger's point).
+        <>
+          <LocationVeil home="passenger" />
+          <View style={s.promptArea} pointerEvents="box-none">
+            <LocationPrompt issue={issue}>
+              <Button label="Rechercher un trajet" icon="search" variant="ghost" onPress={search} />
+            </LocationPrompt>
+          </View>
+        </>
       ) : (
         <View style={s.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
           {checking ? (
@@ -259,7 +263,8 @@ const createStyles = ({ colors, typography, spacing, gutter, radii, shadows }: T
       backgroundColor: colors.surface,
       boxShadow: shadows.card,
     },
-    promptArea: { ...StyleSheet.absoluteFill, justifyContent: 'center', paddingHorizontal: gutter },
+    // A little below the middle: lines up with the notifications dialog (centered on the whole window).
+    promptArea: { ...StyleSheet.absoluteFill, justifyContent: 'center', paddingHorizontal: gutter, paddingTop: spacing[10] },
     block: { gap: spacing[3] },
     actions: { gap: spacing[2] },
     loading: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
