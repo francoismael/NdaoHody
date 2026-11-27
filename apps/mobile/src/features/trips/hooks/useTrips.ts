@@ -2,6 +2,7 @@ import type { DemandeRecherche, Position } from '@contract';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { LngLat } from '@/shared/map';
+import { LIVE_REFRESH_MS } from '@/shared/query';
 import { matchesSearch } from '@/shared/utils';
 
 import { computeRoute, placeAt, resolvePlace, searchPlaces } from '../services/placesService';
@@ -18,8 +19,6 @@ import {
 } from '../services/tripsService';
 import type { ChosenPlace, Place, PlaceSuggestionItem, PublishTripInput } from '../types';
 
-/** Live positions are sent every 5 s (contract). */
-const LIVE_REFRESH_MS = 5000;
 
 export const tripsKeys = {
   all: ['trips'] as const,

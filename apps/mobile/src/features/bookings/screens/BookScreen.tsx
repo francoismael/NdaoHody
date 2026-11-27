@@ -21,7 +21,7 @@ import {
   type BookingParams,
   type ChosenPlace,
 } from '@/features/trips';
-import { spanOnPath, type LngLat } from '@/shared/map';
+import { nearestPointIndex, spanOnPath, type LngLat } from '@/shared/map';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, Flash, FormScreen, Icon, Stepper } from '@/shared/ui';
 import { formatAriary, formatDistance } from '@/shared/utils';
@@ -88,18 +88,18 @@ export function BookScreen() {
   // The server's answer for these points (the old one stays while a new one comes; none while it refuses them).
   const result = quote.data && !quote.isError ? quote.data : null;
   // The road in the picker, as at home: amber, the car, "Toi" (pickup put on the path by the server).
-  const route = useMemo(
-    () =>
-      trip.data
-        ? {
-            path: trip.data.chemin,
-            car: result?.positionChauffeur ? toLngLat(result.positionChauffeur) : null,
-            you: result ? toLngLat(result.priseEnCharge) : null,
-            end: toLngLat(trip.data.arrivee),
-          }
-        : undefined,
-    [trip.data, result],
-  );
+  // Only what is left of it: from the car on (the part already driven is not drawn); not started: all of it.
+  const route = useMemo(() => {
+    if (!trip.data) return undefined;
+    const path = trip.data.chemin;
+    const car = result?.positionChauffeur ? toLngLat(result.positionChauffeur) : null;
+    return {
+      path: car ? path.slice(nearestPointIndex(path, car).index) : path,
+      car,
+      you: result ? toLngLat(result.priseEnCharge) : null,
+      end: toLngLat(trip.data.arrivee),
+    };
+  }, [trip.data, result]);
 
   if (trip.isPending) {
     return (

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Position } from '@contract';
 
 import { AppMap, MovingMarker, PlaceLabel, RouteLine, newSearchSession, type LngLat, type MapFit, type MapFocus } from '@/shared/map';
+import { LIVE_REFRESH_MS } from '@/shared/query';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, FieldMessage, Icon, TextField } from '@/shared/ui';
 import { useDebouncedValue } from '@/shared/utils';
@@ -230,10 +231,10 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
           {/* Moves and fades with the sheet (TextureView on Android). */}
           <AppMap fit={fit} focus={focus} onPress={drop} insideAnimation>
             {/* Mounted first: the car and the chosen point are drawn above the road. */}
-            {route ? <RouteLine id="place-picker-route" coordinates={route.path} tone="onward" /> : null}
+            {route ? <RouteLine id="place-picker-route" coordinates={route.path} /> : null}
             {route ? <PlaceLabel id="place-picker-end" coordinate={route.end} label="Destination du chauffeur" tone="onward" /> : null}
             {route?.you ? <PlaceLabel id="place-picker-you" coordinate={route.you} label="Toi" /> : null}
-            {route?.car ? <MovingMarker id="place-picker-car" coordinate={route.car} /> : null}
+            {route?.car ? <MovingMarker id="place-picker-car" coordinate={route.car} glideMs={LIVE_REFRESH_MS} /> : null}
             {shown ? <MovingMarker id="place-picker-point" kind="place" coordinate={[shown.longitude, shown.latitude]} /> : null}
           </AppMap>
 

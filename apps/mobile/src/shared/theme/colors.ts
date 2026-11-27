@@ -150,8 +150,9 @@ export const lightColors = {
   skeleton: palette.skelA,
   skeletonHighlight: palette.skelB,
   mapPlaceholder: palette.mapLight,
-  // Ajout (bloc 5) : la suite d'un trajet sur la carte, après le passager. Même ambre vif
-  // en clair et en sombre : un trait sur la carte, jamais du texte (pas de contraste texte à tenir).
+  // Ajout (bloc 5) : la suite d'un trajet sur la carte, après le passager. Depuis le bloc 8,
+  // la couleur de TOUS les trajets sur la carte. Même ambre vif en clair et en sombre : un trait
+  // sur la carte, jamais du texte (pas de contraste texte à tenir).
   mapRouteOnward: palette.amberBright,
   // Ajout (bloc 6) : étoile pleine d'une note (PWA .stars). Une étoile vide prend borderStrong.
   ratingStar: palette.gold,
