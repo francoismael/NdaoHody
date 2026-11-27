@@ -4,14 +4,20 @@ import { AnswerBookingUseCase } from '../../src/application/usecases/bookings/An
 import { ManageBookingsUseCase } from '../../src/application/usecases/bookings/ManageBookingsUseCase';
 import { RequestBookingUseCase } from '../../src/application/usecases/bookings/RequestBookingUseCase';
 import { RunRideJobsUseCase } from '../../src/application/usecases/jobs/RunRideJobsUseCase';
+import { BadgeService } from '../../src/application/service/BadgeService';
 import { TripCancellationService } from '../../src/application/service/TripCancellationService';
+import { ReviewsUseCase } from '../../src/application/usecases/reviews/ReviewsUseCase';
+import { ManageRideUseCase } from '../../src/application/usecases/rides/ManageRideUseCase';
+import { ManageTripsUseCase } from '../../src/application/usecases/trips/ManageTripsUseCase';
 import type { Trip } from '../../src/domain/entity/Trip';
-import { DirectUnitOfWork, FixedClock, InMemorySettings, makeUser } from './inMemory';
+import { DirectUnitOfWork, FixedClock, InMemorySettings, InMemoryUsers, makeUser } from './inMemory';
 import { InMemoryVehicles, makeVehicle } from './inMemoryDriver';
 import {
   FixedBlocks,
+  FixedReports,
   FixedTariffs,
   InMemoryBookings,
+  InMemoryReviews,
   InMemoryTrips,
   makeMatch,
   makeTrip,
@@ -41,10 +47,12 @@ export function setupBookings({ placesLibres = 4, blocked = false } = {}) {
   const clock = new FixedClock();
   const unitOfWork = new DirectUnitOfWork();
   const settings = new InMemorySettings({ delai_reponse_secondes: 180, relances_max: 2 });
+  const vehicles = new InMemoryVehicles(makeVehicle({ id: 1, utilisateurId: 1 }));
+  const users = new InMemoryUsers({ ...DRIVER }, { ...PASSENGER });
   const request = new RequestBookingUseCase(
     trips,
     bookings,
-    new InMemoryVehicles(makeVehicle({ id: 1, utilisateurId: 1 })),
+    vehicles,
     new FixedTariffs(),
     new FixedBlocks(blocked),
     settings,
@@ -56,7 +64,11 @@ export function setupBookings({ placesLibres = 4, blocked = false } = {}) {
   const manage = new ManageBookingsUseCase(bookings, trips, notifier, realtime, unitOfWork, clock);
   const cancellation = new TripCancellationService(trips, bookings, notifier, realtime, unitOfWork, clock);
   const jobs = new RunRideJobsUseCase(bookings, trips, positions, cancellation, notifier, realtime, clock);
-  return { request, answer, manage, jobs, trips, bookings, notifier, realtime, positions, conversations, clock };
+  const badges = new BadgeService(users, vehicles, new FixedReports(), notifier);
+  const ride = new ManageRideUseCase(bookings, trips, users, positions, settings, badges, notifier, realtime, unitOfWork, clock);
+  const reviews = new ReviewsUseCase(new InMemoryReviews(users), bookings, trips, users, badges, unitOfWork, clock);
+  const tripsUseCase = new ManageTripsUseCase(trips, bookings, positions, settings, cancellation, notifier, unitOfWork, clock);
+  return { request, answer, manage, jobs, ride, reviews, tripsUseCase, trips, bookings, users, notifier, realtime, positions, conversations, clock };
 }
 
 

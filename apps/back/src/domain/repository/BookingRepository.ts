@@ -27,6 +27,12 @@ export abstract class BookingRepository {
   /** Waiting requests past their deadline become "expiree"; returns them. */
   abstract expireDue(now: Date): Promise<Booking[]>;
 
+  /** Bookings whose wait on site ended in [from, to[ (driver on site, passenger not there). */
+  abstract listWaitEndedBetween(from: Date, to: Date): Promise<Booking[]>;
+
+  /** Rides finished in [from, to[ that the passenger did not rate yet. */
+  abstract listFinishedWithoutReviewBetween(from: Date, to: Date): Promise<Booking[]>;
+
   /** How many times this request was re-sent (length of its relance_de chain). */
   abstract countRetries(id: number): Promise<number>;
 }

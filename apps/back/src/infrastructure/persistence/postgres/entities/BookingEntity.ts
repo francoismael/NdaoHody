@@ -137,10 +137,18 @@ export function toBookingRow(booking: NewBooking): Partial<BookingEntity> {
 }
 
 /** Changes with dates as Date objects, as the entity expects them. */
+const DATE_FIELDS = ['dateReponse', 'dateAnnulation', 'dateSurPlace', 'finAttente', 'dateDebutCourse', 'dateFinCourse'] as const;
+
 export function toBookingChanges(changes: BookingChanges): Partial<BookingEntity> {
-  const { dateReponse, dateAnnulation, ...rest } = changes;
-  const row: Partial<BookingEntity> = { ...rest };
-  if (dateReponse !== undefined) row.dateReponse = dateReponse === null ? null : new Date(dateReponse);
-  if (dateAnnulation !== undefined) row.dateAnnulation = dateAnnulation === null ? null : new Date(dateAnnulation);
+  const row: Partial<BookingEntity> = {};
+  if (changes.statut !== undefined) row.statut = changes.statut;
+  if (changes.motifRefus !== undefined) row.motifRefus = changes.motifRefus;
+  if (changes.prolongations !== undefined) row.prolongations = changes.prolongations;
+  for (const field of DATE_FIELDS) {
+    const value = changes[field];
+    if (value !== undefined) {
+      row[field] = value === null ? null : new Date(value);
+    }
+  }
   return row;
 }

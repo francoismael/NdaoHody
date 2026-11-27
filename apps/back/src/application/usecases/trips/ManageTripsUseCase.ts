@@ -119,6 +119,26 @@ export class ManageTripsUseCase {
     return updated;
   }
 
+  /**
+   * The driver reached his destination: the trip ends. Refused while a passenger is still to pick up
+   * or on board (each ride is finished, or cancelled, first). He goes offline.
+   */
+  async finish(driver: User, tripId: number): Promise<Trajet> {
+    const trip = await this.findOwn(driver, tripId);
+    if (trip.statut !== 'en_route' && trip.statut !== 'en_cours') {
+      throw new DomainException('conflict', 'Seul un trajet en route peut être terminé.');
+    }
+    if ((await this.bookings.listOnTrip(trip.id, ACTIVE_BOOKING_STATUSES)).length > 0) {
+      throw new DomainException('conflict', 'Il te reste des passagers à prendre ou à déposer : termine ou annule leurs courses.');
+    }
+    const now = this.clock.now();
+    return this.unitOfWork.run(async () => {
+      const finished = await this.trips.update(trip.id, { statut: 'termine', dateFin: now.toISOString() });
+      await this.positions.save(driver.id, null, finished.arrivee, false, now);
+      return finished;
+    });
+  }
+
   /** Refused once a passenger is on board: the ride must be ended instead. */
   async cancel(driver: User, tripId: number): Promise<Trajet> {
     const trip = await this.findOwn(driver, tripId);

@@ -6,6 +6,7 @@ import { VehicleRepository } from '../../../domain/repository/VehicleRepository'
 import type { VehiculeEnAttente } from '@contract/back-office';
 import { UserNotifier } from '../../port/UserNotifier';
 import { notifyBestEffort } from '../../helper/bestEffort';
+import { BadgeService } from '../../service/BadgeService';
 
 /** Back-office queue of vehicles waiting for validation. */
 @Injectable()
@@ -16,6 +17,7 @@ export class ReviewVehiclesUseCase {
     private readonly vehicles: VehicleRepository,
     private readonly users: UserRepository,
     private readonly notifier: UserNotifier,
+    private readonly badges: BadgeService,
   ) {}
 
   async listPending(): Promise<VehiculeEnAttente[]> {
@@ -26,6 +28,7 @@ export class ReviewVehiclesUseCase {
   async approve(vehicleId: number): Promise<VehiculeEnAttente> {
     const vehicle = await this.findPending(vehicleId);
     const approved = await this.vehicles.update(vehicle.id, { statut: 'valide', motifRefus: null });
+    await this.badges.refresh(approved.utilisateurId);
     await this.notify(approved, 'kyc_valide', 'Véhicule validé', `Ton véhicule ${approved.immatriculation} est validé.`);
     return this.toView(approved);
   }
@@ -33,6 +36,7 @@ export class ReviewVehiclesUseCase {
   async reject(vehicleId: number, motif: string): Promise<VehiculeEnAttente> {
     const vehicle = await this.findPending(vehicleId);
     const rejected = await this.vehicles.update(vehicle.id, { statut: 'refuse', motifRefus: motif });
+    await this.badges.refresh(rejected.utilisateurId);
     await this.notify(rejected, 'kyc_refuse', 'Véhicule refusé', `${rejected.immatriculation} : ${motif}.`);
     return this.toView(rejected);
   }

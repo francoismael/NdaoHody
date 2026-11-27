@@ -66,6 +66,13 @@ export class TripsController {
     return this.trips.update(user, id, body);
   }
 
+  @Post(':id/finish')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Trip finished at destination (every ride finished or cancelled first); the driver goes offline.' })
+  finish(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number): Promise<Trajet> {
+    return this.trips.finish(user, id);
+  }
+
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'Trip cancelled; requests and seats cancelled, passengers told.' })

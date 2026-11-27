@@ -168,6 +168,31 @@ export class InMemoryUsers extends UserRepository {
     return updated;
   }
 
+  /** Ratings received, to compute the average (filled by InMemoryReviews). */
+  readonly ratings = new Map<number, number[]>();
+
+  async countRide(id: number, as: 'passager' | 'chauffeur'): Promise<void> {
+    const user = this.rows.find((row) => row.id === id);
+    if (user) {
+      if (as === 'passager') user.coursesPassager += 1;
+      else user.coursesChauffeur += 1;
+    }
+  }
+
+  async countAbsence(id: number): Promise<void> {
+    const user = this.rows.find((row) => row.id === id);
+    if (user) user.absences += 1;
+  }
+
+  async refreshRating(id: number): Promise<void> {
+    const user = this.rows.find((row) => row.id === id);
+    const notes = this.ratings.get(id) ?? [];
+    if (user) {
+      user.nombreNotes = notes.length;
+      user.noteMoyenne = notes.length ? Math.round((notes.reduce((a, b) => a + b, 0) / notes.length) * 10) / 10 : null;
+    }
+  }
+
   async hasRideInProgress(id: number): Promise<boolean> {
     return this.ridesInProgress.has(id);
   }

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BadgeService } from '../application/service/BadgeService';
 import { AdminSignInUseCase } from '../application/usecases/admin/AdminSignInUseCase';
 import { AuthenticateAdminUseCase } from '../application/usecases/admin/AuthenticateAdminUseCase';
 import { ManageAdminAccountsUseCase } from '../application/usecases/admin/ManageAdminAccountsUseCase';
@@ -25,6 +26,7 @@ import { AdminJournalInterceptor } from './interceptor/AdminJournalInterceptor';
     ManageAdminAccountsUseCase,
     ReviewDriverApplicationsUseCase,
     ReviewVehiclesUseCase,
+    BadgeService,
   ],
 })
 export class AdminApiModule {}

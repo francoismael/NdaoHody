@@ -1,4 +1,4 @@
-NDAOHODY — TESTER LES ÉTAPES 6 À 9 (PUBLIER, RECHERCHER, RÉSERVER, SUIVRE)
+NDAOHODY — TESTER LES ÉTAPES 6 À 11 (PUBLIER, RECHERCHER, RÉSERVER, SUIVRE, COURSE, AVIS)
 À faire dans l'ordre, dans Postman. Chaque requête utilise ce que la précédente a renvoyé.
 
 [TOKEN CHAUFFEUR]  = Authorization -> Bearer Token -> accessToken du chauffeur (034 00 000 03)
@@ -277,16 +277,119 @@ POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 4}/cancel   [TO
 -> Le passager annule AVANT la réponse du chauffeur : autorisé. Attendu : statut "annulee_passager".
 (pas de body)
 
-POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/cancel   [TOKEN CHAUFFEUR]
--> Le chauffeur annule le passager 1 (pas encore monté) : autorisé. Attendu : statut "annulee_chauffeur".
+POST http://localhost:3000/api/v1/reservations                         [TOKEN PASSAGER 2]
+-> Encore une demande du passager 2. NOTER SON "id" : c'est la DEMANDE 5.
+{
+  "trajetId": "id du TRAJET IMMÉDIAT (nombre)",
+  "places": 1,
+  "priseEnCharge": { "libelle": "Tanjombato", "latitude": -18.9600, "longitude": 47.5280 },
+  "depose": { "libelle": "Analakely", "latitude": -18.9067, "longitude": 47.5253 }
+}
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 5}/accept   [TOKEN CHAUFFEUR]
+-> Le chauffeur accepte : placesLibres passe à 1 (DEMANDE 1 et DEMANDE 5 ont chacune une place).
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 5}/cancel   [TOKEN CHAUFFEUR]
+-> Le chauffeur annule le passager 2 (pas encore monté) : autorisé. Attendu : statut "annulee_chauffeur".
 (pas de body)
 
 GET http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}         [TOKEN CHAUFFEUR]
--> La place est revenue : placesLibres repasse à 3.
+-> La place est revenue : placesLibres repasse à 2 (il reste la place de la DEMANDE 1).
 (pas de body)
 
-POST http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}/cancel    [TOKEN CHAUFFEUR]
--> Le chauffeur annule tout son trajet. Attendu : statut "annule".
+
+==============================================================
+ ÉTAPE 10 — ARRIVÉE ET COURSE (avec la DEMANDE 1)
+==============================================================
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/on-site   [TOKEN CHAUFFEUR]
+-> « Je suis sur place » alors que le chauffeur est encore loin : 409 "Tu es encore à ... m".
+   (si la dernière position a plus de 2 min : 409 "Active ta localisation", renvoyer une position)
+(pas de body)
+
+POST http://localhost:3000/api/v1/me/position                          [TOKEN CHAUFFEUR]
+-> Le chauffeur arrive à Tanjombato, à moins de 500 m du passager.
+{
+  "latitude": -18.9605,
+  "longitude": 47.5281
+}
+
+GET http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/tracking   [TOKEN PASSAGER 1]
+-> Attendu : distanceMetres sous 500 (l'app montrerait le bouton « Je suis sur place » au chauffeur).
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/on-site   [TOKEN CHAUFFEUR]
+-> Maintenant autorisé. Attendu : statut "chauffeur_sur_place", finAttente = maintenant + 10 min.
+   Le passager est prévenu « Ton chauffeur est arrivé ».
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/no-show   [TOKEN CHAUFFEUR]
+-> Marquer absent avant la fin des 10 min : 409 "Le compte à rebours n'est pas terminé : attends la fin avant de choisir."
+   (après 10 min : /extend-wait pour attendre 10 min de plus, ou /no-show pour marquer absent)
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/start     [TOKEN CHAUFFEUR]
+-> Le passager est monté. Attendu : statut "en_course".
+(pas de body)
+
+GET http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}         [TOKEN CHAUFFEUR]
+-> Le trajet est "en_cours" (un passager à bord).
+(pas de body)
+
+POST http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}/finish    [TOKEN CHAUFFEUR]
+-> Terminer le trajet avec un passager à bord : 409 "Il te reste des passagers à prendre ou à déposer".
+(pas de body)
+
+POST http://localhost:3000/api/v1/reservations/{id de la DEMANDE 1}/finish    [TOKEN CHAUFFEUR]
+-> Arrivé à Analakely : la course du passager 1 est terminée. Attendu : statut "terminee".
+   Le passager reçoit « Ta course est terminée : note ton chauffeur ». Le trajet repasse "en_route".
+(pas de body)
+
+
+==============================================================
+ ÉTAPE 11 — AVIS ET BADGES
+==============================================================
+
+POST http://localhost:3000/api/v1/reviews                              [TOKEN PASSAGER 1]
+-> Le passager note son chauffeur. Attendu : 201.
+{
+  "reservationId": "id de la DEMANDE 1 (nombre)",
+  "note": 5,
+  "commentaire": "Chauffeur ponctuel et prudent."
+}
+
+POST http://localhost:3000/api/v1/reviews                              [TOKEN PASSAGER 1]
+-> Noter une 2e fois la même course : 409 "Tu as déjà noté cette course."
+{
+  "reservationId": "id de la DEMANDE 1 (nombre)",
+  "note": 3
+}
+
+POST http://localhost:3000/api/v1/reviews                              [TOKEN CHAUFFEUR]
+-> Le chauffeur essaie de noter son passager : 403 (seul le passager note).
+{
+  "reservationId": "id de la DEMANDE 1 (nombre)",
+  "note": 4
+}
+
+GET http://localhost:3000/api/v1/drivers/{id du chauffeur Andry = chauffeurId du TRAJET IMMÉDIAT}/public   [TOKEN PASSAGER 1]
+-> Le profil public du chauffeur : noteMoyenne 5, nombreNotes 1, nombreCourses 3
+   (2 courses dans la démo + celle-ci), et son véhicule.
+(pas de body)
+
+GET http://localhost:3000/api/v1/users/{id du chauffeur Andry}/reviews     [TOKEN PASSAGER 1]
+-> L'avis laissé, avec le prénom et la photo de son auteur (le passager 1), sans téléphone.
+(pas de body)
+
+GET http://localhost:3000/api/v1/me                                    [TOKEN PASSAGER 1]
+-> Le passager 1 : coursesPassager passe de 2 (démo) à 3, donc son badge passe de "nouveau"
+   à "verifie" (verifie à partir de 3 courses, top à 20 courses sans absence).
+   Il reçoit aussi la notification « badge obtenu ».
+(pas de body)
+
+POST http://localhost:3000/api/v1/trips/{id du TRAJET IMMÉDIAT}/finish    [TOKEN CHAUFFEUR]
+-> Plus personne à prendre ni à déposer : le chauffeur termine son trajet. Attendu : statut "termine".
 (pas de body)
 
 

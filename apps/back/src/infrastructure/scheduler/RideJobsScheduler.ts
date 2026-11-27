@@ -22,7 +22,10 @@ export class RideJobsScheduler implements OnApplicationBootstrap, OnApplicationS
   constructor(private readonly jobs: RunRideJobsUseCase) {}
 
   onApplicationBootstrap(): void {
-    this.every('bookings', BOOKING_JOB_EVERY_SECONDS, () => this.jobs.expireBookings());
+    this.every('bookings', BOOKING_JOB_EVERY_SECONDS, async () => {
+      await this.jobs.expireBookings();
+      await this.jobs.announceWaitEnded();
+    });
     this.every('positions', POSITION_JOB_EVERY_SECONDS, () => this.jobs.markDriversOffline());
     this.every('trips', TRIP_JOB_EVERY_SECONDS, () => this.jobs.handleTrips());
   }
