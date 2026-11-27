@@ -51,7 +51,7 @@ export class TypeOrmDriverPositionRepository extends DriverPositionRepository {
   }
 
   async markStaleOffline(before: Date): Promise<number[]> {
-    const rows: { chauffeur_id: string }[] = await this.context.manager().query(
+    const rows = await this.context.queryReturning<{ chauffeur_id: string }>(
       `UPDATE position_chauffeur SET en_ligne = FALSE
        WHERE en_ligne AND date_mise_a_jour < $1
        RETURNING chauffeur_id`,

@@ -20,6 +20,16 @@ export class TransactionContext {
     return this.manager().getRepository(entity);
   }
 
+  /**
+   * Raw UPDATE / DELETE ... RETURNING. For these commands, TypeORM's Postgres driver answers
+   * [rows, affected count] instead of the rows alone: this returns the rows.
+   */
+  async queryReturning<Row>(sql: string, parameters: readonly unknown[]): Promise<Row[]> {
+    const result: unknown = await this.manager().query(sql, [...parameters]);
+    const rows: unknown = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+    return Array.isArray(rows) ? (rows as Row[]) : [];
+  }
+
   /** Nested calls join the transaction already open. */
   run<T>(work: () => Promise<T>): Promise<T> {
     if (this.storage.getStore()) {

@@ -7,6 +7,8 @@ import { SecretHasher } from '../../src/application/port/SecretHasher';
 import { RandomGenerator } from '../../src/application/port/RandomGenerator';
 import { SmsSender } from '../../src/application/port/SmsSender';
 import { UnitOfWork } from '../../src/application/port/UnitOfWork';
+import { WhatsAppSender } from '../../src/application/port/WhatsAppSender';
+import type { CanalOtp } from '@contract';
 import type { NewOtpCode, OtpCode } from '../../src/domain/entity/OtpCode';
 import type { User, UserChanges } from '../../src/domain/entity/User';
 import type { NewUserSession, UserSession } from '../../src/domain/entity/UserSession';
@@ -106,6 +108,21 @@ export class RecordingSms extends SmsSender {
   }
 }
 
+/** Records the WhatsApp codes; refuses them all (like Meta) when failing is true. */
+export class RecordingWhatsApp extends WhatsAppSender {
+  readonly sent: { telephone: string; code: string; messageId: string }[] = [];
+  failing = false;
+
+  async sendCode(telephone: string, code: string): Promise<string> {
+    if (this.failing) {
+      throw new Error('Meta refused the message (HTTP 400): recipient not on WhatsApp');
+    }
+    const messageId = `wamid-${this.sent.length + 1}`;
+    this.sent.push({ telephone, code, messageId });
+    return messageId;
+  }
+}
+
 /** Runs the work directly (no rollback in memory). */
 export class DirectUnitOfWork extends UnitOfWork {
   run<T>(work: () => Promise<T>): Promise<T> {
@@ -202,8 +219,15 @@ export class InMemoryOtpCodes extends OtpCodeRepository {
   readonly rows: OtpCode[] = [];
 
   async findLatest(telephone: string): Promise<OtpCode | null> {
-    const codes = this.rows.filter((code) => code.telephone === telephone);
-    return codes.at(-1) ?? null;
+    return this.rows.filter((code) => code.telephone === telephone).at(-1) ?? null;
+  }
+
+  async findLatestByChannel(telephone: string, canal: CanalOtp): Promise<OtpCode | null> {
+    return this.rows.filter((code) => code.telephone === telephone && code.canal === canal).at(-1) ?? null;
+  }
+
+  async findByWhatsAppMessageId(whatsappMessageId: string): Promise<OtpCode | null> {
+    return this.rows.find((code) => code.whatsappMessageId === whatsappMessageId) ?? null;
   }
 
   async countCreatedSince(telephone: string, since: Date): Promise<number> {
@@ -211,9 +235,40 @@ export class InMemoryOtpCodes extends OtpCodeRepository {
   }
 
   async create(code: NewOtpCode): Promise<OtpCode> {
-    const row: OtpCode = { ...code, id: this.rows.length + 1, essais: 0, dateUtilisation: null };
+    const row: OtpCode = {
+      ...code,
+      id: this.rows.length + 1,
+      essais: 0,
+      whatsappMessageId: null,
+      dateUtilisation: null,
+      dateAnnulation: null,
+      dateEchecLivraison: null,
+    };
     this.rows.push(row);
-    return row;
+    // A copy, as a database would return: later changes to the row do not show in it.
+    return { ...row };
+  }
+
+  async setWhatsAppMessageId(id: number, whatsappMessageId: string): Promise<void> {
+    this.find(id).whatsappMessageId = whatsappMessageId;
+  }
+
+  async recordDeliveryFailure(id: number, at: Date): Promise<boolean> {
+    const code = this.find(id);
+    if (code.dateEchecLivraison) {
+      return false;
+    }
+    code.dateEchecLivraison = at;
+    return true;
+  }
+
+  async cancel(id: number, at: Date): Promise<boolean> {
+    const code = this.find(id);
+    if (code.dateAnnulation || code.dateUtilisation) {
+      return false;
+    }
+    code.dateAnnulation = at;
+    return true;
   }
 
   async recordFailedAttempt(id: number): Promise<void> {

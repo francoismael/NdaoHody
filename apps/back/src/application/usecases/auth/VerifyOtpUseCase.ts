@@ -17,9 +17,10 @@ export const MAX_OTP_ATTEMPTS = 3;
 
 const EXPIRED_CODE_MESSAGE = 'Ce code a expiré. Demande un nouveau code.';
 const TOO_MANY_ATTEMPTS_MESSAGE = "Trop d'essais avec ce code. Demande un nouveau code.";
+const REPLACED_CODE_MESSAGE = 'Ce code a été remplacé par un code envoyé par SMS. Utilise le dernier code reçu.';
 
 /**
- * POST /auth/otp/verify: checks the SMS code (3 tries), creates the account
+ * POST /auth/otp/verify: checks the code received by WhatsApp or SMS (3 tries), creates the account
  * the first time, then opens a session.
  */
 @Injectable()
@@ -60,6 +61,10 @@ export class VerifyOtpUseCase {
   private async checkCode(otp: OtpCode | null, code: string, now: Date): Promise<OtpCode> {
     if (!otp || otp.dateUtilisation || otp.dateExpiration <= now) {
       throw new DomainException('invalid', EXPIRED_CODE_MESSAGE);
+    }
+    // Replaced by an SMS code (WhatsApp not delivered): only the newest code works.
+    if (otp.dateAnnulation) {
+      throw new DomainException('invalid', REPLACED_CODE_MESSAGE);
     }
     if (otp.essais >= MAX_OTP_ATTEMPTS) {
       throw new DomainException('too_many_requests', TOO_MANY_ATTEMPTS_MESSAGE);

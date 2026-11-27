@@ -19,6 +19,20 @@ export interface Environment {
   HASH_SECRET: string;
   /** "log": SMS are written in the server logs (local development). */
   SMS_PROVIDER: SmsProvider;
+  /** "log": WhatsApp codes are written in the server logs (local development); "meta": WhatsApp Cloud API. */
+  WHATSAPP_PROVIDER: WhatsAppProvider;
+  /** Meta access token (system user of the WhatsApp Business account). */
+  WHATSAPP_ACCESS_TOKEN: string;
+  /** Id of the WhatsApp number that sends the codes (not the number itself). */
+  WHATSAPP_PHONE_NUMBER_ID: string;
+  /** Name of the approved authentication template. */
+  WHATSAPP_TEMPLATE_NAME: string;
+  /** Language of the template, "fr" by default. */
+  WHATSAPP_TEMPLATE_LANGUAGE: string;
+  /** Secret of the Meta app: checks the X-Hub-Signature-256 of the webhook. */
+  WHATSAPP_APP_SECRET: string;
+  /** Any random string, typed again in the Meta console when the webhook is set up. */
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: string;
   /** Folder where uploaded files (profile photos) are written. */
   UPLOADS_DIR: string;
   /** Folder of the private files (driver licences, selfies): only reachable through temporary links. */
@@ -30,8 +44,18 @@ export interface Environment {
 }
 
 export type SmsProvider = 'log';
+export type WhatsAppProvider = 'log' | 'meta';
 
 const SMS_PROVIDERS: readonly SmsProvider[] = ['log'];
+const WHATSAPP_PROVIDERS: readonly WhatsAppProvider[] = ['log', 'meta'];
+/** Required with WHATSAPP_PROVIDER=meta. */
+const META_WHATSAPP_VARIABLES = [
+  'WHATSAPP_ACCESS_TOKEN',
+  'WHATSAPP_PHONE_NUMBER_ID',
+  'WHATSAPP_TEMPLATE_NAME',
+  'WHATSAPP_APP_SECRET',
+  'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
+] as const;
 const SECRET_VARIABLES = ['JWT_ACCESS_SECRET', 'JWT_ADMIN_SECRET', 'HASH_SECRET'] as const;
 const REQUIRED_VARIABLES = ['DATABASE_URL', 'MONGODB_URI', 'MAPBOX_ACCESS_TOKEN', ...SECRET_VARIABLES] as const;
 /** Mapbox tokens start with pk. (public) or sk. (secret). */
@@ -63,13 +87,25 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
   }
 
   const smsProvider = readString(config, 'SMS_PROVIDER', 'log');
-  if (!isSmsProvider(smsProvider)) {
+  if (!isOneOf(SMS_PROVIDERS, smsProvider)) {
     throw new Error(`SMS_PROVIDER must be one of: ${SMS_PROVIDERS.join(', ')}.`);
   }
   const nodeEnv = readString(config, 'NODE_ENV', 'development');
   if (nodeEnv === 'production' && smsProvider === 'log') {
     // The logs would contain every sign-in code.
     throw new Error('SMS_PROVIDER=log is for local development only: set a real SMS provider in production.');
+  }
+
+  const whatsAppProvider = readString(config, 'WHATSAPP_PROVIDER', 'log');
+  if (!isOneOf(WHATSAPP_PROVIDERS, whatsAppProvider)) {
+    throw new Error(`WHATSAPP_PROVIDER must be one of: ${WHATSAPP_PROVIDERS.join(', ')}.`);
+  }
+  if (nodeEnv === 'production' && whatsAppProvider === 'log') {
+    throw new Error('WHATSAPP_PROVIDER=log is for local development only: set WHATSAPP_PROVIDER=meta in production.');
+  }
+  const missingMeta = META_WHATSAPP_VARIABLES.filter((key) => !readString(config, key));
+  if (whatsAppProvider === 'meta' && missingMeta.length > 0) {
+    throw new Error(`WHATSAPP_PROVIDER=meta needs: ${missingMeta.join(', ')}.`);
   }
 
   const port = readString(config, 'PORT', DEFAULT_PORT);
@@ -87,6 +123,13 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     JWT_ADMIN_SECRET: readString(config, 'JWT_ADMIN_SECRET'),
     HASH_SECRET: readString(config, 'HASH_SECRET'),
     SMS_PROVIDER: smsProvider,
+    WHATSAPP_PROVIDER: whatsAppProvider,
+    WHATSAPP_ACCESS_TOKEN: readString(config, 'WHATSAPP_ACCESS_TOKEN'),
+    WHATSAPP_PHONE_NUMBER_ID: readString(config, 'WHATSAPP_PHONE_NUMBER_ID'),
+    WHATSAPP_TEMPLATE_NAME: readString(config, 'WHATSAPP_TEMPLATE_NAME'),
+    WHATSAPP_TEMPLATE_LANGUAGE: readString(config, 'WHATSAPP_TEMPLATE_LANGUAGE', 'fr'),
+    WHATSAPP_APP_SECRET: readString(config, 'WHATSAPP_APP_SECRET'),
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: readString(config, 'WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
     UPLOADS_DIR: readString(config, 'UPLOADS_DIR', 'apps/back/uploads'),
     PRIVATE_UPLOADS_DIR: readString(config, 'PRIVATE_UPLOADS_DIR', 'apps/back/private-uploads'),
     MAPBOX_ACCESS_TOKEN: readString(config, 'MAPBOX_ACCESS_TOKEN'),
@@ -94,8 +137,8 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
   };
 }
 
-function isSmsProvider(value: string): value is SmsProvider {
-  return (SMS_PROVIDERS as readonly string[]).includes(value);
+function isOneOf<T extends string>(values: readonly T[], value: string): value is T {
+  return (values as readonly string[]).includes(value);
 }
 
 /** Values from .env are strings; anything else falls back to the default. */

@@ -1,13 +1,9 @@
+import type { CodeEnvoye } from '@contract';
 import type { IssuedSession } from '../service/SessionIssuerService';
 import type { MeResponse } from './MeResponse';
 
-/** POST /auth/otp: the SMS was sent. */
-export interface OtpSentResponse {
-  /** The code stops working after this many seconds. */
-  expiresInSeconds: number;
-  /** A new code can be asked after this many seconds. */
-  resendInSeconds: number;
-}
+/** POST /auth/otp: the code was sent, "canal" says through which channel. */
+export type OtpSentResponse = CodeEnvoye;
 
 /** POST /auth/otp/verify: the user is signed in. */
 export interface SignInResponse extends IssuedSession {

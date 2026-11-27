@@ -1,4 +1,5 @@
-import { ClassProvider, Global, Module } from '@nestjs/common';
+import { ClassProvider, FactoryProvider, Global, Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccessTokenService, AdminTokenService } from '../application/port/AccessTokenService';
@@ -16,6 +17,7 @@ import { SecretHasher } from '../application/port/SecretHasher';
 import { SmsSender } from '../application/port/SmsSender';
 import { UnitOfWork } from '../application/port/UnitOfWork';
 import { UserNotifier } from '../application/port/UserNotifier';
+import { WhatsAppSender } from '../application/port/WhatsAppSender';
 import { AdminAccountRepository } from '../domain/repository/AdminAccountRepository';
 import { AdminJournalRepository } from '../domain/repository/AdminJournalRepository';
 import { BlockRepository } from '../domain/repository/BlockRepository';
@@ -40,9 +42,11 @@ import { JwtAccessTokenAdapter, JwtAdminTokenAdapter } from './adapter/JwtTokenA
 import { LocalFileStorageAdapter } from './adapter/LocalFileStorageAdapter';
 import { LocalPrivateFileStorageAdapter } from './adapter/LocalPrivateFileStorageAdapter';
 import { LogSmsSenderAdapter } from './adapter/LogSmsSenderAdapter';
+import { LogWhatsAppSenderAdapter } from './adapter/LogWhatsAppSenderAdapter';
 import { MapboxClient } from './adapter/MapboxClient';
 import { MapboxPlaceSearchAdapter } from './adapter/MapboxPlaceSearchAdapter';
 import { MapboxRouteProviderAdapter } from './adapter/MapboxRouteProviderAdapter';
+import { MetaWhatsAppSenderAdapter } from './adapter/MetaWhatsAppSenderAdapter';
 import { MongoDeviceRegistryAdapter } from './adapter/MongoDeviceRegistryAdapter';
 import { MongoUserNotifierAdapter } from './adapter/MongoUserNotifierAdapter';
 import { SharpImageProcessorAdapter } from './adapter/SharpImageProcessorAdapter';
@@ -68,6 +72,7 @@ import { TypeOrmUserSessionRepository } from './persistence/postgres/repositorie
 import { TypeOrmUserRepository } from './persistence/postgres/repositories/TypeOrmUserRepository';
 import { TypeOrmVehicleRepository } from './persistence/postgres/repositories/TypeOrmVehicleRepository';
 import { TransactionContext } from './persistence/postgres/TransactionContext';
+import type { WhatsAppProvider } from './config/environment';
 
 /** Port or repository (application / domain) -> its implementation (infrastructure). */
 const BINDINGS: ClassProvider[] = [
@@ -105,6 +110,16 @@ const BINDINGS: ClassProvider[] = [
   { provide: ReportRepository, useClass: TypeOrmReportRepository },
 ];
 
+/** WHATSAPP_PROVIDER picks the WhatsApp adapter. */
+const WHATSAPP_SENDER: FactoryProvider<WhatsAppSender> = {
+  provide: WhatsAppSender,
+  inject: [ConfigService],
+  useFactory: (config: ConfigService): WhatsAppSender =>
+    config.getOrThrow<WhatsAppProvider>('WHATSAPP_PROVIDER') === 'meta'
+      ? new MetaWhatsAppSenderAdapter(config)
+      : new LogWhatsAppSenderAdapter(),
+};
+
 /**
  * Wires every port to its adapter. Global: the API modules only list their controllers and use cases.
  */
@@ -117,7 +132,7 @@ const BINDINGS: ClassProvider[] = [
       { name: NotificationDocument.name, schema: NotificationSchema },
     ]),
   ],
-  providers: [TransactionContext, MapboxClient, ...BINDINGS],
-  exports: BINDINGS.map((binding) => binding.provide),
+  providers: [TransactionContext, MapboxClient, WHATSAPP_SENDER, ...BINDINGS],
+  exports: [WhatsAppSender, ...BINDINGS.map((binding) => binding.provide)],
 })
 export class InfrastructureModule {}

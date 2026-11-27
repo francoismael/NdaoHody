@@ -18,13 +18,13 @@ import { SignOutUseCase } from '../../application/usecases/auth/SignOutUseCase';
 import { VerifyOtpUseCase } from '../../application/usecases/auth/VerifyOtpUseCase';
 
 /**
- * Strict limits per IP address on the SMS routes (no account yet).
+ * Strict limits per IP address on the sign-in code routes (no account yet).
  * The limits per phone number (1 code per minute, 5 per day, 3 tries per code) are in the use cases.
  */
 const SEND_CODE_LIMIT = { default: { limit: 5, ttl: 60_000 } };
 const VERIFY_CODE_LIMIT = { default: { limit: 10, ttl: 60_000 } };
 
-/** Sign-in by SMS: /api/v1/auth/... */
+/** Sign-in with a code sent by WhatsApp or SMS: /api/v1/auth/... */
 @ApiTags('auth')
 @ApiBadRequestResponse({ type: ApiErrorResponse })
 @ApiTooManyRequestsResponse({ type: ApiErrorResponse })
@@ -40,10 +40,13 @@ export class AuthController {
   @Post('otp')
   @HttpCode(HttpStatus.OK)
   @Throttle(SEND_CODE_LIMIT)
-  @ApiOkResponse({ description: 'SMS sent.', schema: { example: { expiresInSeconds: 300, resendInSeconds: 60 } } })
+  @ApiOkResponse({
+    description: 'Code sent. "canal": channel actually used ("whatsapp" or "sms").',
+    schema: { example: { expiresInSeconds: 300, resendInSeconds: 60, canal: 'whatsapp' } },
+  })
   @ApiForbiddenResponse({ type: ApiErrorResponse, description: 'Suspended account.' })
   sendCode(@Body() body: RequestOtpRequest): Promise<OtpSentResponse> {
-    return this.requestOtp.execute(body.telephone);
+    return this.requestOtp.execute(body.telephone, body.canal);
   }
 
   @Post('otp/verify')

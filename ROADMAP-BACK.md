@@ -19,7 +19,7 @@ Ordre de travail : on suit les étapes dans l'ordre. Une tâche = une branche `f
 | # | Étape | Résultat |
 |---|---|---|
 | 0 | Socle | Le serveur démarre avec PostgreSQL et MongoDB |
-| 1 | Connexion par SMS | Un utilisateur se connecte avec son numéro |
+| 1 | Connexion par WhatsApp ou SMS | Un utilisateur se connecte avec son numéro |
 | 2 | Profil et mode | Il complète son profil et bascule passager / chauffeur |
 | 3 | Back-office : comptes et rôles | super_admin, admin, investisseur se connectent |
 | 4 | Devenir chauffeur | Documents + véhicules validés par un admin |
@@ -61,12 +61,18 @@ Pas de Docker en local : PostgreSQL et MongoDB tournent directement sur le PC.
 
 ---
 
-## Étape 1 — Connexion par SMS
+## Étape 1 — Connexion par WhatsApp ou SMS
 
 Routes en anglais, comme celles qu'appelle déjà l'app mobile, sous `/api/v1`.
 
 - [x] `POST /auth/otp` : numéro normalisé `+261…`, code à 6 chiffres haché, valable 5 min (`parametre.otp_duree_minutes`), renvoi après 60 s, 5 codes max par jour (`code_otp`)
 - [x] Port `SmsSender` + adaptateur (journal en local, vrai fournisseur ensuite ; `SMS_PROVIDER=log` refusé en production)
+- [x] Code envoyé **par WhatsApp par défaut** (modèle d'authentification, Meta Cloud API) : port `WhatsAppSender`, adaptateurs `log` / `meta` (`WHATSAPP_PROVIDER`, `log` refusé en production) ; `canal` dans la réponse
+- [x] Bouton « Recevoir par SMS » : `canal: "sms"` dans `POST /auth/otp` (60 s et 5 par jour comme d'habitude)
+- [x] Bascule automatique : webhook `GET/POST /api/webhooks/whatsapp` (signature `X-Hub-Signature-256`, idempotent) ; statut `failed` → code WhatsApp annulé, nouveau code par SMS (sans les 60 s, dans les 5 par jour) ; refus de Meta à l'envoi → SMS immédiat
+- [x] Mémoire du canal : dernier WhatsApp non livré il y a moins de 30 jours → SMS directement ; un code annulé n'est plus accepté
+- [ ] Côté Meta : compte Business, numéro, modèle d'authentification approuvé, URL du webhook (voir `.env.example`)
+- [ ] App mobile : bouton « Recevoir par SMS » et message « Code envoyé sur WhatsApp / par SMS »
 - [x] `POST /auth/otp/verify` : 3 essais max ; crée le compte s'il n'existe pas
 - [x] Jeton d'accès JWT (15 min) + jeton de rafraîchissement (30 jours, haché dans la table `session_utilisateur`)
 - [x] `POST /auth/refresh` (rotation : un jeton ne sert qu'une fois ; un jeton déjà utilisé ferme toutes les sessions), `POST /auth/logout`

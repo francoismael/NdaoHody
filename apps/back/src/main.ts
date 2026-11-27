@@ -6,7 +6,8 @@ import { AppModule } from './app/AppModule';
 import { DOCS_PATH, GLOBAL_PREFIX, setupHttpServer } from './infrastructure/config/http';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // rawBody: the WhatsApp webhook checks Meta's signature on the exact bytes received.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   setupHttpServer(app);
 
   const port = app.get(ConfigService).getOrThrow<number>('PORT');

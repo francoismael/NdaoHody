@@ -58,6 +58,28 @@ export type Chemin = [number, number][];
 
 
 /* ---------------------------------------------------------------------------
+   Connexion par code (table code_otp)
+   La table n'est jamais renvoyée telle quelle à l'app. En plus du hash du code, elle garde :
+   canal ('sms' | 'whatsapp'), whatsappMessageId (identifiant du message chez Meta),
+   dateAnnulation (code remplacé par un code SMS) et dateEchecLivraison (WhatsApp non livré).
+   --------------------------------------------------------------------------- */
+export type CanalOtp = 'sms' | 'whatsapp';
+
+/** POST /api/v1/auth/otp */
+export interface DemandeCodeConnexion {
+  telephone: string;              // "034 12 345 67", tous les formats usuels
+  canal?: CanalOtp;               // 'whatsapp' par défaut ; 'sms' pour le bouton « Recevoir par SMS »
+}
+
+/** Réponse de POST /api/v1/auth/otp (clés en anglais, comme le reste des routes /auth). */
+export interface CodeEnvoye {
+  expiresInSeconds: number;       // le code ne marche plus après ce délai
+  resendInSeconds: number;        // un nouveau code peut être demandé après ce délai
+  canal: CanalOtp;                // canal réellement utilisé : « Code envoyé sur WhatsApp » ou « par SMS »
+}
+
+
+/* ---------------------------------------------------------------------------
    Utilisateur de l'application (table utilisateur)
    --------------------------------------------------------------------------- */
 export interface Utilisateur {

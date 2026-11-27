@@ -21,7 +21,7 @@ on reçoit un nouvel accessToken ET un nouveau refreshToken, qui remplacent les 
 [FORM-DATA]   = body en form-data (envoi de fichier), pas en JSON
 {...}         = dans une URL : à remplacer par la vraie valeur (ex. {id du véhicule} -> 8)
 
-Code SMS : il s'affiche dans le terminal du back (SMS_PROVIDER=log).
+Code de connexion : il s'affiche dans le terminal du back (WHATSAPP_PROVIDER=log et SMS_PROVIDER=log).
 Données de démo : npm run db:seed (remet la base à zéro).
 
 
@@ -35,14 +35,24 @@ GET http://localhost:3000/api/health
 
 
 ==============================================================
- ÉTAPE 1 — CONNEXION PAR SMS
+ ÉTAPE 1 — CONNEXION PAR WHATSAPP OU SMS
 ==============================================================
 
 POST http://localhost:3000/api/v1/auth/otp
--> Envoie un code à 6 chiffres par SMS au numéro (visible dans le terminal du back).
+-> Envoie un code à 6 chiffres sur WhatsApp (visible dans le terminal du back, ligne [WhatsApp]).
+   Si le dernier message WhatsApp de ce numéro n'a pas été livré (30 derniers jours), le code part
+   directement par SMS. "canal" dans la réponse dit par où il est parti ("whatsapp" ou "sms").
    1 code par minute, 5 codes par jour, valable 5 minutes.
 {
   "telephone": "034 12 345 67"
+}
+
+POST http://localhost:3000/api/v1/auth/otp
+-> Bouton « Recevoir par SMS » de l'app : même chose, mais le code part par SMS
+   (ligne [SMS] dans le terminal). Mêmes limites : 1 par minute, 5 par jour.
+{
+  "telephone": "034 12 345 67",
+  "canal": "sms"
 }
 
 POST http://localhost:3000/api/v1/auth/otp/verify
@@ -50,12 +60,12 @@ POST http://localhost:3000/api/v1/auth/otp/verify
    Renvoie accessToken (15 min) et refreshToken (30 jours) : garde-les pour la suite.
 {
   "telephone": "034 12 345 67",
-  "code": "code reçu par SMS"
+  "code": "dernier code reçu (WhatsApp ou SMS)"
 }
 
 POST http://localhost:3000/api/v1/auth/refresh
 -> Quand l'accessToken a expiré (après 15 min, les appels renvoient 401) : donne un nouvel
-   accessToken et un nouveau refreshToken, sans redemander de code SMS.
+   accessToken et un nouveau refreshToken, sans redemander de code.
    Remplace les deux anciens jetons. L'ancien refreshToken ne marche plus ; s'il est
    réutilisé (vol probable), toutes les sessions de l'utilisateur sont fermées.
    Pas de header Authorization : le refreshToken va dans le body.
@@ -70,6 +80,34 @@ POST http://localhost:3000/api/v1/auth/logout
   "refreshToken": "refreshToken actuel du téléphone"
 }
 
+
+--- Webhook WhatsApp (appelé par Meta, pas par l'app) ---
+Adresse hors de /v1 : à enregistrer dans la console Meta. Pas de token.
+
+GET http://localhost:3000/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token={WHATSAPP_WEBHOOK_VERIFY_TOKEN du .env}&hub.challenge={nombre au choix}
+-> Vérification faite par Meta quand on enregistre l'URL : renvoie le nombre de hub.challenge
+   (texte brut) si le jeton est le bon, sinon 403.
+(pas de body)
+
+POST http://localhost:3000/api/webhooks/whatsapp
+-> Meta y envoie le statut de chaque message. Si un code WhatsApp est "failed" (numéro sans
+   WhatsApp...), le code est annulé et un NOUVEAU code part par SMS (sans attendre 60 s, mais dans
+   la limite de 5 par jour). Le même statut reçu 2 fois n'envoie qu'un SMS.
+   Header obligatoire : X-Hub-Signature-256: sha256=<HMAC SHA-256 du body exact avec WHATSAPP_APP_SECRET>
+   (sans signature valide : 401). Réponse 200 tout de suite, sans contenu.
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "identifiant du compte WhatsApp Business",
+    "changes": [{
+      "field": "messages",
+      "value": {
+        "messaging_product": "whatsapp",
+        "statuses": [{ "id": "identifiant du message, écrit après « message » dans la ligne [WhatsApp] du terminal", "status": "failed" }]
+      }
+    }]
+  }]
+}
 
 ==============================================================
  ÉTAPE 2 — PROFIL ET MODE                         [TOKEN APP]

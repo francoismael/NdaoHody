@@ -116,16 +116,29 @@ CREATE TABLE utilisateur (
 );
 
 
-/* codes SMS de connexion (on garde le hash du code, jamais le code) */
+/* codes de connexion envoyés par WhatsApp ou par SMS (on garde le hash du code, jamais le code)
+   whatsapp_message_id : identifiant du message chez Meta, pour retrouver le code quand Meta signale un échec
+   date_annulation : code remplacé par un nouveau code SMS (il n'est plus accepté)
+   date_echec_livraison : Meta n'a pas pu livrer le message WhatsApp */
 CREATE TABLE code_otp (
     id SERIAL PRIMARY KEY,
     telephone VARCHAR(20) NOT NULL,
     code_hash VARCHAR(255) NOT NULL,
     essais INT NOT NULL DEFAULT 0,
+    canal VARCHAR(10) NOT NULL DEFAULT 'sms',
+    whatsapp_message_id VARCHAR(100),
     date_expiration TIMESTAMPTZ NOT NULL,
     date_utilisation TIMESTAMPTZ,
-    date_creation TIMESTAMPTZ NOT NULL DEFAULT now()
+    date_annulation TIMESTAMPTZ,
+    date_echec_livraison TIMESTAMPTZ,
+    date_creation TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT ck_code_otp_canal
+        CHECK (canal IN ('sms', 'whatsapp'))
 );
+
+/* un message WhatsApp ne correspond qu'à un seul code */
+CREATE UNIQUE INDEX ux_code_otp_whatsapp_message_id ON code_otp (whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL;
 
 
 /* téléphones connectés : un jeton de rafraîchissement (30 jours) par session, on garde son hash.
