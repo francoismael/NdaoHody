@@ -21,9 +21,9 @@ import { AppMap, MovingMarker, PlaceLabel, RouteLine, newSearchSession, type Lng
 import { LIVE_REFRESH_MS } from '@/shared/query';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, FieldMessage, Icon, TextField } from '@/shared/ui';
-import { useDebouncedValue } from '@/shared/utils';
+import { formatDistance, formatDuration, useDebouncedValue } from '@/shared/utils';
 
-import { PLACE_SEARCH_MIN_CHARS, usePlaceAt, usePlaceSearch, useResolvePlace } from '../hooks/useTrips';
+import { PLACE_SEARCH_MIN_CHARS, usePlaceAt, usePlaceSearch, useResolvePlace, useRouteBetween } from '../hooks/useTrips';
 import { PUBLISH_MESSAGES as M } from '../rules';
 import type { ChosenPlace, PlaceSuggestionItem } from '../types';
 
@@ -90,6 +90,11 @@ export type PlacePickerProps = {
   check?: (point: LngLat) => string | null;
   /** With `route` (booking drop): opens on "Toi" and the driver's destination together; a touched or found point is then zoomed in. */
   overview?: boolean;
+  /**
+   * Publish destination: the departure, shown from the opening. A touched or found point gets the road
+   * from it (amber, "Départ" → "Arrivée") and a summary. No distance-to-road check for the driver (28/11).
+   */
+  from?: ChosenPlace | null;
 };
 
 /**
@@ -129,7 +134,7 @@ export function PlacePicker({ visible, onClose, ...content }: PlacePickerProps) 
 
 type PickerContentProps = Omit<PlacePickerProps, 'visible'>;
 
-function PickerContent({ title, near, selected, onSelect, onClose, current, route, check, overview = false }: PickerContentProps) {
+function PickerContent({ title, near, selected, onSelect, onClose, current, route, check, overview = false, from = null }: PickerContentProps) {
   const theme = useTheme();
   const s = useMemo(() => createStyles(theme), [theme]);
 
@@ -145,13 +150,22 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
   const busy = resolve.isPending || placeAt.isPending;
 
   const shown = pointed ?? selected;
+  // Opening on the departure (publish destination): the driver sees where he leaves from first.
   const focus = useMemo<MapFocus>(
     () =>
       shown
         ? { coordinate: [shown.longitude, shown.latitude], zoom: FOUND_ZOOM }
-        : { coordinate: [near.longitude, near.latitude], zoom: CITY_ZOOM },
-    [shown, near],
+        : from
+          ? { coordinate: [from.longitude, from.latitude], zoom: FOUND_ZOOM }
+          : { coordinate: [near.longitude, near.latitude], zoom: CITY_ZOOM },
+    [shown, from, near],
   );
+
+  // Publish destination: the road from the departure to the shown point. Same cache key as the
+  // publish screen (numbers only): the road is not asked again once the place is chosen.
+  const preview = useRouteBetween(from, from ? shown : null);
+  const roadShown = from && shown ? (preview.data ?? null) : null;
+  const [summaryHeight, setSummaryHeight] = useState(0);
   // Booking drop, until a point is touched or found: "Toi", the driver's destination and the
   // chosen place all in view. Keyed on the numbers: the route and the selected place are new objects at each
   // refresh (the car moves), and a new fit would bring the camera back while the user moves the map.
@@ -160,15 +174,20 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
   const [youLng, youLat] = route?.you ?? [null, null];
   const selLng = selected?.longitude ?? null;
   const selLat = selected?.latitude ?? null;
+  const roadPath = roadShown?.chemin;
   const fit = useMemo<MapFit | null>(() => {
+    // The whole road in view, above the summary (room on top for the bubbles).
+    if (roadPath) return { coordinates: roadPath, insets: { top: spacing[10] + spacing[6], bottom: summaryHeight + spacing[6], left: spacing[10], right: spacing[10] } };
     if (!overview || pointed || endLng === null || endLat === null) return null;
     const points: LngLat[] = [[endLng, endLat]];
     if (youLng !== null && youLat !== null) points.push([youLng, youLat]);
     if (selLng !== null && selLat !== null) points.push([selLng, selLat]);
     // Room above for the bubbles ("Destination du chauffeur" is the widest).
     return { coordinates: points, insets: { top: spacing[10] + spacing[6], bottom: spacing[8], left: spacing[10], right: spacing[10] } };
-  }, [overview, pointed, endLng, endLat, youLng, youLat, selLng, selLat, spacing]);
-  const problem = pointed && check ? check([pointed.longitude, pointed.latitude]) : null;
+  }, [roadPath, summaryHeight, overview, pointed, endLng, endLat, youLng, youLat, selLng, selLat, spacing]);
+  const checked = pointed && check ? check([pointed.longitude, pointed.latitude]) : null;
+  const roadProblem = from && pointed && preview.isError ? preview.error.message : null;
+  const problem = checked ?? roadProblem;
   const typed = debounced.trim().length >= PLACE_SEARCH_MIN_CHARS;
   const showList = listOpen && typed;
 
@@ -235,8 +254,32 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
             {route ? <PlaceLabel id="place-picker-end" coordinate={route.end} label="Destination du chauffeur" tone="onward" /> : null}
             {route?.you ? <PlaceLabel id="place-picker-you" coordinate={route.you} label="Toi" /> : null}
             {route?.car ? <MovingMarker id="place-picker-car" coordinate={route.car} glideMs={LIVE_REFRESH_MS} /> : null}
-            {shown ? <MovingMarker id="place-picker-point" kind="place" coordinate={[shown.longitude, shown.latitude]} /> : null}
+            {roadShown ? <RouteLine id="place-picker-road" coordinates={roadShown.chemin} belowLayerID="place-picker-from-circle" /> : null}
+            {from ? <PlaceLabel id="place-picker-from" coordinate={[from.longitude, from.latitude]} label="Départ" /> : null}
+            {from && shown ? (
+              <PlaceLabel id="place-picker-to" coordinate={[shown.longitude, shown.latitude]} label="Arrivée" />
+            ) : shown ? (
+              <MovingMarker id="place-picker-point" kind="place" coordinate={[shown.longitude, shown.latitude]} />
+            ) : null}
           </AppMap>
+
+          {/* Publish destination: the road's summary, attached to the bottom of the map like the homes' sheet. */}
+          {from && shown && !preview.isError ? (
+            <View style={s.summary} onLayout={(event) => setSummaryHeight(event.nativeEvent.layout.height)} accessible accessibilityLiveRegion="polite">
+              {roadShown ? (
+                <>
+                  <Text style={s.summaryRoute} numberOfLines={2}>
+                    {from.libelle} → {shown.libelle || '…'}
+                  </Text>
+                  <Text style={s.summaryMeta}>
+                    {formatDistance(roadShown.distanceMetres)} · {formatDuration(roadShown.dureeSecondes)}
+                  </Text>
+                </>
+              ) : (
+                <ActivityIndicator color={theme.colors.accent} accessibilityLabel="Calcul du trajet" />
+              )}
+            </View>
+          ) : null}
 
           {showList ? (
             <View style={s.suggestions}>
@@ -283,7 +326,11 @@ function PickerContent({ title, near, selected, onSelect, onClose, current, rout
             </View>
           )}
           {problem ? <FieldMessage tone="danger" message={problem} /> : null}
-          <Button label="Choisir ce lieu" disabled={!pointed || busy || problem !== null} onPress={() => pointed && choose(pointed)} />
+          <Button
+            label="Choisir ce lieu"
+            disabled={!pointed || busy || problem !== null || (from !== null && !roadShown)}
+            onPress={() => pointed && choose(pointed)}
+          />
           {current?.place ? (
             <Button
               label={`Ma position · ${current.place.libelle}`}
@@ -330,6 +377,24 @@ const createStyles = ({ colors, typography, shadows, spacing, gutter, radii }: T
     suggestionDetail: { ...typography.small, color: colors.textMuted },
     note: { ...typography.small, color: colors.textMuted, padding: spacing[4] },
     spinner: { padding: spacing[3] },
+    // Like the homes' panel: attached to the edges, rounded top corners and a top border.
+    summary: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      gap: spacing[1],
+      paddingHorizontal: gutter,
+      paddingVertical: spacing[3],
+      borderTopLeftRadius: radii.xl,
+      borderTopRightRadius: radii.xl,
+      borderTopWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      boxShadow: shadows.card,
+    },
+    summaryRoute: { ...typography.bodyStrong, color: colors.text },
+    summaryMeta: { ...typography.small, color: colors.textMuted },
     card: { padding: gutter, gap: spacing[3], borderTopWidth: 1, borderTopColor: colors.surfaceBorder, backgroundColor: colors.surface },
     // Pin + name centered together; a long name wraps, still centered.
     cardPlace: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2] },

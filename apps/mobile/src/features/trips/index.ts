@@ -4,8 +4,6 @@ export { PublishRouteScreen } from './screens/PublishRouteScreen';
 export { PublishSeatsScreen } from './screens/PublishSeatsScreen';
 export { MyTripsScreen } from './screens/MyTripsScreen';
 export { SearchScreen } from './screens/SearchScreen';
-export { RideScreen } from './screens/RideScreen';
-export { DrivingScreen } from './screens/DrivingScreen';
 export {
   toChosenPlace,
   tripsKeys,

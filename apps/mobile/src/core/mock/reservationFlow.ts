@@ -6,8 +6,8 @@ import { HttpError } from './server';
 import { iso } from './time';
 import type { MockDb } from './types';
 
-/** Validated rule: the driver waits 15 minutes once on the spot. */
-export const WAIT_MINUTES = 15;
+/** Validated rule: the driver waits 10 minutes once on the spot (28/11, like the back's `attente_minutes`). */
+export const WAIT_MINUTES = 10;
 
 /**
  * GAP #5 (to send to the backend): the contract counts `prolongations` but gives
@@ -54,7 +54,7 @@ export function transition(reservation: Reservation, to: StatutReservation, now:
     throw new HttpError(409, `Action impossible : la réservation est « ${STATUS_LABEL[reservation.statut]} ».`);
   }
   if (to === 'absent' && reservation.finAttente !== null && now < new Date(reservation.finAttente)) {
-    throw new HttpError(409, 'Attends la fin des 15 minutes avant de déclarer le passager absent.');
+    throw new HttpError(409, `Attends la fin des ${WAIT_MINUTES} minutes avant de déclarer le passager absent.`);
   }
   const at = iso(now);
   reservation.statut = to;

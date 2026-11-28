@@ -78,7 +78,7 @@ function slicePath(path: Chemin, from: number, to: number): Chemin {
   return [pointAlong(path, from).point, ...middle, pointAlong(path, to).point];
 }
 
-/** Passing under 500 m is recorded once per reservation (the moment the car crosses). */
+/** Passing under the arrival radius (ARRIVAL_RADIUS_METRES) is recorded once per reservation (the moment the car crosses). */
 function detectNearPickup(db: MockDb, trajet: Trajet, drive: Drive, now: Date): void {
   db.reservations
     .filter((r): r is Reservation => r.trajetId === trajet.id && r.statut === 'acceptee' && !drive.nearPickup.includes(r.id))

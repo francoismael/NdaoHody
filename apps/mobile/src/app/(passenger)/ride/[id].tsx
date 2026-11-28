@@ -1,3 +1,3 @@
-import { RideScreen } from '@/features/trips';
+import { RideScreen } from '@/features/bookings';
 
 export default RideScreen;

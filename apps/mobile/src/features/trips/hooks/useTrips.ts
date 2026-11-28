@@ -138,13 +138,22 @@ export const useResolvePlace = () =>
 /** A point touched on the map, with the name of what is there. */
 export const usePlaceAt = () => useMutation({ mutationFn: (coordinate: LngLat) => placeAt(coordinate) });
 
-/** The road between the two chosen places (live, or recorded between known places offline). */
+/**
+ * The road between the two chosen places (live, or recorded between known places offline).
+ * Cached by coordinates only: the road may have been asked before the place got its name
+ * (a touched point is named a moment later), so the names always come from the current choice.
+ */
 export const useRouteBetween = (from: ChosenPlace | null, to: ChosenPlace | null) =>
   useQuery({
     queryKey: tripsKeys.route(from, to),
     queryFn: () => (from && to ? computeRoute(from, to) : Promise.reject(new Error('No route'))),
     enabled: from !== null && to !== null,
     retry: false,
+    select: (route) => ({
+      ...route,
+      depart: { ...route.depart, libelle: from?.libelle || route.depart.libelle },
+      arrivee: { ...route.arrivee, libelle: to?.libelle || route.arrivee.libelle },
+    }),
     ...STATIC,
   });
 

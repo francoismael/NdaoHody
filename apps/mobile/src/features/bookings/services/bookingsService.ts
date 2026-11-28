@@ -1,4 +1,4 @@
-import type { Reservation } from '@contract';
+import type { Reservation, SuiviReservation } from '@contract';
 
 import { request } from '@/core/mock';
 
@@ -25,3 +25,6 @@ export const refuseReservation = (reservationId: number, motif: string) =>
 /** GAP #3: the reason is not in `Reservation`; separate route until the backend decides. */
 export const getRefusalReason = (reservationId: number) =>
   request<{ motif: string | null }>('GET', `/reservations/${reservationId}/refusal-reason`);
+
+/** Approach and ride, for both sides (contract: SuiviReservation). Without WebSocket, asked again every 5 s. */
+export const getTracking = (reservationId: number) => request<SuiviReservation>('GET', `/reservations/${reservationId}/tracking`);

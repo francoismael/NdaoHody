@@ -1,3 +1,3 @@
-import { DrivingScreen } from '@/features/trips';
+import { DrivingScreen } from '@/features/bookings';
 
 export default DrivingScreen;

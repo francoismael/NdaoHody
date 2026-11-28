@@ -146,7 +146,16 @@ export function RequestScreen() {
 
   if (ACCEPTED_STATUSES.includes(data.statut)) {
     return (
-      <FormScreen title={`Tu as accepté ${name}`} subtitle="Ses places sont réservées sur ton trajet." footer={homeButton}>
+      <FormScreen
+        title={`Tu as accepté ${name}`}
+        subtitle="Ses places sont réservées sur ton trajet."
+        footer={
+          <View style={s.footer}>
+            <Button label={`Aller chercher ${name}`} icon="car" onPress={() => router.replace({ pathname: '/driving/[id]', params: { id: String(data.id) } })} />
+            {homeButton}
+          </View>
+        }
+      >
         <Flash tone="success" message={`${name} est prévenu. Passe le prendre à ${data.priseEnCharge.libelle}.`} />
         {details}
       </FormScreen>
