@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { vehicleText } from '@/features/profile';
 import { EmergencyButton } from '@/features/safety';
-import { AppMap, MovingMarker, PlaceLabel, RouteLine, toLngLat, type MapFit } from '@/shared/map';
+import { AppMap, MovingMarker, MovingRoute, PlaceLabel, toLngLat, type MapFit } from '@/shared/map';
 import { LIVE_REFRESH_MS } from '@/shared/query';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Avatar, Button, Flash, FormScreen } from '@/shared/ui';
@@ -76,7 +76,7 @@ export function RideScreen() {
     <View style={s.container}>
       <AppMap fit={frame.fit}>
         {/* Route first, points after, in the same render: the points stay on top. */}
-        <RouteLine id="ride-to-pickup" coordinates={data.cheminVersPassager} />
+        <MovingRoute id="ride-to-pickup" from={toLngLat(data.positionChauffeur)} path={data.cheminVersPassager} glideMs={LIVE_REFRESH_MS} />
         {onBoard ? (
           <PlaceLabel id="ride-drop" coordinate={toLngLat(reservation.depose)} label="Dépose" />
         ) : (
