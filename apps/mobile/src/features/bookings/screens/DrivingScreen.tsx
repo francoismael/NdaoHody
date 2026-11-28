@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { EmergencyButton } from '@/features/safety';
-import { AppMap, MovingMarker, PlaceLabel, RouteLine, nearestPointIndex, toLngLat, type LngLat, type MapFit } from '@/shared/map';
+import { AppMap, MovingMarker, MovingRoute, PlaceLabel, RouteLine, nearestPointIndex, toLngLat, type LngLat, type MapFit } from '@/shared/map';
 import { LIVE_REFRESH_MS } from '@/shared/query';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Avatar, Button, Flash, FormScreen } from '@/shared/ui';
@@ -88,8 +88,13 @@ export function DrivingScreen() {
     <View style={s.container}>
       <AppMap fit={frame.fit}>
         {/* Roads first, points after, in the same render: the points stay on top. */}
-        <RouteLine id="driving-onward" coordinates={onward} />
-        <RouteLine id="driving-to-pickup" coordinates={data.cheminVersPassager} />
+        {/* On board, the rest of his road starts at the car: its start follows the drawn car. */}
+        {onBoard ? (
+          <MovingRoute id="driving-onward" from={toLngLat(data.positionChauffeur)} path={onward} glideMs={LIVE_REFRESH_MS} />
+        ) : (
+          <RouteLine id="driving-onward" coordinates={onward} />
+        )}
+        <MovingRoute id="driving-to-pickup" from={toLngLat(data.positionChauffeur)} path={data.cheminVersPassager} glideMs={LIVE_REFRESH_MS} />
         <PlaceLabel id="driving-end" coordinate={toLngLat(trajet.arrivee)} label="Ta destination" tone="onward" />
         {onBoard ? (
           <PlaceLabel id="driving-drop" coordinate={toLngLat(reservation.depose)} label="Dépose" />

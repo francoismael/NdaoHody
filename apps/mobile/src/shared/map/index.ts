@@ -1,6 +1,8 @@
 export { AppMap, TANA_CENTER } from './AppMap';
 export type { MapFit, MapFocus, MapInsets } from './AppMap';
 export { MovingMarker } from './MovingMarker';
+export { MovingRoute } from './MovingRoute';
+export { useGlide } from './useGlide';
 export { PlaceLabel } from './PlaceLabel';
 export { RouteLine } from './RouteLine';
 export { useLocationPermission } from './useLocationPermission';

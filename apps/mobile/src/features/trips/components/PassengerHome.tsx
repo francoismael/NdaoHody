@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWi
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppMap, MovingMarker, PlaceLabel, RouteLine, type LngLat, type MapFit, type MapFocus } from '@/shared/map';
+import { AppMap, MovingMarker, MovingRoute, PlaceLabel, RouteLine, type LngLat, type MapFit, type MapFocus } from '@/shared/map';
 import { LIVE_REFRESH_MS } from '@/shared/query';
 import { useTheme, type Theme } from '@/shared/theme';
 import { Button, Flash, Icon, smoothScrollTo, stopSmoothScroll } from '@/shared/ui';
@@ -135,7 +135,7 @@ export function PassengerHome({ located, checking, issue }: LocationState) {
           passenger's dot again (ids per driver: choosing another one mounts new layers on top).
         */}
         {selected ? <RouteLine id="after-passenger" coordinates={selected.cheminApresPassager} /> : null}
-        {selected ? <RouteLine id="to-passenger" coordinates={selected.cheminVersPassager} /> : null}
+        {selected ? <MovingRoute id="to-passenger" from={toLngLat(selected.positionChauffeur)} path={selected.cheminVersPassager} glideMs={LIVE_REFRESH_MS} /> : null}
         {selected ? <PlaceLabel id="driver-arrival" coordinate={toLngLat(selected.trajet.arrivee)} label="Destination du chauffeur" tone="onward" /> : null}
         {selected ? (
           <MovingMarker
