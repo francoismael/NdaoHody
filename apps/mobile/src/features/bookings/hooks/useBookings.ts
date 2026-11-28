@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { messagesKeys } from '@/features/messages';
 import { notificationsKeys } from '@/features/notifications';
 import { tripsKeys } from '@/features/trips';
+import { LIVE_REFRESH_MS } from '@/shared/query';
 
 import {
   acceptReservation,
@@ -13,6 +14,7 @@ import {
   getMyReservations,
   getRefusalReason,
   getReservation,
+  getTracking,
   refuseReservation,
   retryReservation,
 } from '../services/bookingsService';
@@ -27,6 +29,7 @@ export const bookingsKeys = {
   detail: (reservationId: number) => [...bookingsKeys.all, 'detail', reservationId] as const,
   requests: () => [...bookingsKeys.all, 'requests'] as const,
   refusal: (reservationId: number) => [...bookingsKeys.all, 'refusal', reservationId] as const,
+  tracking: (reservationId: number) => [...bookingsKeys.all, 'tracking', reservationId] as const,
 };
 
 export const useMyReservations = () => useQuery({ queryKey: bookingsKeys.mine(), queryFn: getMyReservations });
@@ -43,6 +46,18 @@ export const useDriverRequests = () =>
 
 export const useRefusalReason = (reservationId: number, enabled: boolean) =>
   useQuery({ queryKey: bookingsKeys.refusal(reservationId), queryFn: () => getRefusalReason(reservationId), enabled });
+
+/**
+ * The live approach: the server says where the car is, its road to the pickup point and the minutes left.
+ * Asked again at the rhythm of the positions; stops when the server says there is nothing to follow (409).
+ */
+export const useReservationTracking = (reservationId: number) =>
+  useQuery({
+    queryKey: bookingsKeys.tracking(reservationId),
+    queryFn: () => getTracking(reservationId),
+    refetchInterval: (query) => (query.state.error ? false : LIVE_REFRESH_MS),
+    retry: false,
+  });
 
 /** Any booking change moves seats, so trips, notifications and messages are refreshed too. */
 function useBookingMutation<TInput>(mutationFn: (input: TInput) => Promise<Reservation>) {

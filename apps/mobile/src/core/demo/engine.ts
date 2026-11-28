@@ -106,24 +106,36 @@ export const driverCancels = (f: DemoFocus) => actAs(f.trajet.chauffeurId, 'POST
 
 export const passengerCancels = (f: DemoFocus) => actAs(f.reservation.passagerId, 'POST', `/reservations/${f.reservation.id}/cancel`);
 
-/** A simulated passenger asks for a seat on the demo user's trip (pickup at 25 %, drop at 75 % of the path). */
+/** Trip on the road first (the live demo), then the next planned one. */
+const tripOrder = (a: Trajet, b: Trajet): number =>
+  Number(b.statut === 'en_route') - Number(a.statut === 'en_route') || a.dateDepart.localeCompare(b.dateDepart);
+
+/**
+ * A simulated passenger asks for a seat on the demo user's trip: on the road if there is one.
+ * Pickup at 25 %, drop at 75 % of the road STILL AHEAD of the car (the whole path for a planned trip).
+ */
 export async function passengerRequests(): Promise<void> {
   const db = await getDb();
   const userId = me();
+  refreshDerived(db, currentTime()); // the car where the clock says, before choosing points ahead of it
   const trajet = db.trajets
     .filter((t) => t.chauffeurId === userId && (t.statut === 'publie' || t.statut === 'en_route') && t.placesLibres > 0)
-    .sort((a, b) => b.dateDepart.localeCompare(a.dateDepart))[0];
+    .sort(tripOrder)[0];
   if (!trajet) throw new Error('Publie d’abord un trajet avec des places libres.');
   const busy = new Set(db.reservations.filter((r) => r.trajetId === trajet.id && !FINAL.includes(r.statut)).map((r) => r.passagerId));
   const passenger = db.utilisateurs.find(
     (u) => u.id !== userId && !busy.has(u.id) && (!trajet.reserveFemmes || u.sexe === 'femme'),
   );
   if (!passenger) throw new Error('Aucun passager simulé disponible pour ce trajet.');
+  const car = db.positions.find((p) => p.trajetId === trajet.id && p.enLigne);
+  const start = trajet.statut === 'en_route' && car ? nearestPointIndex(trajet.chemin, toLngLat(car)).index : 0;
+  const ahead = trajet.chemin.slice(start);
+  if (ahead.length < 3) throw new Error('Ton trajet est presque fini : publie-en un autre.');
   await actAs(passenger.id, 'POST', '/reservations', {
     trajetId: trajet.id,
     places: 1,
-    priseEnCharge: toLieu(trajet.chemin[indexAtFraction(trajet.chemin, 0.25)], 'Point de prise en charge'),
-    depose: toLieu(trajet.chemin[indexAtFraction(trajet.chemin, 0.75)], 'Point de dépose'),
+    priseEnCharge: toLieu(ahead[indexAtFraction(ahead, 0.25)], 'Point de prise en charge'),
+    depose: toLieu(ahead[indexAtFraction(ahead, 0.75)], 'Point de dépose'),
   });
 }
 
@@ -187,7 +199,7 @@ export async function skipToPickup(f: DemoFocus): Promise<void> {
   await queryClient.invalidateQueries();
 }
 
-/** Jumps the clock to the end of the 15 min wait (or of the 3 min answer delay). */
+/** Jumps the clock to the end of the on-site wait (WAIT_MINUTES) (or of the 3 min answer delay). */
 export async function skipWait(f: DemoFocus): Promise<void> {
   const end = f.reservation.statut === 'en_attente' ? f.reservation.dateExpiration : f.reservation.finAttente;
   if (end === null) throw new Error('Aucune attente en cours.');

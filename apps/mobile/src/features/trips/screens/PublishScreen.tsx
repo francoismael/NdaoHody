@@ -22,7 +22,7 @@ type Picking = 'depart' | 'arrivee' | null;
 /**
  * Publish, step 1 of 3: where from (my position or a searched place) and where to.
  * The road is computed on real streets (Mapbox online, recorded roads offline);
- * the driver alone sees this preview.
+ * the driver alone sees this preview (no need to say it on screen).
  */
 export function PublishScreen() {
   const router = useRouter();
@@ -83,7 +83,6 @@ export function PublishScreen() {
             <Text style={s.summaryMain}>
               {formatDistance(route.data.distanceMetres)} · {formatDuration(route.data.dureeSecondes)}
             </Text>
-            <Text style={s.summaryNote}>Tracé visible par toi seulement.</Text>
           </View>
         ) : null}
 
@@ -145,6 +144,7 @@ export function PublishScreen() {
         title="Où vas-tu ?"
         near={here}
         selected={arrivee}
+        from={depart}
         onSelect={(place) => {
           setArrivee(place);
           setPicking(null);
@@ -187,5 +187,4 @@ const createStyles = ({ colors, typography, shadows, spacing, gutter, radii }: T
     },
     summary: { gap: spacing[1] },
     summaryMain: { ...typography.subheading, color: colors.text },
-    summaryNote: { ...typography.small, color: colors.textMuted },
   });

@@ -24,8 +24,11 @@ export function refusalReasonError(motif: string): string | null {
   return null;
 }
 
-/** Validated rule (contract: SuiviReservation.distanceMetres): under 500 m, "Je suis déjà sur place". */
-export const ARRIVAL_RADIUS_METRES = 500;
+/**
+ * Validated rule (contract: SuiviReservation.distanceMetres): close to the pickup point, "Je suis déjà sur place".
+ * 28/11: 500 → 100 m (decided with the team). GAP #18: the back reads the setting `rayon_sur_place_metres` (default 500).
+ */
+export const ARRIVAL_RADIUS_METRES = 100;
 
 export const isNearPickup = (distanceMetres: number): boolean => distanceMetres < ARRIVAL_RADIUS_METRES;
 

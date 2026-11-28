@@ -4,7 +4,7 @@ import { isNearPickup } from '@/features/bookings/rules';
 
 import { approach } from '../drive';
 import { notify } from '../notify';
-import { extendWait, syncTripStatus, transition } from '../reservationFlow';
+import { WAIT_MINUTES, extendWait, syncTripStatus, transition } from '../reservationFlow';
 import { HttpError, findOr404, idParam, requireUser, type MockRoute, type RequestContext } from '../server';
 import { iso } from '../time';
 import { driverParties, reservationParties, toPublicProfile, userById } from '../views';
@@ -22,7 +22,7 @@ interface DriverAction {
   guard?: (ctx: RequestContext, reservation: Reservation, trajet: Trajet) => void;
 }
 
-/** "Je suis déjà sur place" only works under 500 m (same rule as the button). */
+/** "Je suis déjà sur place" only works close to the pickup point (ARRIVAL_RADIUS_METRES, same rule as the button). */
 function nearPickupOnly(ctx: RequestContext, reservation: Reservation, trajet: Trajet): void {
   const left = approach(ctx.db, trajet, reservation.priseEnCharge, ctx.now);
   if (!left) throw new HttpError(409, 'Le trajet n’a pas encore démarré.');
@@ -30,7 +30,7 @@ function nearPickupOnly(ctx: RequestContext, reservation: Reservation, trajet: T
 }
 
 const ACTIONS: DriverAction[] = [
-  { path: 'arrived', to: 'chauffeur_sur_place', guard: nearPickupOnly, notification: ['chauffeur_sur_place', 'Ton chauffeur est là', 'Il t’attend 15 minutes au point de prise en charge.'] },
+  { path: 'arrived', to: 'chauffeur_sur_place', guard: nearPickupOnly, notification: ['chauffeur_sur_place', 'Ton chauffeur est là', `Il t’attend ${WAIT_MINUTES} minutes au point de prise en charge.`] },
   { path: 'start', to: 'en_course', notification: ['course_demarree', 'Course démarrée', 'Bonne route !'] },
   { path: 'no-show', to: 'absent', notification: ['attente_terminee', 'Attente terminée', 'Le chauffeur ne t’a pas trouvé et est reparti.'] },
   { path: 'finish', to: 'terminee', notification: ['course_terminee_noter', 'Course terminée', 'Note ton chauffeur.'] },

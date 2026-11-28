@@ -1,6 +1,9 @@
 /** A map point in GeoJSON/Mapbox order: [longitude, latitude]. */
 export type LngLat = [number, number];
 
+/** A contract position ({ latitude, longitude }) in Mapbox order. */
+export const toLngLat = ({ longitude, latitude }: { longitude: number; latitude: number }): LngLat => [longitude, latitude];
+
 const EARTH_RADIUS_M = 6_371_000;
 const toRad = (deg: number): number => (deg * Math.PI) / 180;
 

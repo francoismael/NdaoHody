@@ -5,7 +5,7 @@ export { PlaceLabel } from './PlaceLabel';
 export { RouteLine } from './RouteLine';
 export { useLocationPermission } from './useLocationPermission';
 export type { LocationPermissionStatus } from './useLocationPermission';
-export { boundsOf, densify, haversineMeters, indexAtFraction, metersAlong, nearestPointIndex, pathLengthMeters, pointAlong, spanOnPath, thinPath } from './geo';
+export { boundsOf, densify, haversineMeters, indexAtFraction, metersAlong, nearestPointIndex, pathLengthMeters, pointAlong, spanOnPath, thinPath, toLngLat } from './geo';
 export type { LngLat, PathSpanProblem } from './geo';
 export { fetchDrivingRoute } from './directions';
 export { areaNameAt, newSearchSession, PlaceSearchUnavailable, retrievePlace, suggestPlaces } from './placeSearch';
